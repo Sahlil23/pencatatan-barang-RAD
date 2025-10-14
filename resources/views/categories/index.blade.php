@@ -240,111 +240,35 @@
     </table>
   </div>
 
-  @if($categories->count() > 0)
-  <div class="card-footer d-flex justify-content-between align-items-center">
-    <small class="text-muted">
-      Menampilkan {{ $categories->count() }} kategori
-    </small>
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-        <i class="bx bx-printer me-1"></i>
-        Print
-      </button>
-      <button class="btn btn-outline-success btn-sm" onclick="exportToCSV()">
-        <i class="bx bx-download me-1"></i>
-        Export CSV
-      </button>
-    </div>
-  </div>
-  @endif
-</div>
-
-<!-- Description Modal -->
-<div class="modal fade" id="descriptionModal" tabindex="-1" aria-labelledby="descriptionModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="descriptionModalLabel">
-          <i class="bx bx-comment-detail me-2"></i>
-          Deskripsi Lengkap
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p id="fullDescription"></p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-      </div>
-    </div>
-  </div>
+  <!-- Simple Pagination -->
+  <x-simple-pagination :items="$categories" type="kategori" />
 </div>
 @endsection
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Search functionality
-  const searchInput = document.getElementById('searchInput');
-  const tableRows = document.querySelectorAll('tbody tr');
-
-  searchInput.addEventListener('keyup', function() {
-    const filter = this.value.toLowerCase();
-    
-    tableRows.forEach(function(row) {
-      if (row.children.length === 1 && row.children[0].colSpan > 1) {
-        // Skip empty state row
-        return;
-      }
-      
-      const categoryName = row.children[1].textContent.toLowerCase();
-      const description = row.children[2].textContent.toLowerCase();
-      
-      if (categoryName.includes(filter) || description.includes(filter)) {
-        row.style.display = '';
-      } else {
-        row.style.display = 'none';
-      }
-    });
-  });
-
-  // Show full description modal
-  window.showFullDescription = function(description) {
-    document.getElementById('fullDescription').textContent = description;
-    const modal = new bootstrap.Modal(document.getElementById('descriptionModal'));
-    modal.show();
-  };
-
-  // Export to CSV function
-  window.exportToCSV = function() {
-    const headers = ['ID', 'Nama Kategori', 'Deskripsi', 'Total Item', 'Dibuat'];
-    const rows = [];
-    
+// Export function for categories
+function exportData() {
+  const headers = ['ID', 'Nama Kategori', 'Deskripsi', 'Total Item', 'Dibuat'];
+  const rows = [
     @foreach($categories as $category)
-    rows.push([
-      '{{ $category->id }}',
-      '{{ $category->category_name }}',
-      '{{ str_replace(["\r", "\n", '"'], [" ", " ", '""'], $category->description ?? "Tidak ada") }}',
-      '{{ $category->items_count }}',
-      '{{ $category->created_at->format("d/m/Y H:i") }}'
-    ]);
+    ['{{ $category->id }}', '{{ addslashes($category->category_name) }}', '{{ addslashes($category->description ?? "Tidak ada") }}', '{{ $category->items_count }}', '{{ $category->created_at->format("d/m/Y H:i") }}'],
     @endforeach
-    
-    let csvContent = headers.join(',') + '\n';
-    rows.forEach(row => {
-      csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-    });
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'categories_' + new Date().toISOString().slice(0,10) + '.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  ];
+  
+  downloadCSV('categories', headers, rows);
+}
+
+// Search functionality
+document.getElementById('searchInput')?.addEventListener('keyup', function() {
+  const filter = this.value.toLowerCase();
+  const rows = document.querySelectorAll('tbody tr');
+  
+  rows.forEach(row => {
+    if (row.children.length === 1) return; // Skip empty state
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(filter) ? '' : 'none';
+  });
 });
 </script>
 @endpush

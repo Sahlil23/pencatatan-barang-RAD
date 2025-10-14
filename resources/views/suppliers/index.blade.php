@@ -250,88 +250,36 @@
     </table>
   </div>
 
-  @if($suppliers->count() > 0)
-  <div class="card-footer d-flex justify-content-between align-items-center">
-    <small class="text-muted">
-      Menampilkan {{ $suppliers->count() }} supplier
-    </small>
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-        <i class="bx bx-printer me-1"></i>
-        Print
-      </button>
-      <button class="btn btn-outline-success btn-sm" onclick="exportToCSV()">
-        <i class="bx bx-download me-1"></i>
-        Export CSV
-      </button>
-    </div>
-  </div>
-  @endif
+  <!-- Simple Pagination -->
+  <x-simple-pagination :items="$suppliers" type="supplier" />
+
 </div>
 @endsection
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Search functionality
-  const searchInput = document.getElementById('searchInput');
-  const tableRows = document.querySelectorAll('tbody tr');
-
-  searchInput.addEventListener('keyup', function() {
-    const filter = this.value.toLowerCase();
-    
-    tableRows.forEach(function(row) {
-      if (row.children.length === 1 && row.children[0].colSpan > 1) {
-        // Skip empty state row
-        return;
-      }
-      
-      const supplierName = row.children[1].textContent.toLowerCase();
-      const contactPerson = row.children[2].textContent.toLowerCase();
-      const phone = row.children[3].textContent.toLowerCase();
-      
-      if (supplierName.includes(filter) || 
-          contactPerson.includes(filter) || 
-          phone.includes(filter)) {
-        row.style.display = '';
-      } else {
-        row.style.display = 'none';
-      }
-    });
-  });
-
-  // Export to CSV function
-  window.exportToCSV = function() {
-    const headers = ['ID', 'Nama Supplier', 'Kontak Person', 'Telepon', 'Alamat', 'Total Item', 'Dibuat'];
-    const rows = [];
-    
+// Export function for suppliers
+function exportData() {
+  const headers = ['ID', 'Nama Supplier', 'Kontak Person', 'Telepon', 'Alamat', 'Total Item'];
+  const rows = [
     @foreach($suppliers as $supplier)
-    rows.push([
-      '{{ $supplier->id }}',
-      '{{ $supplier->supplier_name }}',
-      '{{ $supplier->contact_person ?? "Tidak ada" }}',
-      '{{ $supplier->phone ?? "Tidak ada" }}',
-      '{{ str_replace(["\r", "\n"], " ", $supplier->address ?? "Tidak ada") }}',
-      '{{ $supplier->items_count }}',
-      '{{ $supplier->created_at->format("d/m/Y H:i") }}'
-    ]);
+    ['{{ $supplier->id }}', '{{ addslashes($supplier->supplier_name) }}', '{{ addslashes($supplier->contact_person ?? "Tidak ada") }}', '{{ $supplier->phone ?? "Tidak ada" }}', '{{ addslashes($supplier->address ?? "Tidak ada") }}', '{{ $supplier->items_count }}'],
     @endforeach
-    
-    let csvContent = headers.join(',') + '\n';
-    rows.forEach(row => {
-      csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-    });
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'suppliers_' + new Date().toISOString().slice(0,10) + '.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  ];
+  
+  downloadCSV('suppliers', headers, rows);
+}
+
+// Search functionality  
+document.getElementById('searchInput')?.addEventListener('keyup', function() {
+  const filter = this.value.toLowerCase();
+  const rows = document.querySelectorAll('tbody tr');
+  
+  rows.forEach(row => {
+    if (row.children.length === 1) return;
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(filter) ? '' : 'none';
+  });
 });
 </script>
 @endpush

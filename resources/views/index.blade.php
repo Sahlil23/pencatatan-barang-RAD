@@ -225,7 +225,7 @@
             <i class="bx bx-dots-vertical-rounded"></i>
           </button>
           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="transactionID">
-            <a class="dropdown-item" href="javascript:void(0);">View All</a>
+            <a class="dropdown-item" href="{{ route('stock-transactions.index') }}">View All</a>
             <a class="dropdown-item" href="javascript:void(0);">Export</a>
           </div>
         </div>

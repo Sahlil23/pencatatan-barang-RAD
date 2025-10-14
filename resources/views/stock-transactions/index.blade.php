@@ -370,16 +370,9 @@
     </table>
   </div>
   
-  <!-- Pagination -->
-  <div class="card-footer">
-    <div class="d-flex justify-content-between align-items-center">
-      <small class="text-muted">
-        Menampilkan {{ $transactions->firstItem() }} - {{ $transactions->lastItem() }} 
-        dari {{ $transactions->total() }} transaksi
-      </small>
-      {{ $transactions->links() }}
-    </div>
-  </div>
+  <!-- Simple Pagination -->
+  <x-simple-pagination :items="$transactions" type="transaksi" />
+
   @else
   <!-- Empty State -->
   <div class="card-body text-center py-5">
@@ -436,80 +429,24 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Show full notes
-  window.showFullNotes = function(notes) {
-    document.getElementById('fullNotesContent').textContent = notes;
-    const modal = new bootstrap.Modal(document.getElementById('fullNotesModal'));
-    modal.show();
-  };
-
-  // Copy transaction (redirect to create with prefilled data)
-  window.copyTransaction = function(transactionId) {
-    // You can implement this to redirect to create form with prefilled data
-    window.location.href = "{{ route('stock-transactions.create') }}?copy=" + transactionId;
-  };
-
-  // Export transactions to CSV
-  window.exportTransactions = function() {
-    const table = document.querySelector('.table');
-    const rows = Array.from(table.querySelectorAll('tr'));
-    
-    let csvContent = 'Tanggal,Tipe,Item,SKU,Kategori,Jumlah,Unit,Catatan,User\n';
-    
+// Export function for transactions
+function exportData() {
+  const headers = ['Tanggal', 'Tipe', 'Item', 'SKU', 'Jumlah', 'Catatan', 'User'];
+  const rows = [
     @foreach($transactions as $transaction)
-    csvContent += '"{{ $transaction->transaction_date->format("d/m/Y H:i") }}",';
-    csvContent += '"{{ $transaction->transaction_type == "IN" ? "Masuk" : ($transaction->transaction_type == "OUT" ? "Keluar" : "Penyesuaian") }}",';
-    csvContent += '"{{ addslashes($transaction->item->item_name) }}",';
-    csvContent += '"{{ $transaction->item->sku }}",';
-    csvContent += '"{{ $transaction->item->category->category_name ?? "Tidak ada" }}",';
-    csvContent += '"{{ ($transaction->transaction_type == "OUT" ? "-" : "+") . number_format($transaction->quantity, 2) }}",';
-    csvContent += '"{{ $transaction->item->unit }}",';
-    csvContent += '"{{ addslashes($transaction->notes) }}",';
-    csvContent += '"{{ $transaction->user->name ?? "System" }}"\n';
+    ['{{ $transaction->transaction_date->format("d/m/Y H:i") }}', '{{ $transaction->transaction_type }}', '{{ addslashes($transaction->item->item_name) }}', '{{ $transaction->item->sku }}', '{{ $transaction->quantity }}', '{{ addslashes($transaction->notes) }}', '{{ addslashes($transaction->user->full_name ?? "System") }}'],
     @endforeach
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'stock_transactions_' + new Date().toISOString().slice(0,10) + '.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Auto-submit form when date inputs change
-  const startDateInput = document.querySelector('input[name="start_date"]');
-  const endDateInput = document.querySelector('input[name="end_date"]');
+  ];
   
-  if (startDateInput && endDateInput) {
-    startDateInput.addEventListener('change', function() {
-      if (this.value && endDateInput.value) {
-        document.querySelector('form').submit();
-      }
-    });
-    
-    endDateInput.addEventListener('change', function() {
-      if (this.value && startDateInput.value) {
-        document.querySelector('form').submit();
-      }
-    });
-  }
+  downloadCSV('stock_transactions', headers, rows);
+}
 
-  // Quick date filters
-  window.setQuickDateFilter = function(days) {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    
-    startDateInput.value = startDate.toISOString().slice(0, 10);
-    endDateInput.value = endDate.toISOString().slice(0, 10);
-    
-    document.querySelector('form').submit();
-  };
-});
+// Other existing functions...
+function showFullNotes(notes) {
+  document.getElementById('fullNotesContent').textContent = notes;
+  const modal = new bootstrap.Modal(document.getElementById('fullNotesModal'));
+  modal.show();
+}
 </script>
 @endpush
 

@@ -21,7 +21,7 @@
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/favicon/favicon.ico') }}" />
+    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/chicking-logo.png') }}" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -47,6 +47,8 @@
     <script src="{{ asset('assets/vendor/js/helpers.js') }}"></script>
     <script src="{{ asset('assets/js/config.js') }}"></script>
 
+    <link rel="stylesheet" href="{{ asset('assets/css/custom-pagination.css') }}">
+  
     @stack('styles')
   </head>
 
@@ -250,19 +252,21 @@
                       </a>
                     </li>
                     <li>
-                      <a class="dropdown-item" href="#">
-                        <i class="bx bx-cog me-2"></i>
-                        <span class="align-middle">Settings</span>
+                      <a class="dropdown-item" href="{{ route('profile') }}">
+                        <i class="bx bx-user me-2"></i>
+                        <span class="align-middle">My Profile</span>
                       </a>
                     </li>
+
+                    <!-- Logout Link - Fix this -->
                     <li>
-                      <div class="dropdown-divider"></div>
-                    </li>
-                    <li>
-                      <a class="dropdown-item" href="#">
-                        <i class="bx bx-power-off me-2"></i>
-                        <span class="align-middle">Log Out</span>
-                      </a>
+                      <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                        @csrf
+                        <button type="submit" class="dropdown-item" style="border: none; background: none; width: 100%; text-align: left;">
+                          <i class="bx bx-power-off me-2"></i>
+                          <span class="align-middle">Log Out</span>
+                        </button>
+                      </form>
                     </li>
                   </ul>
                 </li>
@@ -352,6 +356,27 @@
     <script src="{{ asset('assets/js/main.js') }}"></script>
 
     @stack('scripts')
+    <script>
+    // Global CSV Download Function
+    function downloadCSV(filename, headers, rows) {
+      let csvContent = headers.join(',') + '\n';
+      rows.forEach(row => {
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename + '_' + new Date().toISOString().slice(0,10) + '.csv');
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    </script>
   </body>
 </html>
 

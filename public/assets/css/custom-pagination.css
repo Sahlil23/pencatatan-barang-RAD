@@ -1,0 +1,77 @@
+/* Simple Pagination Styles */
+.pagination-wrapper .pagination {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pagination-wrapper .page-item {
+  margin: 0;
+}
+
+.pagination-wrapper .page-link {
+  border: 1px solid #d9dee3;
+  color: #435971;
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.pagination-wrapper .page-item.active .page-link {
+  background-color: #696cff;
+  border-color: #696cff;
+  color: #fff;
+}
+
+.pagination-wrapper .page-item.disabled .page-link {
+  background-color: #f8f9fa;
+  border-color: #d9dee3;
+  color: #6c757d;
+}
+
+.pagination-wrapper .page-link:hover:not(.disabled) {
+  background-color: #f5f5f9;
+  border-color: #696cff;
+  color: #696cff;
+}
+
+/* Card Footer Styling */
+.card-footer.bg-light {
+  background-color: #f8f9fa !important;
+  border-top: 1px solid #d9dee3;
+  padding: 1rem 1.25rem;
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+  .card-footer .row {
+    text-align: center;
+  }
+  
+  .pagination-wrapper {
+    margin-bottom: 0.5rem;
+  }
+  
+  .pagination-wrapper .page-link {
+    padding: 0.25rem 0.5rem;
+    min-width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .card-footer,
+  .btn,
+  .pagination-wrapper {
+    display: none !important;
+  }
+}

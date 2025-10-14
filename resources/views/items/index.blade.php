@@ -339,31 +339,7 @@
     </table>
   </div>
 
-  @if($items->hasPages() || $items->count() > 0)
-  <div class="card-footer d-flex justify-content-between align-items-center">
-    <div>
-      <small class="text-muted">
-        Menampilkan {{ $items->firstItem() ?? 0 }} - {{ $items->lastItem() ?? 0 }} dari {{ $items->total() }} item
-      </small>
-    </div>
-    <div class="d-flex gap-2 align-items-center">
-      @if($items->hasPages())
-        {{ $items->appends(request()->query())->links() }}
-      @endif
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-          <i class="bx bx-printer me-1"></i>
-          Print
-        </button>
-        <button class="btn btn-outline-success btn-sm" onclick="exportToCSV()">
-          <i class="bx bx-download me-1"></i>
-          Export CSV
-        </button>
-      </div>
-    </div>
-  </div>
-  @endif
-</div>
+<x-simple-pagination :items="$items" type="item" />
 
 <!-- Stock Adjustment Modal -->
 <div class="modal fade" id="stockAdjustmentModal" tabindex="-1" aria-labelledby="stockAdjustmentModalLabel" aria-hidden="true">
