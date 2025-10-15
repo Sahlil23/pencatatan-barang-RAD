@@ -9,6 +9,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\StockTransactionController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\UserController;
 
 // Auth Routes (Public - Guest Only)
 Route::middleware('guest')->group(function () {
@@ -50,4 +51,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile', [LoginController::class, 'updateProfile'])->name('profile.update');
 });
 
-// Remove duplicate root route - sudah ada di dalam middleware auth
+// User Management (Admin Only)
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::resource('users', UserController::class);
+    Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::patch('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+});

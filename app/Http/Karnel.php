@@ -19,4 +19,9 @@ class Karnel
         // Custom middleware
         'check.auth' => \App\Http\Middleware\CheckAuth::class,
     ];
+
+    protected $middlewareAliases = [
+        // ... existing middleware
+        'role' => \App\Http\Middleware\CheckRole::class,
+    ];
 }

@@ -16,12 +16,12 @@
     />
 
     <title>@yield('title', 'Chicking - Banjarmasin')</title>
-    <link rel="icon" type="image/png" href="{{ asset('assets/img/chicking-logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/img/Chicking-logo-bjm.png') }}">
 
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/chicking-logo.png') }}" />
+    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/Chicking-logo-bjm.png') }}" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,7 +61,7 @@
           <div class="app-brand demo">
             <a href="{{ route('beranda') }}" class="app-brand-link">
               <span class="app-brand-logo demo">
-                <img src="{{ asset('assets/img/chicking-logo.png') }}" alt="Chicking Logo" width="160" height="120" />
+                <img src="{{ asset('assets/img/chicking-logo-bjm.png') }}" alt="Chicking Logo" width="180" height="120" />
               </span>
               <!-- <span class="app-brand-text demo menu-text fw-bolder ms-2">BANJARMASIN</span> -->
             </a>
@@ -82,52 +82,7 @@
               </a>
             </li>
 
-            <!-- Master Data -->
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Master Data</span>
-            </li>
-            
-            <!-- Kategori Produk -->
-            <li class="menu-item {{ request()->routeIs('categories.*') ? 'active open' : '' }}">
-              <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-category"></i>
-                <div data-i18n="Categories">Kategori</div>
-              </a>
-              <ul class="menu-sub">
-                <li class="menu-item {{ request()->routeIs('categories.index') ? 'active' : '' }}">
-                  <a href="{{ route('categories.index') }}" class="menu-link">
-                    <div data-i18n="All Categories">Semua Kategori</div>
-                  </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('categories.create') ? 'active' : '' }}">
-                  <a href="{{ route('categories.create') }}" class="menu-link">
-                    <div data-i18n="Add Category">Tambah Kategori</div>
-                  </a>
-                </li>
-              </ul>
-            </li>
-
-            <!-- Supplier -->
-            <li class="menu-item {{ request()->routeIs('suppliers.*') ? 'active open' : '' }}">
-              <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-group"></i>
-                <div data-i18n="Suppliers">Supplier</div>
-              </a>
-              <ul class="menu-sub">
-                <li class="menu-item {{ request()->routeIs('suppliers.index') ? 'active' : '' }}">
-                  <a href="{{ route('suppliers.index') }}" class="menu-link">
-                    <div data-i18n="All Suppliers">Semua Supplier</div>
-                  </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('suppliers.create') ? 'active' : '' }}">
-                  <a href="{{ route('suppliers.create') }}" class="menu-link">
-                    <div data-i18n="Add Supplier">Tambah Supplier</div>
-                  </a>
-                </li>
-              </ul>
-            </li>
-
-            <!-- Inventory Management -->
+                        <!-- Inventory Management -->
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Inventory</span>
             </li>
@@ -186,6 +141,64 @@
                 </li>
               </ul>
             </li>
+
+            <!-- Master Data -->
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">Master Data</span>
+            </li>
+            
+            <!-- Kategori Produk -->
+            <li class="menu-item {{ request()->routeIs('categories.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-category"></i>
+                <div data-i18n="Categories">Kategori</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('categories.index') ? 'active' : '' }}">
+                  <a href="{{ route('categories.index') }}" class="menu-link">
+                    <div data-i18n="All Categories">Semua Kategori</div>
+                  </a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('categories.create') ? 'active' : '' }}">
+                  <a href="{{ route('categories.create') }}" class="menu-link">
+                    <div data-i18n="Add Category">Tambah Kategori</div>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Supplier -->
+            <li class="menu-item {{ request()->routeIs('suppliers.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-group"></i>
+                <div data-i18n="Suppliers">Supplier</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('suppliers.index') ? 'active' : '' }}">
+                  <a href="{{ route('suppliers.index') }}" class="menu-link">
+                    <div data-i18n="All Suppliers">Semua Supplier</div>
+                  </a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('suppliers.create') ? 'active' : '' }}">
+                  <a href="{{ route('suppliers.create') }}" class="menu-link">
+                    <div data-i18n="Add Supplier">Tambah Supplier</div>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- User Management - Admin Only -->
+            @if(Auth::user()->isAdmin())
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">User Management</span>
+            </li>
+            <li class="menu-item">
+              <a href="{{ route('users.index') }}" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-user"></i>
+                <div data-i18n="Users">Manage Users</div>
+              </a>
+            </li>
+            @endif
           </ul>
         </aside>
         <!-- / Menu -->
@@ -246,12 +259,6 @@
                       <div class="dropdown-divider"></div>
                     </li>
                     <li>
-                      <a class="dropdown-item" href="#">
-                        <i class="bx bx-user me-2"></i>
-                        <span class="align-middle">My Profile</span>
-                      </a>
-                    </li>
-                    <li>
                       <a class="dropdown-item" href="{{ route('profile') }}">
                         <i class="bx bx-user me-2"></i>
                         <span class="align-middle">My Profile</span>
@@ -293,20 +300,7 @@
                     document.write(new Date().getFullYear());
                   </script>
                   , Chicking BJM - Banjarmasin
-                </div>
-                <div>
-                  <a href="#" class="footer-link me-4">About</a>
-                  <a href="#" class="footer-link me-4">Contact</a>
-                  <a href="#" class="footer-link me-4">Support</a>
-                </div>
-              </div>
-            </footer>
-            <!-- / Footer -->
-
-            <div class="content-backdrop fade"></div>
-          </div>
-          <!-- Content wrapper -->
-        </div>
+                </div
         <!-- / Layout page -->
       </div>
 
