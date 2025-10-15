@@ -65,6 +65,11 @@ class LoginController extends Controller
             
             $user = Auth::user();
             
+            $user->update([
+                'last_login_at' => now(),
+                'last_login_ip' => $request->ip(),
+            ]);
+
             // Log login activity
             Log::info('User logged in', [
                 'user_id' => $user->id,
@@ -114,24 +119,24 @@ class LoginController extends Controller
     /**
      * Quick login for development
      */
-    public function quickLogin(Request $request)
-    {
-        if (app()->environment('production')) {
-            abort(404);
-        }
+    // public function quickLogin(Request $request)
+    // {
+    //     if (app()->environment('production')) {
+    //         abort(404);
+    //     }
 
-        $username = $request->get('as', 'admin');
-        $user = User::where('username', $username)->first();
+    //     $username = $request->get('as', 'admin');
+    //     $user = User::where('username', $username)->first();
 
-        if ($user) {
-            Auth::login($user);
-            return redirect()->route('beranda')
-                           ->with('success', 'Quick login sebagai ' . $user->full_name);
-        }
+    //     if ($user) {
+    //         Auth::login($user);
+    //         return redirect()->route('beranda')
+    //                        ->with('success', 'Quick login sebagai ' . $user->full_name);
+    //     }
 
-        return redirect()->route('login')
-                       ->with('error', 'User tidak ditemukan');
-    }
+    //     return redirect()->route('login')
+    //                    ->with('error', 'User tidak ditemukan');
+    // }
 
     /**
      * Show user profile

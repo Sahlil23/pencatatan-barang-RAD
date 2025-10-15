@@ -100,6 +100,7 @@
 .activity-login { background: rgba(40, 199, 111, 0.1); color: #28c76f; }
 .activity-update { background: rgba(105, 108, 255, 0.1); color: #696cff; }
 .activity-logout { background: rgba(234, 84, 85, 0.1); color: #ea5455; }
+.activity-transaction { background: rgba(255, 159, 67, 0.1); color: #ff9f43; }
 </style>
 @endpush
 
@@ -126,12 +127,11 @@
         <div class="col-md-3 text-center">
           <div class="avatar-upload">
             <div class="avatar-preview">
-              <img src="{{ asset('assets/img/avatars/1.png') }}" 
-                   alt="Profile Picture" 
-                   class="rounded-circle" 
-                   width="120" 
-                   height="120"
-                   style="object-fit: cover; border: 4px solid rgba(255,255,255,0.2);">
+              <div class="avatar avatar-xl">
+                <span class="avatar-initial rounded-circle" style="background: rgba(255,255,255,0.2); color: white; font-size: 3rem;">
+                  {{ strtoupper(substr($user->full_name, 0, 2)) }}
+                </span>
+              </div>
             </div>
             <div class="avatar-edit">
               <input type="file" id="imageUpload" accept=".png, .jpg, .jpeg" />
@@ -143,7 +143,11 @@
           <h3 class="mb-2">{{ $user->full_name }}</h3>
           <p class="mb-2 opacity-75">
             <i class="bx bx-briefcase me-2"></i>
-            {{ ucfirst($user->role) }}
+            {{ $user->getRoleName() }}
+          </p>
+          <p class="mb-2 opacity-75">
+            <i class="bx bx-user-circle me-2"></i>
+            @{{ $user->username }}
           </p>
           <p class="mb-0 opacity-75">
             <i class="bx bx-calendar me-2"></i>
@@ -213,12 +217,43 @@
           </div>
           <div class="col-md-6">
             <div class="info-item">
+              <i class="bx bx-envelope"></i>
+              <div>
+                <small class="text-muted">Email</small>
+                <div class="fw-semibold">{{ $user->email ?: 'Belum diisi' }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <i class="bx bx-phone"></i>
+              <div>
+                <small class="text-muted">No. Telepon</small>
+                <div class="fw-semibold">{{ $user->phone ?: 'Belum diisi' }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
               <i class="bx bx-briefcase"></i>
               <div>
                 <small class="text-muted">Role</small>
                 <div class="fw-semibold">
-                  <span class="badge bg-{{ $user->role === 'admin' ? 'danger' : ($user->role === 'manager' ? 'warning' : 'info') }}">
-                    {{ ucfirst($user->role) }}
+                  <span class="badge bg-{{ $user->role === 'admin' ? 'danger' : 'info' }}">
+                    {{ $user->getRoleName() }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="info-item">
+              <i class="bx bx-shield-check"></i>
+              <div>
+                <small class="text-muted">Status Akun</small>
+                <div class="fw-semibold">
+                  <span class="badge bg-{{ $user->status === 'active' ? 'success' : 'secondary' }}">
+                    {{ $user->getStatusName() }}
                   </span>
                 </div>
               </div>
@@ -237,18 +272,9 @@
             <div class="info-item">
               <i class="bx bx-time"></i>
               <div>
-                <small class="text-muted">Terakhir Update</small>
-                <div class="fw-semibold">{{ $user->updated_at->format('d F Y, H:i') }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="info-item">
-              <i class="bx bx-shield-check"></i>
-              <div>
-                <small class="text-muted">Status Akun</small>
+                <small class="text-muted">Terakhir Login</small>
                 <div class="fw-semibold">
-                  <span class="badge bg-success">Aktif</span>
+                  {{ $user->last_login_at ? $user->last_login_at->format('d F Y, H:i') : 'Belum pernah login' }}
                 </div>
               </div>
             </div>
@@ -269,28 +295,59 @@
         </h6>
       </div>
       <div class="card-body">
+        @php
+          $userTransactions = $user->stockTransactions();
+          $totalTransactions = $userTransactions->count();
+          $todayTransactions = $userTransactions->whereDate('created_at', today())->count();
+          $thisMonthTransactions = $userTransactions->whereMonth('created_at', now()->month)
+                                                  ->whereYear('created_at', now()->year)
+                                                  ->count();
+          $lastLoginDays = $user->last_login_at ? $user->last_login_at->diffInDays(now()) : null;
+        @endphp
+        
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
-            <small class="text-muted">Total Login</small>
-            <div class="h5 mb-0">127</div>
+            <small class="text-muted">Total Transaksi</small>
+            <div class="h5 mb-0">{{ number_format($totalTransactions) }}</div>
           </div>
           <div class="avatar bg-success">
-            <i class="bx bx-log-in"></i>
+            <i class="bx bx-transfer"></i>
           </div>
         </div>
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
-            <small class="text-muted">Transaksi Dibuat</small>
-            <div class="h5 mb-0">45</div>
+            <small class="text-muted">Transaksi Bulan Ini</small>
+            <div class="h5 mb-0">{{ number_format($thisMonthTransactions) }}</div>
           </div>
           <div class="avatar bg-primary">
-            <i class="bx bx-transfer"></i>
+            <i class="bx bx-calendar-check"></i>
+          </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <small class="text-muted">Transaksi Hari Ini</small>
+            <div class="h5 mb-0">{{ number_format($todayTransactions) }}</div>
+          </div>
+          <div class="avatar bg-info">
+            <i class="bx bx-trending-up"></i>
           </div>
         </div>
         <div class="d-flex justify-content-between align-items-center">
           <div>
-            <small class="text-muted">Hari Terakhir Login</small>
-            <div class="h5 mb-0">Hari ini</div>
+            <small class="text-muted">Terakhir Login</small>
+            <div class="h5 mb-0">
+              @if($user->last_login_at)
+                @if($lastLoginDays == 0)
+                  Hari ini
+                @elseif($lastLoginDays == 1)
+                  Kemarin
+                @else
+                  {{ $lastLoginDays }} hari lalu
+                @endif
+              @else
+                Belum pernah
+              @endif
+            </div>
           </div>
           <div class="avatar bg-warning">
             <i class="bx bx-time"></i>
@@ -308,42 +365,49 @@
         </h6>
       </div>
       <div class="card-body p-0">
-        <div class="activity-item">
-          <div class="activity-icon activity-login">
-            <i class="bx bx-log-in"></i>
+        @php
+          $recentTransactions = $user->stockTransactions()
+                                   ->with('item')
+                                   ->latest()
+                                   ->take(5)
+                                   ->get();
+        @endphp
+        
+        @forelse($recentTransactions as $transaction)
+          <div class="activity-item">
+            <div class="activity-icon activity-transaction">
+              <i class="bx bx-{{ $transaction->transaction_type === 'IN' ? 'plus' : ($transaction->transaction_type === 'OUT' ? 'minus' : 'edit') }}"></i>
+            </div>
+            <div>
+              <div class="fw-semibold">
+                {{ $transaction->transaction_type_text }} - {{ $transaction->item->item_name }}
+              </div>
+              <small class="text-muted">
+                {{ $transaction->formatted_quantity }} {{ $transaction->item->unit }} • 
+                {{ $transaction->created_at->diffForHumans() }}
+              </small>
+            </div>
           </div>
-          <div>
-            <div class="fw-semibold">Login Sistem</div>
-            <small class="text-muted">2 menit yang lalu</small>
+        @empty
+          <div class="activity-item text-center">
+            <div class="w-100">
+              <i class="bx bx-inbox" style="font-size: 2rem; color: #ddd;"></i>
+              <div class="fw-semibold text-muted">Belum ada aktivitas</div>
+              <small class="text-muted">Aktivitas transaksi akan muncul di sini</small>
+            </div>
           </div>
-        </div>
-        <div class="activity-item">
-          <div class="activity-icon activity-update">
-            <i class="bx bx-edit"></i>
+        @endforelse
+        
+        @if($recentTransactions->count() > 0)
+          <div class="activity-item text-center border-top">
+            <div class="w-100">
+              <a href="{{ route('stock-transactions.index') }}" class="btn btn-sm btn-outline-primary">
+                <i class="bx bx-list-ul me-1"></i>
+                Lihat Semua Transaksi
+              </a>
+            </div>
           </div>
-          <div>
-            <div class="fw-semibold">Update Profile</div>
-            <small class="text-muted">1 jam yang lalu</small>
-          </div>
-        </div>
-        <div class="activity-item">
-          <div class="activity-icon activity-login">
-            <i class="bx bx-transfer"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Input Transaksi</div>
-            <small class="text-muted">3 jam yang lalu</small>
-          </div>
-        </div>
-        <div class="activity-item">
-          <div class="activity-icon activity-logout">
-            <i class="bx bx-log-out"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">Logout Sistem</div>
-            <small class="text-muted">Kemarin, 17:30</small>
-          </div>
-        </div>
+        @endif
       </div>
     </div>
   </div>
@@ -377,6 +441,20 @@
               <label for="username" class="form-label">Username *</label>
               <input type="text" class="form-control" id="username" name="username" 
                      value="{{ old('username', $user->username) }}" required>
+            </div>
+
+            <!-- Email -->
+            <div class="col-md-6 mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" name="email" 
+                     value="{{ old('email', $user->email) }}">
+            </div>
+
+            <!-- Phone -->
+            <div class="col-md-6 mb-3">
+              <label for="phone" class="form-label">No. Telepon</label>
+              <input type="text" class="form-control" id="phone" name="phone" 
+                     value="{{ old('phone', $user->phone) }}" placeholder="Contoh: 081234567890">
             </div>
 
             <!-- Current Password -->
@@ -420,13 +498,14 @@
 
 @push('scripts')
 <script>
-// Image upload preview
+// Image upload preview (future implementation)
 document.getElementById('imageUpload').addEventListener('change', function() {
   const file = this.files[0];
   if (file) {
     const reader = new FileReader();
     reader.onload = function(e) {
-      document.querySelector('.avatar-preview img').src = e.target.result;
+      // Future: implement avatar upload
+      console.log('File selected:', file.name);
     };
     reader.readAsDataURL(file);
   }

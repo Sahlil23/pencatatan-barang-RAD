@@ -91,7 +91,7 @@ class User extends Authenticatable
      */
     public function isAdmin()
     {
-        return $this->role === self::ROLE_ADMIN;
+        return $this->role === 'admin';
     }
 
     /**
@@ -99,7 +99,7 @@ class User extends Authenticatable
      */
     public function isStaff()
     {
-        return $this->role === self::ROLE_STAFF;
+        return $this->role === 'staff';
     }
 
     /**
