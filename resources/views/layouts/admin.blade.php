@@ -109,6 +109,11 @@
                     <div data-i18n="Low Stock">Stok Menipis</div>
                   </a>
                 </li>
+                <li class="menu-item {{ request()->routeIs('items.report') ? 'active' : '' }}">
+                  <a href="{{ route('items.report') }}" class="menu-link">
+                    <div data-i18n="Low Stock">Laporan Stok</div>
+                  </a>
+                </li>
               </ul>
             </li>
 
@@ -141,6 +146,7 @@
                 </li>
               </ul>
             </li>
+
 
             <!-- Master Data -->
             <li class="menu-header small text-uppercase">
@@ -187,6 +193,30 @@
               </ul>
             </li>
 
+            <!-- Recipe -->
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">Resep</span>
+            </li>
+
+            <!-- Recipe -->
+            <li class="menu-item {{ request()->routeIs('recipes.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-transfer"></i>
+                <div data-i18n="Resep">Resep</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('recipes.index') ? 'active' : '' }}">
+                  <a href="{{ route('recipes.index') }}" class="menu-link">
+                    <div data-i18n="All Recipes">Semua Resep</div>
+                  </a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('recipes.create') ? 'active' : '' }}">
+                  <a href="{{ route('recipes.create') }}" class="menu-link">
+                    <div data-i18n="Add Recipe">Tambah Resep</div>
+                  </a>
+                </li>
+              </ul>
+            </li>
             <!-- User Management - Admin Only -->
             @if(Auth::user()->isAdmin())
             <li class="menu-header small text-uppercase">

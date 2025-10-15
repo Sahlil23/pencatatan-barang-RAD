@@ -39,9 +39,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('suppliers', SupplierController::class);
 
     // Items
-    Route::resource('items', ItemController::class);
     Route::get('items-low-stock', [ItemController::class, 'lowStock'])->name('items.low-stock');
     Route::post('items/{item}/adjust-stock', [ItemController::class, 'adjustStock'])->name('items.adjust-stock');
+    Route::get('/items/report', [ItemController::class, 'report'])->name('items.report');
+    Route::resource('items', ItemController::class);
 
     // Stock Transactions
     Route::resource('stock-transactions', StockTransactionController::class)->except(['edit', 'update', 'destroy']);

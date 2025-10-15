@@ -148,4 +148,76 @@ class ItemController extends Controller
         return redirect()->route('items.show', $item)
             ->with('success', $message);
     }
+
+    public function report(Request $request)
+    {
+        $query = Item::with(['category', 'supplier']);
+
+        // Filter berdasarkan kategori
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Filter berdasarkan supplier
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+
+        // Filter berdasarkan status stok
+        if ($request->filled('stock_status')) {
+            switch ($request->stock_status) {
+                case 'low':
+                    $query->lowStock();
+                    break;
+                case 'out':
+                    $query->outOfStock();
+                    break;
+                case 'in':
+                    $query->inStock();
+                    break;
+            }
+        }
+
+        // Pencarian berdasarkan nama item atau SKU
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('item_name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%");
+            });
+        }
+
+        // Urutkan berdasarkan pilihan user
+        $sortBy = $request->get('sort_by', 'item_name');
+        $sortOrder = $request->get('sort_order', 'asc');
+        
+        if ($sortBy === 'stock') {
+            $query->orderBy('current_stock', $sortOrder);
+        } elseif ($sortBy === 'category') {
+            $query->join('categories', 'items.category_id', '=', 'categories.id')
+                  ->orderBy('categories.category_name', $sortOrder)
+                  ->select('items.*');
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        $items = $query->get();
+        $categories = Category::all();
+        $suppliers = Supplier::all();
+
+        // Statistik untuk laporan
+        $totalItems = $items->count();
+        $totalStockValue = $items->sum('current_stock');
+        $lowStockItems = $items->filter(function($item) {
+            return $item->current_stock <= $item->low_stock_threshold && $item->current_stock > 0;
+        })->count();
+        $outOfStockItems = $items->filter(function($item) {
+            return $item->current_stock <= 0;
+        })->count();
+
+        return view('items.report', compact(
+            'items', 'categories', 'suppliers', 'totalItems', 
+            'totalStockValue', 'lowStockItems', 'outOfStockItems'
+        ));
+    }
 }

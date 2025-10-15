@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 14, 2025 at 06:43 AM
+-- Generation Time: Oct 15, 2025 at 01:27 AM
 -- Server version: 8.0.30
 -- PHP Version: 8.1.10
 
@@ -117,7 +117,7 @@ INSERT INTO `items` (`id`, `sku`, `item_name`, `category_id`, `supplier_id`, `un
 (18, 'CHK-1001', 'Grill Powder (1000Gr)', 1, NULL, 'Kg', '9.00', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
 (19, 'CHK-1002', 'Mix Pepper Powder (1000Gr)', 1, NULL, 'kg', '11.00', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
 (20, 'CHK-1003', 'Tandoori Sprinkler (1000Gr)', 1, NULL, 'kg', '8.24', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
-(21, 'CHK-1004', 'Reguler Marinade (500Gr)', 1, NULL, 'Kg', '20.00', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
+(21, 'CHK-1004', 'Reguler Marinade (500Gr)', 1, NULL, 'pack', '10.00', '0.00', '2025-09-30 16:00:00', '2025-10-13 22:53:50'),
 (22, 'CHK-1005', 'Reguler Spices Powder (450Gr)', 1, NULL, 'Kg', '0.00', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
 (23, 'CHK-1006', 'Bumbu Suntik Hot (100G)', 1, NULL, 'Pack', '438.00', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
 (24, 'CHK-1007', 'Bumbu Suntik Orig (100Gr)', 1, NULL, 'Pack', '420.00', '0.00', '2025-09-30 16:00:00', '2025-09-30 16:00:00'),
@@ -400,8 +400,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('ag0w33IsI8KZMy5LJ5fFj1RLpQPESqqKt0B8TTYG', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiR0NCd1dReU5vWk9wem1ubkxTY3VZcmE5WjM3bElmcFlla1NNcGdSdSI7czozOiJ1cmwiO2E6MTp7czo4OiJpbnRlbmRlZCI7czoyMToiaHR0cDovL2xvY2FsaG9zdDo4MDAwIjt9czo5OiJfcHJldmlvdXMiO2E6MTp7czozOiJ1cmwiO3M6MjE6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fXM6NTA6ImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjtpOjE7fQ==', 1760416398),
-('rHNgY0wMiAooqS22sgrlh7WTNrv2bVAaFXJidA4c', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiUG10ZjlmcGxRSHFHZ25OdWtFOWFVY3c2TUQ3UjRiaGxCMk96NVJhYSI7czozOiJ1cmwiO2E6MDp7fXM6OToiX3ByZXZpb3VzIjthOjE6e3M6MzoidXJsIjtzOjI5OiJodHRwOi8vbG9jYWxob3N0OjgwMDAvYmVyYW5kYSI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fXM6NTA6ImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjtpOjE7fQ==', 1760424157);
+('mi3lIAgpqNAoQHm3Wte1QteLvKZcgVmLcfe4PxzL', 1, '192.168.1.14', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiODBUUUVJUnhkaEhhbEFTblNETmJyUlRWZU9qZWZOUFA1Zk4ybzNSUiI7czozOiJ1cmwiO2E6MDp7fXM6OToiX3ByZXZpb3VzIjthOjE6e3M6MzoidXJsIjtzOjMwOiJodHRwOi8vMTkyLjE2OC4xLjE0OjgwMDAvaXRlbXMiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX1zOjUwOiJsb2dpbl93ZWJfNTliYTM2YWRkYzJiMmY5NDAxNTgwZjAxNGM3ZjU4ZWE0ZTMwOTg5ZCI7aToxO30=', 1760490823);
 
 -- --------------------------------------------------------
 
@@ -426,13 +425,7 @@ CREATE TABLE `stock_transactions` (
 --
 
 INSERT INTO `stock_transactions` (`id`, `item_id`, `user_id`, `transaction_type`, `quantity`, `notes`, `transaction_date`, `created_at`, `updated_at`) VALUES
-(1, 18, 1, 'IN', '9000.00', 'Pencatatan Ulang', '2025-10-13 21:57:05', '2025-10-13 21:57:05', '2025-10-13 21:57:05'),
-(2, 19, 1, 'IN', '11000.00', 'Pencatatan Ulang', '2025-10-13 21:59:34', '2025-10-13 21:59:34', '2025-10-13 21:59:34'),
-(3, 18, 1, 'OUT', '9.00', 'pencatatan salah', '2025-10-13 22:00:53', '2025-10-13 22:00:53', '2025-10-13 22:00:53'),
-(4, 18, 1, 'OUT', '8882.00', 'Pencatatan Yang Salah', '2025-10-13 22:02:04', '2025-10-13 22:02:04', '2025-10-13 22:02:04'),
-(5, 18, 1, 'OUT', '100.00', 'Salah Pencatatan', '2025-10-13 22:02:42', '2025-10-13 22:02:42', '2025-10-13 22:02:42'),
-(6, 19, 1, 'OUT', '10989.00', 'Pencatatan Salah', '2025-10-13 22:03:31', '2025-10-13 22:03:31', '2025-10-13 22:03:31'),
-(7, 21, 1, 'IN', '20.00', 'Pencatatan', '2025-10-13 22:10:00', '2025-10-13 22:10:00', '2025-10-13 22:10:00');
+(8, 21, 1, 'OUT', '10.00', 'Salah Pencatatan', '2025-10-13 22:53:50', '2025-10-13 22:53:50', '2025-10-13 22:53:50');
 
 -- --------------------------------------------------------
 
@@ -624,7 +617,7 @@ ALTER TABLE `migrations`
 -- AUTO_INCREMENT for table `stock_transactions`
 --
 ALTER TABLE `stock_transactions`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `suppliers`
