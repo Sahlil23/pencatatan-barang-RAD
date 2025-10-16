@@ -147,7 +147,7 @@
           </p>
           <p class="mb-2 opacity-75">
             <i class="bx bx-user-circle me-2"></i>
-            @{{ $user->username }}
+            {{ $user->username }}
           </p>
           <p class="mb-0 opacity-75">
             <i class="bx bx-calendar me-2"></i>
