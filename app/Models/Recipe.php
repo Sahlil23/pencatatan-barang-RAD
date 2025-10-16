@@ -13,8 +13,7 @@ class Recipe extends Model
     protected $fillable = [
         'name',
         'slug',
-        'description',
-        'image',
+        'description', 
         'prep_time',
         'cook_time',
         'servings',
@@ -22,31 +21,119 @@ class Recipe extends Model
         'ingredients',
         'instructions',
         'notes',
+        'image',
         'status'
     ];
 
+    // Cast JSON fields
     protected $casts = [
         'ingredients' => 'array',
         'instructions' => 'array',
+        'prep_time' => 'integer',
+        'cook_time' => 'integer',
+        'servings' => 'integer',
     ];
 
-    protected static function boot()
+    // Accessor untuk ingredients yang sudah diformat
+    public function getFormattedIngredientsAttribute()
     {
-        parent::boot();
+        if (!is_array($this->ingredients)) {
+            return [];
+        }
 
-        static::creating(function ($recipe) {
-            if (empty($recipe->slug)) {
-                $recipe->slug = Str::slug($recipe->name);
+        $formatted = [];
+        
+        foreach ($this->ingredients as $ingredient) {
+            if (is_array($ingredient) && isset($ingredient['item'])) {
+                // Format: "qty unit - item (section)"
+                $text = '';
+                
+                if (isset($ingredient['qty']) && $ingredient['qty'] > 0) {
+                    $text .= number_format($ingredient['qty'], $ingredient['qty'] == (int)$ingredient['qty'] ? 0 : 1);
+                }
+                
+                if (isset($ingredient['unit']) && !empty($ingredient['unit'])) {
+                    $text .= ' ' . $ingredient['unit'];
+                }
+                
+                $text .= ' ' . $ingredient['item'];
+                
+                if (isset($ingredient['section']) && !empty($ingredient['section'])) {
+                    $text .= ' (' . $ingredient['section'] . ')';
+                }
+                
+                $formatted[] = trim($text);
+            } else {
+                // Jika format simple string
+                $formatted[] = is_string($ingredient) ? $ingredient : '';
             }
-        });
-
-        static::updating(function ($recipe) {
-            if ($recipe->isDirty('name')) {
-                $recipe->slug = Str::slug($recipe->name);
-            }
-        });
+        }
+        
+        return $formatted;
     }
 
+    // Accessor untuk instructions yang sudah diformat
+    public function getFormattedInstructionsAttribute()
+    {
+        if (!is_array($this->instructions)) {
+            return [];
+        }
+
+        $formatted = [];
+        
+        foreach ($this->instructions as $instruction) {
+            if (is_array($instruction) && isset($instruction['step'])) {
+                $formatted[] = $instruction['step'];
+            } else {
+                $formatted[] = is_string($instruction) ? $instruction : '';
+            }
+        }
+        
+        return $formatted;
+    }
+
+    // Helper untuk grouping ingredients by section
+    public function getIngredientsBySectionAttribute()
+    {
+        if (!is_array($this->ingredients)) {
+            return [];
+        }
+
+        $grouped = [];
+        
+        foreach ($this->ingredients as $ingredient) {
+            if (is_array($ingredient) && isset($ingredient['item'])) {
+                $section = $ingredient['section'] ?? 'Bahan Utama';
+                
+                if (!isset($grouped[$section])) {
+                    $grouped[$section] = [];
+                }
+                
+                $text = '';
+                if (isset($ingredient['qty']) && $ingredient['qty'] > 0) {
+                    $text .= number_format($ingredient['qty'], $ingredient['qty'] == (int)$ingredient['qty'] ? 0 : 1);
+                }
+                
+                if (isset($ingredient['unit']) && !empty($ingredient['unit'])) {
+                    $text .= ' ' . $ingredient['unit'];
+                }
+                
+                $text .= ' ' . $ingredient['item'];
+                
+                $grouped[$section][] = trim($text);
+            }
+        }
+        
+        return $grouped;
+    }
+
+    // Scopes
+    public function scopePublished($query)
+    {
+        return $query->where('status', 'published');
+    }
+
+    // Other accessors
     public function getTotalTimeAttribute()
     {
         return $this->prep_time + $this->cook_time;
@@ -54,17 +141,15 @@ class Recipe extends Model
 
     public function getDifficultyBadgeAttribute()
     {
-        $badges = [
-            'mudah' => 'success',
-            'sedang' => 'warning',
-            'sulit' => 'danger'
-        ];
-
-        return $badges[$this->difficulty] ?? 'secondary';
-    }
-
-    public function scopePublished($query)
-    {
-        return $query->where('status', 'published');
+        switch ($this->difficulty) {
+            case 'mudah':
+                return 'success';
+            case 'sedang':
+                return 'warning';
+            case 'sulit':
+                return 'danger';
+            default:
+                return 'primary';
+        }
     }
 }

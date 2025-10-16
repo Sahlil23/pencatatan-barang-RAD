@@ -31,6 +31,28 @@
         <small class="text-muted float-end">Form edit resep makanan</small>
       </div>
       <div class="card-body">
+        <!-- Alert Messages -->
+        @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+          <i class="bx bx-check-circle me-2"></i>
+          {{ session('success') }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+          <i class="bx bx-error-circle me-2"></i>
+          <strong>Ada kesalahan dalam form:</strong>
+          <ul class="mb-0 mt-2">
+            @foreach($errors->all() as $error)
+              <li>{{ $error }}</li>
+            @endforeach
+          </ul>
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
         <form action="{{ route('recipes.update', $recipe) }}" method="POST" enctype="multipart/form-data" id="recipeForm">
           @csrf
           @method('PUT')
@@ -201,9 +223,36 @@
             <label class="form-label">Bahan-bahan <span class="text-danger">*</span></label>
             <div id="ingredientsContainer">
               @php
-                $ingredients = old('ingredients', $recipe->ingredients);
+                // Handle both old input (from validation) and existing data
+                $ingredients = old('ingredients');
+                if (!$ingredients) {
+                    // Convert existing data to simple array format
+                    $ingredients = $recipe->formatted_ingredients ?? [];
+                    if (empty($ingredients) && $recipe->ingredients) {
+                        // If formatted_ingredients is empty, try to extract from raw ingredients
+                        if (is_array($recipe->ingredients)) {
+                            $ingredients = [];
+                            foreach($recipe->ingredients as $ingredient) {
+                                if (is_array($ingredient) && isset($ingredient['item'])) {
+                                    $text = '';
+                                    if (isset($ingredient['qty']) && $ingredient['qty'] > 0) {
+                                        $text .= $ingredient['qty'] . ' ';
+                                    }
+                                    if (isset($ingredient['unit']) && !empty($ingredient['unit'])) {
+                                        $text .= $ingredient['unit'] . ' ';
+                                    }
+                                    $text .= $ingredient['item'];
+                                    $ingredients[] = trim($text);
+                                } else {
+                                    $ingredients[] = is_string($ingredient) ? $ingredient : '';
+                                }
+                            }
+                        }
+                    }
+                }
               @endphp
-              @if($ingredients)
+              
+              @if($ingredients && count($ingredients) > 0)
                 @foreach($ingredients as $index => $ingredient)
                 <div class="ingredient-item mb-2">
                   <div class="input-group">
@@ -257,9 +306,28 @@
             <label class="form-label">Cara Membuat <span class="text-danger">*</span></label>
             <div id="instructionsContainer">
               @php
-                $instructions = old('instructions', $recipe->instructions);
+                // Handle both old input (from validation) and existing data
+                $instructions = old('instructions');
+                if (!$instructions) {
+                    // Convert existing data to simple array format
+                    $instructions = $recipe->formatted_instructions ?? [];
+                    if (empty($instructions) && $recipe->instructions) {
+                        // If formatted_instructions is empty, try to extract from raw instructions
+                        if (is_array($recipe->instructions)) {
+                            $instructions = [];
+                            foreach($recipe->instructions as $instruction) {
+                                if (is_array($instruction) && isset($instruction['step'])) {
+                                    $instructions[] = $instruction['step'];
+                                } else {
+                                    $instructions[] = is_string($instruction) ? $instruction : '';
+                                }
+                            }
+                        }
+                    }
+                }
               @endphp
-              @if($instructions)
+              
+              @if($instructions && count($instructions) > 0)
                 @foreach($instructions as $index => $instruction)
                 <div class="instruction-item mb-2">
                   <div class="input-group">
@@ -445,13 +513,13 @@
           <!-- Ingredients Count -->
           <div class="mt-3">
             <small class="text-muted d-block">Bahan-bahan:</small>
-            <small class="fw-semibold" id="preview-ingredients-count">{{ count($recipe->ingredients) }} bahan</small>
+            <small class="fw-semibold" id="preview-ingredients-count">{{ count($ingredients) }} bahan</small>
           </div>
           
           <!-- Instructions Count -->
           <div class="mt-2">
             <small class="text-muted d-block">Langkah-langkah:</small>
-            <small class="fw-semibold" id="preview-instructions-count">{{ count($recipe->instructions) }} langkah</small>
+            <small class="fw-semibold" id="preview-instructions-count">{{ count($instructions) }} langkah</small>
           </div>
         </div>
       </div>
@@ -553,8 +621,8 @@ document.addEventListener('DOMContentLoaded', function() {
     difficulty: '{{ $recipe->difficulty }}',
     status: '{{ $recipe->status }}',
     notes: '{{ $recipe->notes }}',
-    ingredients: @json($recipe->ingredients),
-    instructions: @json($recipe->instructions)
+    ingredients: @json($ingredients),
+    instructions: @json($instructions)
   };
 
   // Add ingredient function
@@ -875,6 +943,15 @@ document.addEventListener('DOMContentLoaded', function() {
   updatePreview();
   updateIngredientNumbers();
   updateInstructionNumbers();
+  
+  // Auto dismiss alerts
+  setTimeout(function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+      const bsAlert = new bootstrap.Alert(alert);
+      bsAlert.close();
+    });
+  }, 5000);
 });
 </script>
 @endpush

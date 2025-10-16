@@ -17,18 +17,72 @@
   </div>
 </div>
 
-<!-- Header -->
+<!-- Stats Cards -->
 <div class="row mb-4">
-  <div class="col-12">
+  <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
     <div class="card">
-      <div class="card-body text-center">
-        <h2 class="card-title mb-2">
-          <i class="bx bx-restaurant me-2"></i>
-          Menu Resep Chicking BJM
-        </h2>
-        <p class="text-muted mb-0">
-          Koleksi resep makanan lezat dengan panduan lengkap cara membuatnya
-        </p>
+      <div class="card-body">
+        <div class="card-title d-flex align-items-start justify-content-between">
+          <div class="avatar flex-shrink-0">
+            <img src="{{ asset('assets/img/icons/unicons/chart-success.png') }}" alt="Total Recipes" class="rounded" />
+          </div>
+        </div>
+        <span class="fw-semibold d-block mb-1">Total Resep</span>
+        <h3 class="card-title mb-2">{{ $recipes->total() }}</h3>
+        <small class="text-primary fw-semibold">
+          <i class="bx bx-restaurant"></i> Resep
+        </small>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="card-title d-flex align-items-start justify-content-between">
+          <div class="avatar flex-shrink-0">
+            <img src="{{ asset('assets/img/icons/unicons/wallet-info.png') }}" alt="Easy Recipes" class="rounded" />
+          </div>
+        </div>
+        <span class="fw-semibold d-block mb-1">Resep Mudah</span>
+        @php $easyRecipesCount = App\Models\Recipe::where('difficulty', 'mudah')->published()->count(); @endphp
+        <h3 class="card-title mb-2 text-success">{{ $easyRecipesCount }}</h3>
+        <small class="text-success fw-semibold">
+          <i class="bx bx-check"></i> Mudah Dibuat
+        </small>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="card-title d-flex align-items-start justify-content-between">
+          <div class="avatar flex-shrink-0">
+            <img src="{{ asset('assets/img/icons/unicons/cc-success.png') }}" alt="Quick Recipes" class="rounded" />
+          </div>
+        </div>
+        <span class="fw-semibold d-block mb-1">Resep Cepat</span>
+        @php $quickRecipesCount = App\Models\Recipe::whereRaw('(prep_time + cook_time) <= 30')->published()->count(); @endphp
+        <h3 class="card-title mb-2 text-warning">{{ $quickRecipesCount }}</h3>
+        <small class="text-warning fw-semibold">
+          <i class="bx bx-time"></i> ≤ 30 Menit
+        </small>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="card-title d-flex align-items-start justify-content-between">
+          <div class="avatar flex-shrink-0">
+            <img src="{{ asset('assets/img/icons/unicons/paypal.png') }}" alt="Published" class="rounded" />
+          </div>
+        </div>
+        <span class="fw-semibold d-block mb-1">Dipublikasi</span>
+        @php $publishedCount = App\Models\Recipe::published()->count(); @endphp
+        <h3 class="card-title mb-2 text-info">{{ $publishedCount }}</h3>
+        <small class="text-info fw-semibold">
+          <i class="bx bx-show"></i> Publik
+        </small>
       </div>
     </div>
   </div>
@@ -86,96 +140,200 @@
   </div>
 </div>
 
-<!-- Recipe Cards -->
-<div class="row">
-  @forelse ($recipes as $recipe)
-  <div class="col-lg-4 col-md-6 mb-4">
-    <div class="card h-100 recipe-card">
-      <!-- Recipe Image -->
-      <div class="card-img-container">
-        @if($recipe->image)
-          <img src="{{ asset('storage/' . $recipe->image) }}" class="card-img-top" alt="{{ $recipe->name }}">
-        @else
-          <div class="placeholder-img d-flex align-items-center justify-content-center">
-            <i class="bx bx-image" style="font-size: 48px; color: #ddd;"></i>
-          </div>
-        @endif
-        <div class="card-overlay">
-          <div class="recipe-meta">
-            <span class="badge bg-{{ $recipe->difficulty_badge }} mb-2">
-              {{ ucfirst($recipe->difficulty) }}
-            </span>
-            <div class="time-info text-white">
-              <small>
-                <i class="bx bx-time me-1"></i>
-                {{ $recipe->total_time }} menit
-              </small>
+<!-- Main Content Card -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">
+      <i class="bx bx-restaurant me-2"></i>
+      Menu Resep
+      @if(request()->hasAny(['search', 'difficulty', 'sort']))
+        <span class="badge bg-label-primary">Filtered</span>
+      @endif
+    </h5>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-info btn-sm" onclick="exportRecipes()">
+        <i class="bx bx-export me-1"></i>
+        Export
+      </button>
+      <a href="{{ route('recipes.create') }}" class="btn btn-primary">
+        <i class="bx bx-plus me-1"></i>
+        Tambah Resep
+      </a>
+    </div>
+  </div>
+  
+  <div class="card-body">
+    <!-- Recipe Cards -->
+    <div class="row">
+      @forelse ($recipes as $recipe)
+      <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card h-100 recipe-card">
+          <!-- Recipe Image -->
+          <div class="card-img-container">
+            @if($recipe->image)
+              <img src="{{ asset('storage/' . $recipe->image) }}" class="card-img-top" alt="{{ $recipe->name }}">
+            @else
+              <div class="placeholder-img d-flex align-items-center justify-content-center">
+                <i class="bx bx-image" style="font-size: 48px; color: #ddd;"></i>
+              </div>
+            @endif
+            <div class="card-overlay">
+              <div class="recipe-meta">
+                <span class="badge bg-{{ $recipe->difficulty_badge }} mb-2">
+                  {{ ucfirst($recipe->difficulty) }}
+                </span>
+                <div class="time-info text-white">
+                  <small>
+                    <i class="bx bx-time me-1"></i>
+                    {{ $recipe->total_time }} menit
+                  </small>
+                </div>
+              </div>
+              <div class="recipe-actions">
+                <div class="dropdown">
+                  <button type="button" class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bx bx-dots-vertical-rounded"></i>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ route('recipes.show', $recipe->slug) }}">
+                      <i class="bx bx-show me-1"></i> Lihat Detail
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ route('recipes.edit', $recipe) }}">
+                      <i class="bx bx-edit me-1"></i> Edit
+                    </a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                      <form action="{{ route('recipes.destroy', $recipe) }}" method="POST" class="d-inline">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="dropdown-item text-danger" 
+                                onclick="return confirm('Apakah Anda yakin ingin menghapus resep {{ $recipe->name }}?')">
+                          <i class="bx bx-trash me-1"></i> Hapus
+                        </button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
+              </div>
             </div>
+          </div>
+          
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title mb-2">{{ $recipe->name }}</h5>
+            <p class="card-text text-muted flex-grow-1">
+              {{ Str::limit($recipe->description, 80) }}
+            </p>
+            
+            <!-- Recipe Info -->
+            <div class="recipe-info mb-3">
+              <div class="row text-center">
+                <div class="col-4">
+                  <small class="text-muted">Persiapan</small>
+                  <div class="fw-semibold">{{ $recipe->prep_time }}m</div>
+                </div>
+                <div class="col-4">
+                  <small class="text-muted">Memasak</small>
+                  <div class="fw-semibold">{{ $recipe->cook_time }}m</div>
+                </div>
+                <div class="col-4">
+                  <small class="text-muted">Porsi</small>
+                  <div class="fw-semibold">{{ $recipe->servings }}</div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Action Button -->
+            <a href="{{ route('recipes.show', $recipe->slug) }}" class="btn btn-primary">
+              <i class="bx bx-book-open me-1"></i>
+              Lihat Resep
+            </a>
           </div>
         </div>
       </div>
-      
-      <div class="card-body d-flex flex-column">
-        <h5 class="card-title mb-2">{{ $recipe->name }}</h5>
-        <p class="card-text text-muted flex-grow-1">
-          {{ Str::limit($recipe->description, 100) }}
-        </p>
-        
-        <!-- Recipe Info -->
-        <div class="recipe-info mb-3">
-          <div class="row text-center">
-            <div class="col-4">
-              <small class="text-muted">Persiapan</small>
-              <div class="fw-semibold">{{ $recipe->prep_time }}m</div>
-            </div>
-            <div class="col-4">
-              <small class="text-muted">Memasak</small>
-              <div class="fw-semibold">{{ $recipe->cook_time }}m</div>
-            </div>
-            <div class="col-4">
-              <small class="text-muted">Porsi</small>
-              <div class="fw-semibold">{{ $recipe->servings }}</div>
-            </div>
-          </div>
+      @empty
+      <div class="col-12">
+        <div class="text-center py-5">
+          <i class="bx bx-restaurant" style="font-size: 64px; color: #ddd;"></i>
+          <h5 class="mt-3 text-muted">
+            @if(request()->hasAny(['search', 'difficulty', 'sort']))
+              Tidak ada resep yang sesuai dengan filter
+            @else
+              Belum ada resep
+            @endif
+          </h5>
+          <p class="text-muted mb-3">
+            @if(request()->hasAny(['search', 'difficulty', 'sort']))
+              Coba ubah filter atau kata kunci pencarian
+            @else
+              Mulai tambahkan resep makanan favorit Anda
+            @endif
+          </p>
+          @if(!request()->hasAny(['search', 'difficulty', 'sort']))
+          <a href="{{ route('recipes.create') }}" class="btn btn-primary">
+            <i class="bx bx-plus me-1"></i>
+            Tambah Resep Pertama
+          </a>
+          @else
+          <a href="{{ route('recipes.index') }}" class="btn btn-outline-secondary">
+            <i class="bx bx-reset me-1"></i>
+            Reset Filter
+          </a>
+          @endif
         </div>
-        
-        <!-- Action Button -->
-        <a href="{{ route('recipes.show', $recipe->slug) }}" class="btn btn-primary">
-          <i class="bx bx-book-open me-1"></i>
-          Lihat Resep
-        </a>
       </div>
+      @endforelse
     </div>
   </div>
-  @empty
-  <div class="col-12">
-    <div class="card">
-      <div class="card-body text-center py-5">
-        <i class="bx bx-restaurant" style="font-size: 64px; color: #ddd;"></i>
-        <h5 class="mt-3 text-muted">Belum ada resep</h5>
-        <p class="text-muted">Mulai tambahkan resep makanan favorit Anda</p>
-        <a href="{{ route('recipes.create') }}" class="btn btn-primary">
-          <i class="bx bx-plus me-1"></i>
-          Tambah Resep
-        </a>
-      </div>
-    </div>
-  </div>
-  @endforelse
 </div>
 
-<!-- Pagination -->
-@if($recipes->hasPages())
-<div class="d-flex justify-content-center mt-4">
-  {{ $recipes->links() }}
-</div>
-@endif
+<!-- Pagination menggunakan component yang sama seperti items -->
+<x-simple-pagination :items="$recipes" type="resep" />
 
 <!-- Floating Add Button -->
 <a href="{{ route('recipes.create') }}" class="btn btn-primary btn-floating">
   <i class="bx bx-plus"></i>
 </a>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Export recipes function
+  window.exportRecipes = function() {
+    const headers = ['Nama Resep', 'Deskripsi', 'Kesulitan', 'Waktu Persiapan', 'Waktu Memasak', 'Total Waktu', 'Porsi', 'Status'];
+    const rows = [];
+    
+    @foreach($recipes as $recipe)
+    rows.push([
+      '{{ $recipe->name }}',
+      '{{ str_replace('"', '""', $recipe->description) }}',
+      '{{ $recipe->difficulty }}',
+      '{{ $recipe->prep_time }} menit',
+      '{{ $recipe->cook_time }} menit',
+      '{{ $recipe->total_time }} menit',
+      '{{ $recipe->servings }} porsi',
+      '{{ $recipe->status }}'
+    ]);
+    @endforeach
+    
+    let csvContent = headers.join(',') + '\n';
+    rows.forEach(row => {
+      csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'recipes_' + new Date().toISOString().slice(0,10) + '.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+});
+</script>
+@endpush
 
 @push('styles')
 <style>
@@ -232,6 +390,15 @@
   align-items: flex-start;
 }
 
+.recipe-actions {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.recipe-card:hover .recipe-actions {
+  opacity: 1;
+}
+
 .recipe-info {
   background: rgba(105, 108, 255, 0.1);
   border-radius: 8px;
@@ -258,6 +425,31 @@
   box-shadow: 0 6px 20px rgba(105, 108, 255, 0.6);
 }
 
+.avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+
+@media print {
+  .btn, .breadcrumb, .card-header .d-flex .btn, .dropdown, .modal, .btn-floating {
+    display: none !important;
+  }
+  
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  .recipe-card {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
 @media (max-width: 768px) {
   .card-img-container {
     height: 180px;
@@ -269,6 +461,10 @@
     width: 50px;
     height: 50px;
     font-size: 20px;
+  }
+  
+  .recipe-actions {
+    opacity: 1; /* Always show on mobile */
   }
 }
 </style>

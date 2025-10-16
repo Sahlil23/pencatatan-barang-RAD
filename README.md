@@ -11,7 +11,6 @@ Sistem Inventory Management untuk Chicking BJM adalah aplikasi web modern yang d
 ## 📋 Daftar Isi
 
 -   [Fitur Utama](#-fitur-utama)
--   [Screenshot](#-screenshot)
 -   [Teknologi](#-teknologi)
 -   [Persyaratan Sistem](#-persyaratan-sistem)
 -   [Instalasi](#-instalasi)
@@ -56,23 +55,6 @@ Sistem Inventory Management untuk Chicking BJM adalah aplikasi web modern yang d
 -   **Real-time Search** - Instant search & filtering
 -   **Bulk Operations** - Import/Export Excel
 -   **Print Support** - Print-ready reports
-
-## 📸 Screenshot
-
-### Dashboard
-
-![Dashboard](docs/images/dashboard.png)
-_Dashboard utama dengan overview analytics_
-
-### Manajemen Item
-
-![Items Management](docs/images/items-management.png)
-_Interface manajemen item dengan filtering advanced_
-
-### Transaksi Stok
-
-![Stock Transactions](docs/images/stock-transactions.png)
-_Tracking transaksi masuk dan keluar_
 
 ## 🛠 Teknologi
 
