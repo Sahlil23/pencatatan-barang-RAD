@@ -11,6 +11,7 @@ use App\Http\Controllers\StockTransactionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\BackupController;
 
 // Auth Routes (Public - Guest Only)
 Route::middleware('guest')->group(function () {
@@ -59,6 +60,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/recipes/{recipe}/edit', [RecipeController::class, 'edit'])->name('recipes.edit');
     Route::put('/recipes/{recipe}', [RecipeController::class, 'update'])->name('recipes.update');
     Route::delete('/recipes/{recipe}', [RecipeController::class, 'destroy'])->name('recipes.destroy');
+    Route::get('/backup', [App\Http\Controllers\BackupController::class, 'index'])->name('backup.index');
+    Route::post('/backup/create', [App\Http\Controllers\BackupController::class, 'create'])->name('backup.create');
+    Route::get('/backup/download/{filename}', [App\Http\Controllers\BackupController::class, 'download'])->name('backup.download');
+    Route::post('/backup/restore', [App\Http\Controllers\BackupController::class, 'restore'])->name('backup.restore');
+    Route::delete('/backup/delete/{filename}', [App\Http\Controllers\BackupController::class, 'delete'])->name('backup.delete');
 });
 
 Route::middleware(['auth'])->group(function () {

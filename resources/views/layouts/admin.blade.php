@@ -10,11 +10,9 @@
 >
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
-    />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
     <title>@yield('title', 'Chicking - Banjarmasin')</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/img/Chicking-logo-bjm.png') }}">
 
@@ -217,6 +215,24 @@
                 </li>
               </ul>
             </li>
+
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">Backup</span>
+            </li>
+            <li class="menu-item {{ request()->routeIs('backup.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-hdd"></i>
+                <div data-i18n="Backup">Backup</div>
+              </a>
+              <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="{{ route('backup.index') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-hdd"></i>
+                  <div data-i18n="Database Backup">Database Backup</div>
+                </a>
+              </li>
+              </ul>
+            </li>
             <!-- User Management - Admin Only -->
             @if(Auth::user()->isAdmin())
             <li class="menu-header small text-uppercase">
@@ -330,8 +346,9 @@
                     document.write(new Date().getFullYear());
                   </script>
                   , Chicking BJM - Banjarmasin
-                </div
-        <!-- / Layout page -->
+                </div>
+              </div>
+            </footer>
       </div>
 
       <!-- Overlay -->

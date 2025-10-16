@@ -29,9 +29,8 @@
       </div>
     </div>
   </div>
-  
   <!-- Statistics Cards -->
-  <div class="col-lg-4 col-md-4 order-1">
+  <div class="col-lg-4 order-1">
     <div class="row">
       <div class="col-lg-6 col-md-12 col-6 mb-4">
         <div class="card">
@@ -210,7 +209,7 @@
 
   <!-- Recent Transactions -->
   <div class="col-md-6 col-lg-4 order-2 mb-4">
-    <div class="card h-100">
+    <div class="card h-100">  
       <div class="card-header d-flex align-items-center justify-content-between">
         <h5 class="card-title m-0 me-2">Recent Transactions</h5>
         <div class="dropdown">

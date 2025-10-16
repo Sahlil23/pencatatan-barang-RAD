@@ -103,36 +103,6 @@
                 </button>
               </div>
             </form>
-
-            @if(app()->environment(['local', 'staging']))
-            <div class="divider my-4">
-              <div class="divider-text">Quick Login (Dev)</div>
-            </div>
-            <div class="d-flex gap-2 flex-wrap justify-content-center">
-              <a href="{{ route('quick-login', ['as' => 'admin']) }}" class="btn btn-outline-success btn-sm">
-                <i class="bx bx-user-check me-1"></i>
-                Admin
-              </a>
-              <a href="{{ route('quick-login', ['as' => 'manager.inventory']) }}" class="btn btn-outline-warning btn-sm">
-                <i class="bx bx-user me-1"></i>
-                Manager
-              </a>
-              <a href="{{ route('quick-login', ['as' => 'kasir1']) }}" class="btn btn-outline-info btn-sm">
-                <i class="bx bx-user me-1"></i>
-                Staff
-              </a>
-            </div>
-            @endif
-
-            <!-- Debug Info (hanya untuk development) -->
-            @if(app()->environment('local'))
-            <div class="mt-4 small text-muted">
-              <strong>Debug Info:</strong><br>
-              - CSRF Token: {{ csrf_token() }}<br>
-              - Session ID: {{ session()->getId() }}<br>
-              - Login Route: {{ route('login') }}
-            </div>
-            @endif
           </div>
         </div>
       </div>
