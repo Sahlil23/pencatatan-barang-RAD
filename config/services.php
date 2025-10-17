@@ -34,5 +34,11 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'fonnte' => [
+        'api_url' => env('FONNTE_API_URL', 'https://api.fonnte.com/send'),
+        'token' => env('FONNTE_TOKEN'),
+        'admin_phone' => env('FONNTE_ADMIN_PHONE'),
+        'low_stock_enabled' => env('FONNTE_LOW_STOCK_ENABLED', true),
+    ],
 
 ];

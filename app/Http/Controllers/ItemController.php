@@ -6,6 +6,7 @@ use App\Models\Item;
 use App\Models\Category;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use App\Services\FonnteService;
 
 class ItemController extends Controller
 {
@@ -219,5 +220,51 @@ class ItemController extends Controller
             'items', 'categories', 'suppliers', 'totalItems', 
             'totalStockValue', 'lowStockItems', 'outOfStockItems'
         ));
+    }
+
+    public function sendLowStockNotification()
+    {
+        // Cek permission jika diperlukan
+        // $this->authorize('send-notifications');
+
+        $lowStockItems = Item::lowStock()
+            ->with(['category', 'supplier'])
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'sku' => $item->sku,
+                    'current_stock' => $item->current_stock,
+                    'low_stock_threshold' => $item->low_stock_threshold,
+                    'unit' => $item->unit,
+                    'category' => $item->category->category_name ?? 'N/A',
+                    'supplier' => $item->supplier->supplier_name ?? null,
+                ];
+            })
+            ->toArray();
+
+        if (empty($lowStockItems)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada item dengan stok rendah saat ini.'
+            ]);
+        }
+
+        $fonnteService = app(FonnteService::class);
+        $result = $fonnteService->sendLowStockNotification($lowStockItems);
+
+        if ($result['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Notifikasi WhatsApp berhasil dikirim!',
+                'data' => $result['data']
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim notifikasi: ' . ($result['error'] ?? 'Unknown error')
+            ], 500);
+        }
     }
 }

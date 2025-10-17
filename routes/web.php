@@ -68,6 +68,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/backup/download/{filename}', [App\Http\Controllers\BackupController::class, 'download'])->name('backup.download');
     Route::post('/backup/restore', [App\Http\Controllers\BackupController::class, 'restore'])->name('backup.restore');
     Route::delete('/backup/delete/{filename}', [App\Http\Controllers\BackupController::class, 'delete'])->name('backup.delete');
+
+    Route::post('/items/send-low-stock-notification', [ItemController::class, 'sendLowStockNotification'])->name('items.send-low-stock-notification');
 });
 
 Route::middleware(['auth'])->group(function () {
