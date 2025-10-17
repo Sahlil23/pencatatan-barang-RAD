@@ -6,6 +6,7 @@ use App\Models\StockTransaction;
 use App\Models\Item;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class StockTransactionController extends Controller
 {
@@ -88,6 +89,82 @@ class StockTransactionController extends Controller
 
         return redirect()->route('stock-transactions.index')
             ->with('success', 'Transaksi stok berhasil dicatat!');
+    }
+
+    public function storeMultiple(Request $request)
+    {
+        $request->validate([
+            'transactions' => 'required|array|min:1|max:50',
+            'transactions.*.item_id' => 'required|exists:items,id',
+            'transactions.*.transaction_type' => 'required|in:IN,OUT,ADJUSTMENT',
+            'transactions.*.quantity' => 'required|numeric|min:0.01',
+            'transactions.*.transaction_date' => 'nullable|date',
+            'transactions.*.notes' => 'required|string|max:255',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $createdTransactions = [];
+            $errors = [];
+
+            foreach ($request->transactions as $index => $transactionData) {
+                // Validasi stok untuk OUT transactions
+                if ($transactionData['transaction_type'] === 'OUT') {
+                    $item = Item::find($transactionData['item_id']);
+                    if ($transactionData['quantity'] > $item->current_stock) {
+                        $errors[] = "Baris " . ($index + 1) . ": Stok {$item->item_name} tidak cukup ({$item->current_stock} tersedia)";
+                        continue;
+                    }
+                }
+
+                // Create transaction
+                $transaction = StockTransaction::create([
+                    'item_id' => $transactionData['item_id'],
+                    'user_id' => auth()->id(),
+                    'transaction_type' => $transactionData['transaction_type'],
+                    'quantity' => $transactionData['quantity'],
+                    'notes' => $transactionData['notes'],
+                    'transaction_date' => $transactionData['transaction_date'] ?? now()
+                ]);
+
+                // Update item stock
+                $item = Item::find($transactionData['item_id']);
+                switch ($transactionData['transaction_type']) {
+                    case 'IN':
+                        $item->increment('current_stock', $transactionData['quantity']);
+                        break;
+                    case 'OUT':
+                        $item->decrement('current_stock', $transactionData['quantity']);
+                        break;
+                    case 'ADJUSTMENT':
+                        // Untuk adjustment, quantity adalah nilai baru
+                        $item->update(['current_stock' => $transactionData['quantity']]);
+                        break;
+                }
+
+                $createdTransactions[] = $transaction;
+            }
+
+            // Jika ada errors, rollback semua
+            if (!empty($errors)) {
+                DB::rollback();
+                return redirect()->back()
+                    ->with('error', 'Beberapa transaksi gagal: ' . implode('; ', $errors))
+                    ->withInput();
+            }
+
+            DB::commit();
+
+            $count = count($createdTransactions);
+            return redirect()->route('stock-transactions.index')
+                ->with('success', "{$count} transaksi stok berhasil dicatat!");
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()->back()
+                ->with('error', 'Gagal menyimpan transaksi: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 
     public function show(StockTransaction $stockTransaction)

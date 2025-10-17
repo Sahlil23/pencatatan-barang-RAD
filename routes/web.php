@@ -45,9 +45,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/items/report', [ItemController::class, 'report'])->name('items.report');
     Route::resource('items', ItemController::class);
 
+
     // Stock Transactions
     Route::resource('stock-transactions', StockTransactionController::class)->except(['edit', 'update', 'destroy']);
     Route::get('stock-transactions-report', [StockTransactionController::class, 'report'])->name('stock-transactions.report');
+    Route::post('/stock-transactions/store-multiple', [StockTransactionController::class, 'storeMultiple'])
+         ->name('stock-transactions.store-multiple');
 
     // Profile routes
     Route::get('/profile', [LoginController::class, 'profile'])->name('profile');
