@@ -166,7 +166,7 @@
   </div>
   
   <div class="table-responsive text-nowrap">
-    <table class="table table-hover">
+    <table class="table table-hover" id="itemsTable">
       <thead class="table-light">
         <tr>
           <th style="width: 80px;">
@@ -399,51 +399,29 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Stock adjustment modal
-  window.showStockAdjustment = function(itemId, itemName, currentStock) {
-    document.getElementById('adjustmentItemName').value = itemName;
-    document.getElementById('adjustmentCurrentStock').value = currentStock;
-    document.getElementById('stockAdjustmentForm').action = `/items/${itemId}/adjust-stock`;
-    
-    const modal = new bootstrap.Modal(document.getElementById('stockAdjustmentModal'));
-    modal.show();
-  };
+// Export ke Excel
+function exportToExcel() {
+  const table = document.getElementById('itemsTable');
+  const ws = XLSX.utils.table_to_sheet(table);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Daftar Item');
+  XLSX.writeFile(wb, 'daftar_item_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
 
-  // Export to CSV function
-  window.exportToCSV = function() {
-    const headers = ['SKU', 'Nama Item', 'Kategori', 'Supplier', 'Unit', 'Stok Saat Ini', 'Minimum Stok', 'Status'];
-    const rows = [];
-    
-    @foreach($items as $item)
-    rows.push([
-      '{{ $item->sku }}',
-      '{{ $item->item_name }}',
-      '{{ $item->category->category_name ?? "Tidak ada" }}',
-      '{{ $item->supplier->supplier_name ?? "Tidak ada" }}',
-      '{{ $item->unit }}',
-      '{{ $item->current_stock }}',
-      '{{ $item->low_stock_threshold }}',
-      '{{ $item->stock_status }}'
-    ]);
-    @endforeach
-    
-    let csvContent = headers.join(',') + '\n';
-    rows.forEach(row => {
-      csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-    });
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'items_' + new Date().toISOString().slice(0,10) + '.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-});
+// Stock adjustment modal
+function showStockAdjustment(itemId, itemName, currentStock) {
+  document.getElementById('adjustmentItemName').value = itemName;
+  document.getElementById('adjustmentCurrentStock').value = currentStock;
+  document.getElementById('stockAdjustmentForm').action = `/items/${itemId}/adjust-stock`;
+  
+  const modal = new bootstrap.Modal(document.getElementById('stockAdjustmentModal'));
+  modal.show();
+}
+
+// Load library XLSX untuk export Excel
+const script = document.createElement('script');
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+document.head.appendChild(script);
 </script>
 @endpush
 

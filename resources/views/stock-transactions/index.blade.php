@@ -219,9 +219,9 @@
       Menampilkan {{ $transactions->count() }} dari {{ $transactions->total() }} transaksi
     </h6>
     <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary btn-sm" onclick="exportTransactions()">
+      <button class="btn btn-outline-secondary btn-sm" onclick="exportToExcel()">
         <i class="bx bx-download me-1"></i>
-        Export CSV
+        Export Excel
       </button>
       <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
         <i class="bx bx-printer me-1"></i>
@@ -232,7 +232,7 @@
   
   @if($transactions->count() > 0)
   <div class="table-responsive text-nowrap">
-    <table class="table table-hover">
+    <table class="table table-hover" id="transactionsTable">
       <thead class="table-light">
         <tr>
           <th style="width: 120px;">
@@ -429,16 +429,13 @@
 
 @push('scripts')
 <script>
-// Export function for transactions
-function exportData() {
-  const headers = ['Tanggal', 'Tipe', 'Item', 'SKU', 'Jumlah', 'Catatan', 'User'];
-  const rows = [
-    @foreach($transactions as $transaction)
-    ['{{ $transaction->transaction_date->format("d/m/Y H:i") }}', '{{ $transaction->transaction_type }}', '{{ addslashes($transaction->item->item_name) }}', '{{ $transaction->item->sku }}', '{{ $transaction->quantity }}', '{{ addslashes($transaction->notes) }}', '{{ addslashes($transaction->user->full_name ?? "System") }}'],
-    @endforeach
-  ];
-  
-  downloadCSV('stock_transactions', headers, rows);
+// Export ke Excel
+function exportToExcel() {
+  const table = document.getElementById('transactionsTable');
+  const ws = XLSX.utils.table_to_sheet(table);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Transaksi Stok');
+  XLSX.writeFile(wb, 'transaksi_stok_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
 // Other existing functions...
@@ -447,6 +444,11 @@ function showFullNotes(notes) {
   const modal = new bootstrap.Modal(document.getElementById('fullNotesModal'));
   modal.show();
 }
+
+// Load library XLSX untuk export Excel
+const script = document.createElement('script');
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+document.head.appendChild(script);
 </script>
 @endpush
 

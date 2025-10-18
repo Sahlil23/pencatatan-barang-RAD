@@ -38,9 +38,9 @@
             <i class="bx bx-printer"></i>
             <span class="d-none d-sm-inline ms-1">Print</span>
           </button>
-          <button class="btn btn-outline-success btn-sm" onclick="exportData()" title="Export CSV">
+          <button class="btn btn-outline-success btn-sm" onclick="exportToExcel()" title="Export Excel">
             <i class="bx bx-download"></i>
-            <span class="d-none d-sm-inline ms-1">CSV</span>
+            <span class="d-none d-sm-inline ms-1">Excel</span>
           </button>
         </div>
       </div>
