@@ -13,7 +13,8 @@ class Recipe extends Model
     protected $fillable = [
         'name',
         'slug',
-        'description', 
+        'description',
+        'image',
         'prep_time',
         'cook_time',
         'servings',
@@ -21,125 +22,84 @@ class Recipe extends Model
         'ingredients',
         'instructions',
         'notes',
-        'image',
         'status'
     ];
 
-    // Cast JSON fields
     protected $casts = [
         'ingredients' => 'array',
         'instructions' => 'array',
         'prep_time' => 'integer',
         'cook_time' => 'integer',
-        'servings' => 'integer',
+        'servings' => 'integer'
     ];
 
-    // Accessor untuk ingredients yang sudah diformat
-    public function getFormattedIngredientsAttribute()
+    /**
+     * Boot method to auto-generate slug
+     */
+    protected static function boot()
     {
-        if (!is_array($this->ingredients)) {
-            return [];
-        }
+        parent::boot();
 
-        $formatted = [];
-        
-        foreach ($this->ingredients as $ingredient) {
-            if (is_array($ingredient) && isset($ingredient['item'])) {
-                // Format: "qty unit - item (section)"
-                $text = '';
-                
-                if (isset($ingredient['qty']) && $ingredient['qty'] > 0) {
-                    $text .= number_format($ingredient['qty'], $ingredient['qty'] == (int)$ingredient['qty'] ? 0 : 1);
-                }
-                
-                if (isset($ingredient['unit']) && !empty($ingredient['unit'])) {
-                    $text .= ' ' . $ingredient['unit'];
-                }
-                
-                $text .= ' ' . $ingredient['item'];
-                
-                if (isset($ingredient['section']) && !empty($ingredient['section'])) {
-                    $text .= ' (' . $ingredient['section'] . ')';
-                }
-                
-                $formatted[] = trim($text);
-            } else {
-                // Jika format simple string
-                $formatted[] = is_string($ingredient) ? $ingredient : '';
+        static::creating(function ($recipe) {
+            if (empty($recipe->slug)) {
+                $recipe->slug = static::generateUniqueSlug($recipe->name);
             }
-        }
-        
-        return $formatted;
+        });
+
+        static::updating(function ($recipe) {
+            if ($recipe->isDirty('name')) {
+                $recipe->slug = static::generateUniqueSlug($recipe->name, $recipe->id);
+            }
+        });
     }
 
-    // Accessor untuk instructions yang sudah diformat
-    public function getFormattedInstructionsAttribute()
+    /**
+     * Generate unique slug
+     */
+    public static function generateUniqueSlug($name, $excludeId = null)
     {
-        if (!is_array($this->instructions)) {
-            return [];
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        $counter = 1;
+
+        while (true) {
+            $query = static::where('slug', $slug);
+            
+            if ($excludeId) {
+                $query->where('id', '!=', $excludeId);
+            }
+            
+            if (!$query->exists()) {
+                break;
+            }
+            
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
         }
 
-        $formatted = [];
-        
-        foreach ($this->instructions as $instruction) {
-            if (is_array($instruction) && isset($instruction['step'])) {
-                $formatted[] = $instruction['step'];
-            } else {
-                $formatted[] = is_string($instruction) ? $instruction : '';
-            }
-        }
-        
-        return $formatted;
+        return $slug;
     }
 
-    // Helper untuk grouping ingredients by section
-    public function getIngredientsBySectionAttribute()
-    {
-        if (!is_array($this->ingredients)) {
-            return [];
-        }
-
-        $grouped = [];
-        
-        foreach ($this->ingredients as $ingredient) {
-            if (is_array($ingredient) && isset($ingredient['item'])) {
-                $section = $ingredient['section'] ?? 'Bahan Utama';
-                
-                if (!isset($grouped[$section])) {
-                    $grouped[$section] = [];
-                }
-                
-                $text = '';
-                if (isset($ingredient['qty']) && $ingredient['qty'] > 0) {
-                    $text .= number_format($ingredient['qty'], $ingredient['qty'] == (int)$ingredient['qty'] ? 0 : 1);
-                }
-                
-                if (isset($ingredient['unit']) && !empty($ingredient['unit'])) {
-                    $text .= ' ' . $ingredient['unit'];
-                }
-                
-                $text .= ' ' . $ingredient['item'];
-                
-                $grouped[$section][] = trim($text);
-            }
-        }
-        
-        return $grouped;
-    }
-
-    // Scopes
+    /**
+     * Scope for published recipes
+     */
     public function scopePublished($query)
     {
         return $query->where('status', 'published');
     }
 
-    // Other accessors
+    /**
+     * Get total cooking time
+     */
     public function getTotalTimeAttribute()
     {
         return $this->prep_time + $this->cook_time;
     }
 
-    public function getDifficultyBadgeAttribute()
+    /**
+     * Get difficulty badge color
+     */
+    public function getDifficultyColorAttribute()
     {
         switch ($this->difficulty) {
             case 'mudah':
@@ -149,7 +109,27 @@ class Recipe extends Model
             case 'sulit':
                 return 'danger';
             default:
-                return 'primary';
+                return 'secondary';
         }
+    }
+
+    /**
+     * Get image URL
+     */
+    public function getImageUrlAttribute()
+    {
+        if ($this->image) {
+            return asset('storage/' . $this->image);
+        }
+        
+        return asset('assets/img/no-image.png'); // Default image
+    }
+
+    /**
+     * Get route key name for model binding
+     */
+    public function getRouteKeyName()
+    {
+        return 'slug';
     }
 }

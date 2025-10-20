@@ -87,6 +87,9 @@ class RecipeController extends Controller
 
         $data = $request->all();
 
+        // Generate unique slug
+        $data['slug'] = $this->generateUniqueSlug($request->name);
+
         // Handle image upload
         if ($request->hasFile('image')) {
             $image = $request->file('image');
@@ -126,6 +129,11 @@ class RecipeController extends Controller
 
         $data = $request->all();
 
+        // Generate new slug if name changed
+        if ($request->name !== $recipe->name) {
+            $data['slug'] = $this->generateUniqueSlug($request->name, $recipe->id);
+        }
+
         // Handle image upload
         if ($request->hasFile('image')) {
             // Delete old image
@@ -143,6 +151,34 @@ class RecipeController extends Controller
 
         return redirect()->route('recipes.index')
             ->with('success', 'Resep berhasil diupdate!');
+    }
+
+    /**
+     * Generate unique slug for recipe
+     */
+    private function generateUniqueSlug($name, $excludeId = null)
+    {
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        $counter = 1;
+
+        // Check if slug exists
+        while (true) {
+            $query = Recipe::where('slug', $slug);
+            
+            if ($excludeId) {
+                $query->where('id', '!=', $excludeId);
+            }
+            
+            if (!$query->exists()) {
+                break;
+            }
+            
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
     }
 
     public function destroy(Recipe $recipe)

@@ -179,9 +179,9 @@
             @endif
             <div class="card-overlay">
               <div class="recipe-meta">
-                <span class="badge bg-{{ $recipe->difficulty_badge }} mb-2">
+                <!-- <span class="badge bg-{{ $recipe->difficulty_badge }} mb-2">
                   {{ ucfirst($recipe->difficulty) }}
-                </span>
+                </span> -->
                 <div class="time-info text-white">
                   <small>
                     <i class="bx bx-time me-1"></i>
