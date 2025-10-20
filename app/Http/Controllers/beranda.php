@@ -1,11 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Item;
 use App\Models\Category;
 use App\Models\Supplier;
 use App\Models\StockTransaction;
-
+use Carbon\Carbon;
 
 class beranda extends Controller
 {
@@ -38,16 +39,47 @@ class beranda extends Controller
             ->whereDate('created_at', today())
             ->sum('quantity');
 
-        // Monthly chart data
-        $monthlyData = StockTransaction::selectRaw('
+        // This month's transactions summary
+        $monthStockIn = StockTransaction::stockIn()
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('quantity');
+
+        $monthStockOut = StockTransaction::stockOut()
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('quantity');
+
+        // Monthly chart data - daily breakdown for current month
+        $monthlyChartData = StockTransaction::selectRaw('
                 DATE(created_at) as date,
                 transaction_type,
                 SUM(quantity) as total
             ')
             ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
             ->groupBy('date', 'transaction_type')
             ->orderBy('date')
-            ->get();
+            ->get()
+            ->groupBy('date');
+
+        // Prepare data for ApexCharts
+        $monthlyDates = [];
+        $monthlyStockIn = [];
+        $monthlyStockOut = [];
+
+        // Get all dates in current month
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+
+        for ($date = $startOfMonth->copy(); $date->lte($endOfMonth); $date->addDay()) {
+            $dateStr = $date->format('Y-m-d');
+            $monthlyDates[] = $date->format('d/m');
+
+            $dayData = $monthlyChartData->get($dateStr, collect());
+            $monthlyStockIn[] = $dayData->where('transaction_type', 'IN')->sum('total');
+            $monthlyStockOut[] = $dayData->where('transaction_type', 'OUT')->sum('total');
+        }
 
         // Stock by category
         $stockByCategory = Category::withSum('items', 'current_stock')
@@ -56,14 +88,18 @@ class beranda extends Controller
 
         return view('index', compact(
             'totalItems',
-            'totalCategories', 
+            'totalCategories',
             'totalSuppliers',
             'lowStockItems',
             'recentTransactions',
             'lowStockItemsList',
             'todayStockIn',
             'todayStockOut',
-            'monthlyData',
+            'monthStockIn',
+            'monthStockOut',
+            'monthlyDates',
+            'monthlyStockIn',
+            'monthlyStockOut',
             'stockByCategory'
         ));
     }

@@ -11,7 +11,7 @@
               Sistem inventory terintegrasi untuk mengelola stok dengan mudah. 
               Hari ini ada <span class="fw-bold">{{ $todayStockIn + $todayStockOut }}</span> transaksi stok.
             </p>
-            <a href="#" class="btn btn-sm btn-outline-primary">Lihat Detail</a>
+            <a href="{{ route('stock-transactions.index') }}" class="btn btn-sm btn-outline-primary">Lihat Detail</a>
           </div>
         </div>
         <div class="col-sm-5 text-center text-sm-left">
@@ -159,21 +159,32 @@
               class="nav-link active"
               role="tab"
               data-bs-toggle="tab"
-              data-bs-target="#navs-tabs-line-card-stock"
-              aria-controls="navs-tabs-line-card-stock"
+              data-bs-target="#navs-tabs-line-card-stock-today"
+              aria-controls="navs-tabs-line-card-stock-today"
               aria-selected="true"
             >
               Today's Stock
             </button>
           </li>
           <li class="nav-item">
-            <button type="button" class="nav-link" role="tab">This Month</button>
+            <button 
+              type="button" 
+              class="nav-link" 
+              role="tab"
+              data-bs-toggle="tab"
+              data-bs-target="#navs-tabs-line-card-stock-month"
+              aria-controls="navs-tabs-line-card-stock-month"
+              aria-selected="false"
+            >
+              This Month
+            </button>
           </li>
         </ul>
       </div>
       <div class="card-body px-0">
         <div class="tab-content p-0">
-          <div class="tab-pane fade show active" id="navs-tabs-line-card-stock" role="tabpanel">
+          <!-- Today's Stock Tab -->
+          <div class="tab-pane fade show active" id="navs-tabs-line-card-stock-today" role="tabpanel">
             <div class="d-flex p-4 pt-3">
               <div class="avatar flex-shrink-0 me-3">
                 <img src="{{ asset('assets/img/icons/unicons/wallet.png') }}" alt="Stock" />
@@ -189,7 +200,7 @@
                 </div>
               </div>
             </div>
-            <div id="stockMovementChart"></div>
+            <div id="stockMovementChartToday"></div>
             <div class="d-flex justify-content-center pt-4 gap-4">
               <div class="d-flex flex-column align-items-center">
                 <h6 class="mb-0 text-success">+{{ number_format($todayStockIn) }}</h6>
@@ -201,11 +212,42 @@
               </div>
             </div>
           </div>
+
+          <!-- This Month Tab -->
+          <div class="tab-pane fade" id="navs-tabs-line-card-stock-month" role="tabpanel">
+            <div class="d-flex p-4 pt-3">
+              <div class="avatar flex-shrink-0 me-3">
+                <img src="{{ asset('assets/img/icons/unicons/wallet.png') }}" alt="Stock" />
+              </div>
+              <div>
+                <small class="text-muted d-block">Stock Movement This Month</small>
+                <div class="d-flex align-items-center">
+                  <h6 class="mb-0 me-1">{{ $monthStockIn - $monthStockOut }}</h6>
+                  <small class="{{ ($monthStockIn - $monthStockOut) >= 0 ? 'text-success' : 'text-danger' }} fw-semibold">
+                    <i class="bx {{ ($monthStockIn - $monthStockOut) >= 0 ? 'bx-chevron-up' : 'bx-chevron-down' }}"></i>
+                    {{ $monthStockIn + $monthStockOut > 0 ? number_format((($monthStockIn - $monthStockOut) / ($monthStockIn + $monthStockOut)) * 100, 1) : 0 }}%
+                  </small>
+                </div>
+              </div>
+            </div>
+            <div id="stockMovementChartMonth"></div>
+            <div class="d-flex justify-content-center pt-4 gap-4">
+              <div class="d-flex flex-column align-items-center">
+                <h6 class="mb-0 text-success">+{{ number_format($monthStockIn) }}</h6>
+                <small class="text-muted">Stock In</small>
+              </div>
+              <div class="d-flex flex-column align-items-center">
+                <h6 class="mb-0 text-danger">-{{ number_format($monthStockOut) }}</h6>
+                <small class="text-muted">Stock Out</small>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
   <!--/ Today's Stock Movement -->
+
 
   <!-- Recent Transactions -->
   <div class="col-md-6 col-lg-4 order-2 mb-4">
@@ -298,7 +340,148 @@
   </div>
 </div>
 @endif
+<!-- Custom Charts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Stock by Category Chart
+  @if(isset($stockByCategory) && $stockByCategory->count() > 0)
+  const stockByCategoryChart = document.querySelector('#stockByCategoryChart');
+  if (stockByCategoryChart) {
+    const stockByCategoryConfig = {
+      series: [{{ $stockByCategory->pluck('items_sum_current_stock')->implode(',') }}],
+      labels: {!! $stockByCategory->pluck('category_name')->toJson() !!},
+      chart: {
+        height: 165,
+        type: 'donut'
+      },
+      legend: {
+        show: false
+      },
+      dataLabels: {
+        enabled: false
+      },
+      stroke: {
+        width: 2
+      },
+      colors: ['#696cff', '#28c76f', '#ff9f43', '#ea5455']
+    };
 
+    const stockChart = new ApexCharts(stockByCategoryChart, stockByCategoryConfig);
+    stockChart.render();
+  }
+  @endif
+
+  // Stock Movement Chart - Today
+  const stockMovementChartToday = document.querySelector('#stockMovementChartToday');
+  if (stockMovementChartToday) {
+    const stockMovementConfigToday = {
+      series: [{
+        name: 'Stock In',
+        data: [{{ $todayStockIn }}]
+      }, {
+        name: 'Stock Out',
+        data: [{{ $todayStockOut }}]
+      }],
+      chart: {
+        height: 140,
+        type: 'bar',
+        toolbar: {
+          show: false
+        }
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: '55%',
+          endingShape: 'rounded'
+        },
+      },
+      dataLabels: {
+        enabled: false
+      },
+      colors: ['#28c76f', '#ea5455'],
+      xaxis: {
+        categories: ['Today'],
+        labels: {
+          show: false
+        }
+      },
+      grid: {
+        show: false
+      }
+    };
+
+    const movementChartToday = new ApexCharts(stockMovementChartToday, stockMovementConfigToday);
+    movementChartToday.render();
+  }
+
+  // Stock Movement Chart - This Month
+  const stockMovementChartMonth = document.querySelector('#stockMovementChartMonth');
+  if (stockMovementChartMonth) {
+    const stockMovementConfigMonth = {
+      series: [{
+        name: 'Stock In',
+        data: {!! json_encode($monthlyStockIn) !!}
+      }, {
+        name: 'Stock Out',
+        data: {!! json_encode($monthlyStockOut) !!}
+      }],
+      chart: {
+        height: 140,
+        type: 'area',
+        toolbar: {
+          show: false
+        }
+      },
+      dataLabels: {
+        enabled: false
+      },
+      colors: ['#28c76f', '#ea5455'],
+      stroke: {
+        curve: 'smooth',
+        width: 2
+      },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shade: 'light',
+          type: 'vertical',
+          opacityFrom: 0.4,
+          opacityTo: 0.1,
+        }
+      },
+      xaxis: {
+        categories: {!! json_encode($monthlyDates) !!},
+        labels: {
+          show: true,
+          rotate: -45,
+          style: {
+            fontSize: '10px'
+          }
+        }
+      },
+      yaxis: {
+        labels: {
+          formatter: function(value) {
+            return value.toFixed(0);
+          }
+        }
+      },
+      grid: {
+        show: false
+      },
+      tooltip: {
+        x: {
+          format: 'dd/MM/yyyy'
+        }
+      }
+    };
+
+    const movementChartMonth = new ApexCharts(stockMovementChartMonth, stockMovementConfigMonth);
+    movementChartMonth.render();
+  }
+});
+</script>
 <!-- Custom Charts -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {

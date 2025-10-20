@@ -1,5 +1,5 @@
+{{-- resources/views/layouts/admin.blade.php --}}
 <!DOCTYPE html>
-
 <html
   lang="en"
   class="light-style layout-menu-fixed"
@@ -64,7 +64,6 @@
               <span class="app-brand-logo demo">
                 <img src="{{ asset('assets/img/chicking-logo-bjm.png') }}" alt="Chicking Logo" width="180" height="120" />
               </span>
-              <!-- <span class="app-brand-text demo menu-text fw-bolder ms-2">BANJARMASIN</span> -->
             </a>
 
             <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -83,7 +82,7 @@
               </a>
             </li>
 
-                        <!-- Inventory Management -->
+            <!-- Inventory Management -->
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Inventory</span>
             </li>
@@ -147,7 +146,6 @@
                 </li>
               </ul>
             </li>
-
 
             <!-- Master Data -->
             <li class="menu-header small text-uppercase">
@@ -219,6 +217,7 @@
               </ul>
             </li>
 
+            <!-- Backup -->
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Backup</span>
             </li>
@@ -228,14 +227,15 @@
                 <div data-i18n="Backup">Backup</div>
               </a>
               <ul class="menu-sub">
-              <li class="menu-item">
-                <a href="{{ route('backup.index') }}" class="menu-link">
-                  <i class="menu-icon tf-icons bx bx-hdd"></i>
-                  <div data-i18n="Database Backup">Database Backup</div>
-                </a>
-              </li>
+                <li class="menu-item">
+                  <a href="{{ route('backup.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-hdd"></i>
+                    <div data-i18n="Database Backup">Database Backup</div>
+                  </a>
+                </li>
               </ul>
             </li>
+
             <!-- User Management - Admin Only -->
             @if(Auth::user()->isAdmin())
             <li class="menu-header small text-uppercase">
@@ -248,90 +248,49 @@
               </a>
             </li>
             @endif
-          </ul>
+
+            <li class="menu-header small text-uppercase">
+              <span class="menu-header-text">Account</span>
+            </li>
+            <li class="menu-item {{ request()->routeIs('backup.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-user"></i>
+                <div data-i18n="Account">Account</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item">
+                  <a href="{{ route('profile') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-user"></i>
+                    <div data-i18n="Profile">Profile</div>
+                  </a>
+                </li>
+                            <li class="menu-item">
+              <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                @csrf
+                <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent" style="padding: 0.625rem 1rem;">
+                  <i class="menu-icon tf-icons bx bx-power-off"></i>
+                  <div data-i18n="Logout">Logout</div>
+                </button>
+              </form>
+            </li>
+              </ul>
+            </li>
+            <!-- Logout -->
+              <!-- <li class="menu-item">
+                <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                  @csrf
+                  <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent" style="padding: 0.625rem 1rem;">
+                    <i class="menu-icon tf-icons bx bx-power-off"></i>
+                    <div data-i18n="Logout">Logout</div>
+                  </button>
+                </form>
+              </li>
+            </ul> -->
         </aside>
         <!-- / Menu -->
- 
+
         <!-- Layout container -->
         <div class="layout-page">
-          <!-- Navbar -->
-          <nav
-            class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-            id="layout-navbar"
-          >
-            <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-              <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                <i class="bx bx-menu bx-sm"></i>
-              </a>
-            </div>
-
-            <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-              <!-- Search -->
-              <div class="navbar-nav align-items-center">
-                <div class="nav-item d-flex align-items-center">
-                  <i class="bx bx-search fs-4 lh-0"></i>
-                  <input
-                    type="text"
-                    class="form-control border-0 shadow-none"
-                    placeholder="Search..."
-                    aria-label="Search..."
-                  />
-                </div>
-              </div>
-              <!-- /Search -->
-
-              <ul class="navbar-nav flex-row align-items-center ms-auto">
-                <!-- User -->
-                <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                  <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
-                    <div class="avatar avatar-online">
-                      <img src="{{ asset('assets/img/avatars/1.png') }}" alt class="w-px-40 h-auto rounded-circle" />
-                    </div>
-                  </a>
-                  <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                      <a class="dropdown-item" href="#">
-                        <div class="d-flex">
-                          <div class="flex-shrink-0 me-3">
-                            <div class="avatar avatar-online">
-                              <img src="{{ asset('assets/img/avatars/1.png') }}" alt class="w-px-40 h-auto rounded-circle" />
-                            </div>
-                          </div>
-                          <div class="flex-grow-1">
-                            <span class="fw-semibold d-block">Admin</span>
-                            <small class="text-muted">Administrator</small>
-                          </div>
-                        </div>
-                      </a>
-                    </li>
-                    <li>
-                      <div class="dropdown-divider"></div>
-                    </li>
-                    <li>
-                      <a class="dropdown-item" href="{{ route('profile') }}">
-                        <i class="bx bx-user me-2"></i>
-                        <span class="align-middle">My Profile</span>
-                      </a>
-                    </li>
-
-                    <!-- Logout Link - Fix this -->
-                    <li>
-                      <form action="{{ route('logout') }}" method="POST" style="display: inline;">
-                        @csrf
-                        <button type="submit" class="dropdown-item" style="border: none; background: none; width: 100%; text-align: left;">
-                          <i class="bx bx-power-off me-2"></i>
-                          <span class="align-middle">Log Out</span>
-                        </button>
-                      </form>
-                    </li>
-                  </ul>
-                </li>
-                <!--/ User -->
-              </ul>
-            </div>
-          </nav>
-          <!-- / Navbar -->
-
           <!-- Content wrapper -->
           <div class="content-wrapper">
             <!-- Content -->
@@ -352,78 +311,80 @@
                 </div>
               </div>
             </footer>
+          </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="layout-overlay layout-menu-toggle"></div>
       </div>
+      <!-- / Layout wrapper -->
 
-      <!-- Overlay -->
-      <div class="layout-overlay layout-menu-toggle"></div>
-    </div>
-    <!-- / Layout wrapper -->
-
-    <!-- Success/Error Messages -->
-    @if(session('success'))
-    <div class="bs-toast toast toast-placement-ex m-3 bg-success top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
-      <div class="toast-header">
-        <i class="bx bx-bell me-2"></i>
-        <div class="me-auto fw-semibold">Success</div>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      <!-- Success/Error Messages -->
+      @if(session('success'))
+      <div class="bs-toast toast toast-placement-ex m-3 bg-success top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <i class="bx bx-bell me-2"></i>
+          <div class="me-auto fw-semibold">Success</div>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          {{ session('success') }}
+        </div>
       </div>
-      <div class="toast-body">
-        {{ session('success') }}
+      @endif
+
+      @if(session('error'))
+      <div class="bs-toast toast toast-placement-ex m-3 bg-danger top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <i class="bx bx-bell me-2"></i>
+          <div class="me-auto fw-semibold">Error</div>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          {{ session('error') }}
+        </div>
       </div>
-    </div>
-    @endif
+      @endif
 
-    @if(session('error'))
-    <div class="bs-toast toast toast-placement-ex m-3 bg-danger top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
-      <div class="toast-header">
-        <i class="bx bx-bell me-2"></i>
-        <div class="me-auto fw-semibold">Error</div>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
-      <div class="toast-body">
-        {{ session('error') }}
-      </div>
-    </div>
-    @endif
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
-    <!-- Select2 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <!-- Core JS -->
-    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
-    <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
-    <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js') }}"></script>
-    <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
-
-    <!-- Vendors JS -->
-    <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
-
-    <!-- Main JS -->
-    <script src="{{ asset('assets/js/main.js') }}"></script>
-
-    @stack('scripts')
-    <script>
-    // Global CSV Download Function
-    function downloadCSV(filename, headers, rows) {
-      let csvContent = headers.join(',') + '\n';
-      rows.forEach(row => {
-        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-      });
+      <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
       
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      
-      link.setAttribute('href', url);
-      link.setAttribute('download', filename + '_' + new Date().toISOString().slice(0,10) + '.csv');
-      link.style.visibility = 'hidden';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-    </script>
-  </body>
-</html>
+      <!-- Select2 JS -->
+      <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+      <!-- Core JS -->
+      <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
+      <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
+      <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
+      <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js') }}"></script>
+      <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
 
+      <!-- Vendors JS -->
+      <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+
+      <!-- Main JS -->
+      <script src="{{ asset('assets/js/main.js') }}"></script>
+
+      @stack('scripts')
+      <script>
+      // Global CSV Download Function
+      function downloadCSV(filename, headers, rows) {
+        let csvContent = headers.join(',') + '\n';
+        rows.forEach(row => {
+          csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename + '_' + new Date().toISOString().slice(0,10) + '.csv');
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      </script>
+    </body>
+  </html>
+ 
