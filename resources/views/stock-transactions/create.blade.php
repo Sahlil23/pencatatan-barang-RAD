@@ -425,7 +425,7 @@
             <div class="alert alert-info">
               <i class="bx bx-info-circle me-2"></i>
               <strong>Multiple Transactions:</strong> Input beberapa transaksi sekaligus untuk efisiensi.
-              Setiap baris akan divalidasi secara terpisak.
+              Setiap baris akan divalidasi secara terpisahh.
             </div>
             
             <form action="{{ route('stock-transactions.store-multiple') }}" method="POST" id="multipleTransactionForm">

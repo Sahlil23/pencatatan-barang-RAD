@@ -117,27 +117,16 @@
         </h5>
       </div>
       <div class="card-body">
-        @if($recipe->ingredients_by_section && count($recipe->ingredients_by_section) > 0)
-          <!-- Grouped by Section -->
-          @foreach($recipe->ingredients_by_section as $section => $ingredients)
-            <div class="ingredient-section mb-4">
-              <h6 class="text-primary mb-2">{{ $section }}</h6>
-              <div class="ingredients-list">
-                @foreach($ingredients as $ingredient)
-                  <div class="ingredient-item">
-                    <label class="form-check-label">
-                      <input type="checkbox" class="form-check-input me-2">
-                      {{ $ingredient }}
-                    </label>
-                  </div>
-                @endforeach
-              </div>
-            </div>
-          @endforeach
-        @else
-          <!-- Simple List -->
+        @php
+          $ingredients = $recipe->ingredients ?? [];
+          if (is_string($ingredients)) {
+              $ingredients = json_decode($ingredients, true) ?? [];
+          }
+        @endphp
+
+        @if(!empty($ingredients) && is_array($ingredients))
           <div class="ingredients-list">
-            @foreach($recipe->formatted_ingredients as $ingredient)
+            @foreach($ingredients as $ingredient)
               <div class="ingredient-item">
                 <label class="form-check-label">
                   <input type="checkbox" class="form-check-input me-2">
@@ -145,6 +134,11 @@
                 </label>
               </div>
             @endforeach
+          </div>
+        @else
+          <div class="text-muted text-center py-4">
+            <i class="bx bx-info-circle" style="font-size: 2rem;"></i>
+            <p class="mt-2">Belum ada bahan yang ditambahkan</p>
           </div>
         @endif
       </div>
@@ -161,18 +155,32 @@
         </h5>
       </div>
       <div class="card-body">
-        <div class="instructions-list">
-          @foreach($recipe->formatted_instructions as $index => $instruction)
-            <div class="instruction-step">
-              <div class="step-number">
-                {{ $index + 1 }}
+        @php
+          $instructions = $recipe->instructions ?? [];
+          if (is_string($instructions)) {
+              $instructions = json_decode($instructions, true) ?? [];
+          }
+        @endphp
+
+        @if(!empty($instructions) && is_array($instructions))
+          <div class="instructions-list">
+            @foreach($instructions as $index => $instruction)
+              <div class="instruction-step">
+                <div class="step-number">
+                  {{ $index + 1 }}
+                </div>
+                <div class="step-content">
+                  <p class="mb-0">{{ $instruction }}</p>
+                </div>
               </div>
-              <div class="step-content">
-                <p class="mb-0">{{ $instruction }}</p>
-              </div>
-            </div>
-          @endforeach
-        </div>
+            @endforeach
+          </div>
+        @else
+          <div class="text-muted text-center py-4">
+            <i class="bx bx-info-circle" style="font-size: 2rem;"></i>
+            <p class="mt-2">Belum ada instruksi yang ditambahkan</p>
+          </div>
+        @endif
       </div>
     </div>
   </div>
