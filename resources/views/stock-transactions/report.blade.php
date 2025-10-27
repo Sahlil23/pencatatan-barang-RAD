@@ -37,7 +37,7 @@
             </p>
           </div>
           <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+            <button class="btn btn-outline-secondary btn-sm" onclick="openPrintWindow()">
               <i class="bx bx-printer me-1"></i>
               Print
             </button>
@@ -462,6 +462,20 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+function openPrintWindow() {
+    const currentUrl = window.location.href;
+    const printUrl = '{{ route("stock-transactions.print-report") }}' + window.location.search;
+    
+    // Buka di tab baru
+    const printWindow = window.open(printUrl, '_blank');
+    
+    // Auto print setelah page load (optional)
+    printWindow.onload = function() {
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    };
+  }
 document.addEventListener('DOMContentLoaded', function() {
   // Daily transactions chart
   const ctx = document.getElementById('dailyChart').getContext('2d');

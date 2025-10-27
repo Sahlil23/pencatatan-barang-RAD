@@ -222,6 +222,89 @@ class ItemController extends Controller
         ));
     }
 
+    /**
+     * Generate halaman print profesional untuk laporan stock
+     */
+    public function printReport(Request $request)
+    {
+        // dd('Print report method called', $request->all());  
+        $query = Item::with(['category', 'supplier']);
+
+        // Apply same filters as report method
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+
+        if ($request->filled('stock_status')) {
+            switch ($request->stock_status) {
+                case 'low':
+                    $query->lowStock();
+                    break;
+                case 'out':
+                    $query->outOfStock();
+                    break;
+                case 'in':
+                    $query->inStock();
+                    break;
+            }
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('item_name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%");
+            });
+        }
+
+        // Sorting
+        $sortBy = $request->get('sort_by', 'item_name');
+        $sortOrder = $request->get('sort_order', 'asc');
+        
+        if ($sortBy === 'stock') {
+            $query->orderBy('current_stock', $sortOrder);
+        } elseif ($sortBy === 'category') {
+            $query->join('categories', 'items.category_id', '=', 'categories.id')
+                  ->orderBy('categories.category_name', $sortOrder)
+                  ->select('items.*');
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+
+        $items = $query->get();
+        $categories = Category::all();
+        $suppliers = Supplier::all();
+
+        // Statistics
+        $totalItems = $items->count();
+        $totalStockValue = $items->sum('current_stock');
+        $lowStockItems = $items->filter(function($item) {
+            return $item->current_stock <= $item->low_stock_threshold && $item->current_stock > 0;
+        })->count();
+        $outOfStockItems = $items->filter(function($item) {
+            return $item->current_stock <= 0;
+        })->count();
+
+        // Filter info for display
+        $filterInfo = [
+            'category' => $request->category_id ? Category::find($request->category_id)?->category_name : null,
+            'supplier' => $request->supplier_id ? Supplier::find($request->supplier_id)?->supplier_name : null,
+            'stock_status' => $request->stock_status,
+            'search' => $request->search,
+            'sort_by' => $sortBy,
+            'sort_order' => $sortOrder
+        ];
+
+        return view('items.print-report', compact(
+            'items', 'categories', 'suppliers', 'totalItems', 
+            'totalStockValue', 'lowStockItems', 'outOfStockItems', 'filterInfo'
+        ));
+    }
+
     public function sendLowStockNotification()
     {
         // Cek permission jika diperlukan

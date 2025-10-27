@@ -205,7 +205,7 @@
             <i class="bx bx-download me-1"></i>
             Export Excel
           </button>
-          <button type="button" class="btn btn-info" onclick="printReport()">
+          <button type="button" class="btn btn-info" onclick="openPrintWindow()">
             <i class="bx bx-printer me-1"></i>
             Print
           </button>
@@ -317,6 +317,21 @@ function exportToExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Laporan Stock');
   XLSX.writeFile(wb, 'laporan_stock_akhir_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+function openPrintWindow() {
+  const currentUrl = window.location.href;
+  const printUrl = '{{ route("items.print-report") }}' + window.location.search;
+  
+  // Buka di tab baru
+  const printWindow = window.open(printUrl, '_blank');
+  
+  // Auto print setelah page load (optional)
+  printWindow.onload = function() {
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
 }
 
 // Print laporan

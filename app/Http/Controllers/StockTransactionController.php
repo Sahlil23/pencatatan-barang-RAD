@@ -211,7 +211,7 @@ class StockTransactionController extends Controller
                 SUM(quantity) as total_quantity,
                 COUNT(*) as transaction_count
             ')
-            ->with('item')
+            ->with('item.category')
             ->whereBetween('created_at', [$startDate, $endDate])
             ->groupBy('item_id')
             ->orderBy('total_quantity', 'desc')
@@ -219,6 +219,64 @@ class StockTransactionController extends Controller
             ->get();
 
         return view('stock-transactions.report', compact(
+            'stockIn', 
+            'stockOut', 
+            'dailyTransactions', 
+            'topItems',
+            'startDate',
+            'endDate'
+        ));
+    }
+
+    /**
+     * Generate halaman print profesional untuk laporan transaksi stok
+     */
+    public function printReport(Request $request)
+    {
+        $startDate = $request->filled('start_date') ? 
+            Carbon::parse($request->start_date) : 
+            Carbon::now()->startOfMonth();
+            
+        $endDate = $request->filled('end_date') ? 
+            Carbon::parse($request->end_date) : 
+            Carbon::now()->endOfMonth();
+
+        // Stock In/Out Summary
+        $stockIn = StockTransaction::stockIn()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->sum('quantity');
+
+        $stockOut = StockTransaction::stockOut()
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->sum('quantity');
+
+        // Daily transactions
+        $dailyTransactions = StockTransaction::selectRaw('
+                DATE(created_at) as date,
+                transaction_type,
+                SUM(quantity) as total_quantity,
+                COUNT(*) as transaction_count
+            ')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->groupBy('date', 'transaction_type')
+            ->orderBy('date', 'desc')
+            ->get()
+            ->groupBy('date');
+
+        // Top items by transaction volume
+        $topItems = StockTransaction::selectRaw('
+                item_id,
+                SUM(quantity) as total_quantity,
+                COUNT(*) as transaction_count
+            ')
+            ->with('item.category')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->groupBy('item_id')
+            ->orderBy('total_quantity', 'desc')
+            ->take(10)
+            ->get();
+
+        return view('stock-transactions.print-report', compact(
             'stockIn', 
             'stockOut', 
             'dailyTransactions', 

@@ -43,12 +43,14 @@ Route::middleware('auth')->group(function () {
     Route::get('items-low-stock', [ItemController::class, 'lowStock'])->name('items.low-stock');
     Route::post('items/{item}/adjust-stock', [ItemController::class, 'adjustStock'])->name('items.adjust-stock');
     Route::get('/items/report', [ItemController::class, 'report'])->name('items.report');
+    Route::get('/items/print-report', [ItemController::class, 'printReport'])->name('items.print-report');
     Route::resource('items', ItemController::class);
 
 
     // Stock Transactions
-    Route::resource('stock-transactions', StockTransactionController::class)->except(['edit', 'update', 'destroy']);
     Route::get('stock-transactions-report', [StockTransactionController::class, 'report'])->name('stock-transactions.report');
+    Route::get('/stock-transactions/print-report', [StockTransactionController::class, 'printReport'])->name('stock-transactions.print-report'); // Tambah route ini
+    Route::resource('stock-transactions', StockTransactionController::class)->except(['edit', 'update', 'destroy']);
     Route::post('/stock-transactions/store-multiple', [StockTransactionController::class, 'storeMultiple'])
          ->name('stock-transactions.store-multiple');
 
