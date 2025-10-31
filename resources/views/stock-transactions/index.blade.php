@@ -131,11 +131,11 @@
   <div class="card-body">
     <!-- Filter Form -->
     <form method="GET" action="{{ route('stock-transactions.index') }}" class="row g-3 mb-4">
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label">Dari Tanggal</label>
         <input type="date" class="form-control" name="start_date" value="{{ request('start_date') }}">
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label">Sampai Tanggal</label>
         <input type="date" class="form-control" name="end_date" value="{{ request('end_date') }}">
       </div>
@@ -148,7 +148,7 @@
           <option value="ADJUSTMENT" {{ request('transaction_type') == 'ADJUSTMENT' ? 'selected' : '' }}>Penyesuaian</option>
         </select>
       </div>
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label">Item</label>
         <select class="form-select" name="item_id">
           <option value="">Semua Item</option>
@@ -159,7 +159,18 @@
           @endforeach
         </select>
       </div>
-      <div class="col-md-1">
+      <div class="col-md-2">
+        <label class="form-label">Supplier</label>
+        <select class="form-select" name="supplier_id">
+          <option value="">Semua Supplier</option>
+          @foreach($suppliers as $supplier)
+          <option value="{{ $supplier->id }}" {{ request('supplier_id') == $supplier->id ? 'selected' : '' }}>
+            {{ $supplier->supplier_name }}
+          </option>
+          @endforeach
+        </select>
+      </div>
+      <div class="col-md-2">
         <label class="form-label">&nbsp;</label>
         <div class="d-flex gap-1">
           <button type="submit" class="btn btn-primary btn-sm">
@@ -173,7 +184,7 @@
     </form>
 
     <!-- Active Filters Display -->
-    @if(request()->hasAny(['start_date', 'end_date', 'transaction_type', 'item_id']))
+    @if(request()->hasAny(['start_date', 'end_date', 'transaction_type', 'item_id', 'supplier_id']))
     <div class="d-flex flex-wrap gap-2 mb-3">
       <span class="text-muted me-2">Filter aktif:</span>
       @if(request('start_date'))
@@ -204,6 +215,16 @@
           <i class="bx bx-package me-1"></i>
           {{ $selectedItem->item_name }}
           <a href="{{ request()->fullUrlWithQuery(['item_id' => null]) }}" class="text-decoration-none ms-1">×</a>
+        </span>
+        @endif
+      @endif
+      @if(request('supplier_id'))
+        @php $selectedSupplier = $suppliers->find(request('supplier_id')); @endphp
+        @if($selectedSupplier)
+        <span class="badge bg-label-success">
+          <i class="bx bx-store me-1"></i>
+          {{ $selectedSupplier->supplier_name }}
+          <a href="{{ request()->fullUrlWithQuery(['supplier_id' => null]) }}" class="text-decoration-none ms-1">×</a>
         </span>
         @endif
       @endif
@@ -251,7 +272,11 @@
             <i class="bx bx-package me-1"></i>
             Jumlah
           </th>
-          <th style="width: 200px;">
+          <th style="width: 150px;">
+            <i class="bx bx-store me-1"></i>
+            Supplier
+          </th>
+          <th style="width: 180px;">
             <i class="bx bx-note me-1"></i>
             Catatan
           </th>
@@ -313,10 +338,32 @@
             <br><small class="text-muted">{{ $transaction->item->unit }}</small>
           </td>
           <td>
+            @if($transaction->supplier)
+              <div class="d-flex align-items-center">
+                <div class="avatar flex-shrink-0 me-2">
+                  <span class="avatar-initial rounded bg-label-success avatar-xs">
+                    <i class="bx bx-store"></i>
+                  </span>
+                </div>
+                <div>
+                  <span class="fw-semibold">{{ $transaction->supplier->supplier_name }}</span>
+                  @if($transaction->supplier->contact_person)
+                    <br><small class="text-muted">{{ $transaction->supplier->contact_person }}</small>
+                  @endif
+                </div>
+              </div>
+            @else
+              <span class="text-muted fst-italic">
+                <i class="bx bx-minus-circle me-1"></i>
+                Tanpa supplier
+              </span>
+            @endif
+          </td>
+          <td>
             <span title="{{ $transaction->notes }}">
-              {{ Str::limit($transaction->notes, 40) }}
+              {{ Str::limit($transaction->notes, 30) }}
             </span>
-            @if(strlen($transaction->notes) > 40)
+            @if(strlen($transaction->notes) > 30)
               <button class="btn btn-sm btn-link p-0" onclick="showFullNotes('{{ addslashes($transaction->notes) }}')">
                 <i class="bx bx-show"></i>
               </button>
@@ -325,11 +372,6 @@
           <td class="text-center">
             @if($transaction->user)
             <div class="d-flex align-items-center justify-content-center">
-              <div class="avatar avatar-xs me-2">
-                <span class="avatar-initial rounded-circle bg-label-primary">
-                  {{ substr($transaction->user->name, 0, 1) }}
-                </span>
-              </div>
               <div class="text-start">
                 <span class="fw-semibold">{{ $transaction->user->name }}</span>
                 <br><small class="text-muted">{{ $transaction->user->role ?? 'User' }}</small>
@@ -356,6 +398,12 @@
                   <i class="bx bx-package me-1"></i> 
                   Lihat Item
                 </a>
+                @if($transaction->supplier)
+                <a class="dropdown-item" href="{{ route('suppliers.show', $transaction->supplier->id) }}">
+                  <i class="bx bx-store me-1"></i> 
+                  Lihat Supplier
+                </a>
+                @endif
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="#" onclick="copyTransaction({{ $transaction->id }})">
                   <i class="bx bx-copy me-1"></i> 
@@ -487,9 +535,9 @@ document.head.appendChild(script);
 }
 
 .avatar.avatar-xs {
-  width: 24px;
-  height: 24px;
-  font-size: 10px;
+  width: 20px;
+  height: 20px;
+  font-size: 8px;
 }
 
 .card.border-success {
@@ -507,6 +555,7 @@ document.head.appendChild(script);
 .table th {
   font-weight: 600;
   background-color: #f8f9fa;
+  font-size: 0.875rem;
 }
 
 .badge {
@@ -515,6 +564,17 @@ document.head.appendChild(script);
 
 .btn-link {
   text-decoration: none !important;
+}
+
+@media (max-width: 1200px) {
+  .table-responsive {
+    font-size: 0.8rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.5rem 0.25rem;
+  }
 }
 </style>
 @endpush

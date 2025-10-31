@@ -36,7 +36,7 @@ class CategoryController extends Controller
     public function show(Category $category)
     {
         $category->load(['items' => function($query) {
-            $query->with('supplier');
+            $query->latest()->take(5);
         }]);
         
         return view('categories.show', compact('category'));

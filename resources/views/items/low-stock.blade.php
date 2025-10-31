@@ -177,10 +177,6 @@
             <i class="bx bx-category me-1"></i>
             Kategori
           </th>
-          <th>
-            <i class="bx bx-store me-1"></i>
-            Supplier
-          </th>
           <th class="text-center">
             <i class="bx bx-box me-1"></i>
             Stok vs Minimum
@@ -230,24 +226,6 @@
               <span class="text-muted">
                 <i class="bx bx-category-alt me-1"></i>
                 Tidak ada kategori
-              </span>
-            @endif
-          </td>
-          <td>
-            @if($item->supplier)
-              <div class="d-flex align-items-center">
-                <i class="bx bx-store text-success me-2"></i>
-                <div>
-                  <span>{{ Str::limit($item->supplier->supplier_name, 20) }}</span>
-                  @if($item->supplier->contact_person)
-                    <br><small class="text-muted">{{ $item->supplier->contact_person }}</small>
-                  @endif
-                </div>
-              </div>
-            @else
-              <span class="text-muted">
-                <i class="bx bx-store-alt me-1"></i>
-                Tidak ada supplier
               </span>
             @endif
           </td>

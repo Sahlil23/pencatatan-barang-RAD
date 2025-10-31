@@ -41,23 +41,32 @@
           </div>
         </div>
         
-        <div class="d-flex justify-content-around flex-wrap mt-4 pt-3 pb-2">
+ <div class="d-flex justify-content-around flex-wrap mt-4 pt-3 pb-2">
           <div class="d-flex align-items-start me-4 mt-3 gap-3">
             <span class="badge bg-label-success p-2 rounded">
+              <i class="bx bx-transfer bx-sm"></i>
+            </span>
+            <div>
+              <h5 class="mb-0">{{ $stats['total_transactions'] }}</h5>
+              <span>Total Transaksi</span>
+            </div>
+          </div>
+          <div class="d-flex align-items-start me-4 mt-3 gap-3">
+            <span class="badge bg-label-info p-2 rounded">
               <i class="bx bx-package bx-sm"></i>
             </span>
             <div>
-              <h5 class="mb-0">{{ $supplier->items->count() }}</h5>
-              <span>Total Items</span>
+              <h5 class="mb-0">{{ $stats['total_items'] }}</h5>
+              <span>Items</span>
             </div>
           </div>
           <div class="d-flex align-items-start mt-3 gap-3">
-            <span class="badge bg-label-info p-2 rounded">
-              <i class="bx bx-calendar bx-sm"></i>
+            <span class="badge bg-label-warning p-2 rounded">
+              <i class="bx bx-trending-up bx-sm"></i>
             </span>
             <div>
-              <h5 class="mb-0">{{ $supplier->created_at->format('M Y') }}</h5>
-              <span>Joined</span>
+              <h5 class="mb-0">{{ $stats['recent_activity'] }}</h5>
+              <span>Aktif 30 Hari</span>
             </div>
           </div>
         </div>
@@ -72,7 +81,13 @@
             <li class="mb-3">
               <span class="fw-medium me-2">Phone:</span>
               @if($supplier->phone)
-                <a href="tel:{{ $supplier->phone }}" class="text-decoration-none">
+                @php
+                  $phone = preg_replace('/\D+/', '', $supplier->phone);
+                  if (strpos($phone, '0') === 0) {
+                    $phone = '62' . substr($phone, 1);
+                  }
+                @endphp
+                <a href="https://wa.me/{{ $phone }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
                   {{ $supplier->phone }}
                 </a>
               @else
@@ -84,21 +99,30 @@
               <span>{{ $supplier->address ?: '-' }}</span>
             </li>
             <li class="mb-3">
+              <span class="fw-medium me-2">First Transaction:</span>
+              <span>{{ $stats['first_transaction'] ? $stats['first_transaction']->transaction_date->format('d M Y') : 'Belum ada' }}</span>
+            </li>
+            <li class="mb-3">
+              <span class="fw-medium me-2">Last Transaction:</span>
+              <span>{{ $stats['last_transaction'] ? $stats['last_transaction']->transaction_date->format('d M Y') : 'Belum ada' }}</span>
+            </li>
+            <li class="mb-3">
               <span class="fw-medium me-2">Created:</span>
               <span>{{ $supplier->created_at->format('d M Y, H:i') }}</span>
             </li>
-            <li class="mb-3">
-              <span class="fw-medium me-2">Last Updated:</span>
-              <span>{{ $supplier->updated_at->format('d M Y, H:i') }}</span>
-            </li>
           </ul>
         </div>
+
         
         <!-- Action Buttons -->
         <div class="d-flex justify-content-center pt-3">
           <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-primary me-3">
             <i class="bx bx-edit-alt me-1"></i>
-            Edit Supplier
+            Edit
+          </a>
+          <a href="{{ route('stock-transactions.create', ['supplier' => $supplier->id]) }}" class="btn btn-success">
+            <i class="bx bx-plus me-1"></i>
+            Transaksi
           </a>
           <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
             <i class="bx bx-trash-alt me-1"></i>
@@ -250,14 +274,14 @@
                     @endforeach
                   </select>
                 </div>
-                <div class="col-md-3">
+                <!-- <div class="col-md-3">
                   <select class="form-select" id="filterStock">
                     <option value="">All Stock</option>
                     <option value="in_stock">In Stock</option>
                     <option value="low_stock">Low Stock</option>
                     <option value="out_of_stock">Out of Stock</option>
                   </select>
-                </div>
+                </div> -->
                 <div class="col-md-2">
                   <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
                     <i class="bx bx-x me-1"></i>
@@ -276,7 +300,6 @@
                     <th>Category</th>
                     <th>Current Stock</th>
                     <th>Unit</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -316,15 +339,6 @@
                         </div>
                       </td>
                       <td>{{ $item->unit }}</td>
-                      <td>
-                        @if($item->current_stock <= 0)
-                          <span class="badge bg-danger">Out of Stock</span>
-                        @elseif($item->current_stock <= $item->low_stock_threshold)
-                          <span class="badge bg-warning">Low Stock</span>
-                        @else
-                          <span class="badge bg-success">In Stock</span>
-                        @endif
-                      </td>
                       <td>
                         <div class="dropdown">
                           <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">

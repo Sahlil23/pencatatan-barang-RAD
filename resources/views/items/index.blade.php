@@ -44,7 +44,13 @@
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Stok Menipis</span>
-        @php $lowStockCount = App\Models\Item::lowStock()->count(); @endphp
+        @php 
+          // Gunakan monthly balance prioritas, fallback ke current_stock
+          $lowStockCount = App\Models\Item::lowStockMonthly()->count();
+          if ($lowStockCount == 0) {
+            $lowStockCount = App\Models\Item::lowStock()->count();
+          }
+        @endphp
         <h3 class="card-title mb-2 {{ $lowStockCount > 0 ? 'text-warning' : 'text-success' }}">{{ $lowStockCount }}</h3>
         <small class="{{ $lowStockCount > 0 ? 'text-warning' : 'text-success' }} fw-semibold">
           <i class="bx {{ $lowStockCount > 0 ? 'bx-error' : 'bx-check' }}"></i> 
@@ -62,7 +68,12 @@
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Stok Habis</span>
-        @php $outOfStockCount = App\Models\Item::outOfStock()->count(); @endphp
+        @php 
+          $outOfStockCount = App\Models\Item::outOfStockMonthly()->count();
+          if ($outOfStockCount == 0) {
+            $outOfStockCount = App\Models\Item::outOfStock()->count();
+          }
+        @endphp
         <h3 class="card-title mb-2 {{ $outOfStockCount > 0 ? 'text-danger' : 'text-success' }}">{{ $outOfStockCount }}</h3>
         <small class="{{ $outOfStockCount > 0 ? 'text-danger' : 'text-success' }} fw-semibold">
           <i class="bx {{ $outOfStockCount > 0 ? 'bx-x' : 'bx-check' }}"></i> 
@@ -87,6 +98,20 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- Monthly Balance Info -->
+<div class="alert alert-info alert-dismissible mb-4" role="alert">
+  <h6 class="alert-heading mb-2">
+    <i class="bx bx-info-circle me-2"></i>
+    Informasi Monthly Balance System
+  </h6>
+  <p class="mb-0">
+    <strong>Stok Awal:</strong> Stok di awal bulan {{ now()->format('F Y') }} |
+    <strong>Stok Akhir:</strong> Stok saat ini |
+    <strong>Selisih:</strong> Perubahan stok dalam bulan ini
+  </p>
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 
 <!-- Filters and Search -->
@@ -148,7 +173,7 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">
       <i class="bx bx-package me-2"></i>
-      Daftar Item
+      Daftar Item - {{ now()->format('F Y') }}
       @if(request()->hasAny(['search', 'category_id', 'stock_status']))
         <span class="badge bg-label-primary">Filtered</span>
       @endif
@@ -157,6 +182,10 @@
       <a href="{{ route('items.low-stock') }}" class="btn btn-outline-warning btn-sm">
         <i class="bx bx-error me-1"></i>
         Stok Menipis
+      </a>
+      <a href="{{ route('items.report') }}" class="btn btn-outline-info btn-sm">
+        <i class="bx bx-chart me-1"></i>
+        Laporan
       </a>
       <a href="{{ route('items.create') }}" class="btn btn-primary">
         <i class="bx bx-plus me-1"></i>
@@ -181,18 +210,22 @@
             <i class="bx bx-category me-1"></i>
             Kategori
           </th>
-          <th>
-            <i class="bx bx-group me-1"></i>
-            Supplier
+          <th class="text-center">
+            <i class="bx bx-trending-up me-1"></i>
+            Stok Awal
           </th>
           <th class="text-center">
             <i class="bx bx-box me-1"></i>
-            Stok
+            Stok Akhir
           </th>
           <th class="text-center">
+            <i class="bx bx-transfer me-1"></i>
+            Selisih
+          </th>
+          <!-- <th class="text-center">
             <i class="bx bx-signal-3 me-1"></i>
             Status
-          </th>
+          </th> -->
           <th class="text-center">
             <i class="bx bx-cog me-1"></i>
             Aksi
@@ -201,6 +234,15 @@
       </thead>
       <tbody class="table-border-bottom-0">
         @forelse ($items as $item)
+        @php
+          // Prioritas: monthly balance dulu, jika tidak ada gunakan current_stock
+          $balance = $item->currentBalance;
+          $openingStock = $balance ? $balance->opening_stock : 0;
+          $closingStock = $balance ? $balance->closing_stock : 0;
+          $difference = $closingStock - $openingStock;
+          $stockStatus = $balance ? $item->stock_status_monthly : $item->stock_status;
+          $stockStatusColor = $balance ? $item->stock_status_color_monthly : $item->stock_status_color;
+        @endphp
         <tr>
           <td>
             <span class="badge bg-label-secondary">{{ $item->sku }}</span>
@@ -217,6 +259,11 @@
                 <br><small class="text-muted">
                   <i class="bx bx-cube"></i>
                   {{ $item->unit }}
+                  @if($balance)
+                    <span class="badge bg-success ms-1" title="Menggunakan Monthly Balance">MB</span>
+                  @else
+                    <span class="badge bg-warning ms-1" title="Menggunakan Current Stock">CS</span>
+                  @endif
                 </small>
               </div>
             </div>
@@ -234,39 +281,78 @@
               </span>
             @endif
           </td>
-          <td>
-            @if($item->supplier)
-              <div class="d-flex align-items-center">
-                <i class="bx bx-store text-success me-2"></i>
-                <div>
-                  <span>{{ $item->supplier->supplier_name }}</span>
-                  @if($item->supplier->contact_person)
-                    <br><small class="text-muted">{{ $item->supplier->contact_person }}</small>
-                  @endif
-                </div>
-              </div>
-            @else
-              <span class="text-muted">
-                <i class="bx bx-store-alt me-1"></i>
-                Tidak ada supplier
+          <td class="text-center">
+            @if($balance)
+            <div class="d-flex flex-column align-items-center">
+              <span class="fw-bold text-info">
+                {{ number_format($openingStock, 0) }}
               </span>
+              <small class="text-muted">Awal {{ now()->format('M') }}</small>
+            </div>
+            @else
+            <span class="text-muted">
+              <i class="bx bx-minus"></i>
+              <br><small>No data</small>
+            </span>
             @endif
           </td>
           <td class="text-center">
             <div class="d-flex flex-column align-items-center">
-              <span class="fw-bold text-{{ $item->stock_status_color }}">
-                {{ number_format($item->current_stock, 0) }}
+              <span class="fw-bold text-{{ $stockStatusColor }}">
+                {{ number_format($closingStock, 0) }}
               </span>
               <small class="text-muted">
                 Min: {{ number_format($item->low_stock_threshold, 0) }}
               </small>
+              @if($balance)
+              <div class="progress mt-1" style="width: 60px; height: 4px;">
+                @php $percentage = $item->low_stock_threshold > 0 ? min(100, ($closingStock / $item->low_stock_threshold) * 100) : 0; @endphp
+                <div class="progress-bar bg-{{ $stockStatusColor }}" style="width: {{ $percentage }}%"></div>
+              </div>
+              @endif
             </div>
           </td>
           <td class="text-center">
-            <span class="badge bg-{{ $item->stock_status_color }}">
-              {{ $item->stock_status }}
+            @if($balance)
+            <div class="d-flex flex-column align-items-center">
+              @if($difference > 0)
+                <span class="fw-bold text-success">
+                  <i class="bx bx-up-arrow-alt"></i>
+                  +{{ number_format($difference, 0) }}
+                </span>
+                <small class="text-success">Naik</small>
+              @elseif($difference < 0)
+                <span class="fw-bold text-danger">
+                  <i class="bx bx-down-arrow-alt"></i>
+                  {{ number_format($difference, 0) }}
+                </span>
+                <small class="text-danger">Turun</small>
+              @else
+                <span class="fw-bold text-muted">
+                  <i class="bx bx-minus"></i>
+                  0
+                </span>
+                <small class="text-muted">Tetap</small>
+              @endif
+              @if($balance->stock_in > 0 || $balance->stock_out > 0)
+              <div class="mt-1">
+                <small class="text-success">+{{ number_format($balance->stock_in, 0) }}</small>
+                <small class="text-danger">-{{ number_format($balance->stock_out, 0) }}</small>
+              </div>
+              @endif
+            </div>
+            @else
+            <span class="text-muted">
+              <i class="bx bx-minus"></i>
+              <br><small>No data</small>
             </span>
+            @endif
           </td>
+          <!-- <td class="text-center">
+            <span class="badge bg-{{ $stockStatusColor }}">
+              {{ $stockStatus }}
+            </span>
+          </td> -->
           <td class="text-center">
             <div class="dropdown">
               <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
@@ -282,10 +368,16 @@
                   Edit
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#" onclick="showStockAdjustment({{ $item->id }}, '{{ $item->item_name }}', {{ $item->current_stock }})">
+                <a class="dropdown-item" href="#" onclick="showStockAdjustment({{ $item->id }}, '{{ $item->item_name }}', {{ $closingStock }})">
                   <i class="bx bx-transfer me-1"></i> 
                   Sesuaikan Stok
                 </a>
+                @if(!$balance)
+                <a class="dropdown-item text-info" href="#" onclick="createMonthlyBalance({{ $item->id }})">
+                  <i class="bx bx-plus me-1"></i> 
+                  Buat Monthly Balance
+                </a>
+                @endif
                 <div class="dropdown-divider"></div>
                 <form action="{{ route('items.destroy', $item->id) }}" method="POST" class="d-inline">
                   @csrf
@@ -303,7 +395,7 @@
         </tr>
         @empty
         <tr>
-          <td colspan="7" class="text-center py-4">
+          <td colspan="8" class="text-center py-4">
             <div class="d-flex flex-column align-items-center">
               <i class="bx bx-package" style="font-size: 48px; color: #ddd;"></i>
               <h6 class="mt-2 text-muted">
@@ -339,7 +431,8 @@
     </table>
   </div>
 
-<x-simple-pagination :items="$items" type="item" />
+  <x-simple-pagination :items="$items" type="item" />
+</div>
 
 <!-- Stock Adjustment Modal -->
 <div class="modal fade" id="stockAdjustmentModal" tabindex="-1" aria-labelledby="stockAdjustmentModalLabel" aria-hidden="true">
@@ -371,6 +464,7 @@
               <option value="">Pilih tipe penyesuaian</option>
               <option value="add">Tambah Stok</option>
               <option value="reduce">Kurangi Stok</option>
+              <option value="set">Set Stok (Atur Ulang)</option>
             </select>
           </div>
           
@@ -399,15 +493,6 @@
 
 @push('scripts')
 <script>
-// Export ke Excel
-function exportToExcel() {
-  const table = document.getElementById('itemsTable');
-  const ws = XLSX.utils.table_to_sheet(table);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Daftar Item');
-  XLSX.writeFile(wb, 'daftar_item_' + new Date().toISOString().slice(0,10) + '.xlsx');
-}
-
 // Stock adjustment modal
 function showStockAdjustment(itemId, itemName, currentStock) {
   document.getElementById('adjustmentItemName').value = itemName;
@@ -418,34 +503,41 @@ function showStockAdjustment(itemId, itemName, currentStock) {
   modal.show();
 }
 
-// Load library XLSX untuk export Excel
-const script = document.createElement('script');
-script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-document.head.appendChild(script);
+// Create monthly balance for legacy items
+function createMonthlyBalance(itemId) {
+  if (confirm('Buat monthly balance untuk item ini? Ini akan menggunakan current stock sebagai opening stock.')) {
+    fetch(`/items/${itemId}/create-monthly-balance`, {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        'Content-Type': 'application/json',
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert('Error: ' + data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Terjadi kesalahan saat membuat monthly balance');
+    });
+  }
+}
 </script>
 @endpush
 
 @push('styles')
 <style>
-@media print {
-  .btn, .breadcrumb, .card-header .d-flex .btn, .dropdown, .modal {
-    display: none !important;
-  }
-  
-  .card {
-    border: none !important;
-    box-shadow: none !important;
-  }
-  
-  .table {
-    font-size: 12px;
-  }
+.progress {
+  background-color: #e9ecef;
 }
 
-.table th {
-  background-color: #f8f9fa;
-  border-top: 1px solid #dee2e6;
-  font-weight: 600;
+.badge {
+  font-size: 0.65em;
 }
 
 .table-hover tbody tr:hover {
@@ -461,13 +553,22 @@ document.head.appendChild(script);
   font-size: 18px;
 }
 
-.pagination {
-  margin: 0;
+/* Additional styles for monthly balance display */
+.stock-diff-positive {
+  color: #71dd37;
 }
 
-.pagination .page-link {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.875rem;
+.stock-diff-negative {
+  color: #ff3e1d;
+}
+
+.stock-diff-neutral {
+  color: #6c757d;
+}
+
+.monthly-info {
+  font-size: 0.7em;
+  line-height: 1.2;
 }
 </style>
 @endpush

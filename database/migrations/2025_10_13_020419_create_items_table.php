@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('supplier_id')->nullable();
             
             $table->string('unit', 20);
-            $table->decimal('current_stock', 10, 2)->default(0.00);
+            // $table->decimal('current_stock', 10, 2)->default(0.00);
             $table->decimal('low_stock_threshold', 10, 2)->default(5.00);
             
             $table->timestamps();

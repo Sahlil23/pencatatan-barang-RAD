@@ -117,6 +117,56 @@
               </ul>
             </li>
 
+            <li class="menu-header small text-uppercase">
+                <span class="menu-header-text">Stok Dapur</span>
+            </li>
+
+            <!-- Kitchen Stock Menu -->
+            <li class="menu-item {{ request()->routeIs('kitchen.*') ? 'active open' : '' }}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon tf-icons bx bx-restaurant"></i>
+                    <div data-i18n="Kitchen Stock">Barang Dapur</div>
+                    @if(isset($kitchenLowStockCount) && $kitchenLowStockCount > 0)
+                        <span class="badge badge-center rounded-pill bg-danger ms-2">{{ $kitchenLowStockCount }}</span>
+                    @endif
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item {{ request()->routeIs('kitchen.index') ? 'active' : '' }}">
+                        <a href="{{ route('kitchen.index') }}" class="menu-link">
+                            <div data-i18n="Kitchen Dashboard">Dashboard Dapur</div>
+                            @if(isset($kitchenLowStockCount) && $kitchenLowStockCount > 0)
+                                <span class="badge badge-center rounded-pill bg-warning ms-2">{{ $kitchenLowStockCount }}</span>
+                            @endif
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('kitchen.transfer') ? 'active' : '' }}">
+                        <a href="{{ route('kitchen.transfer') }}" class="menu-link">
+                            <div data-i18n="Transfer to Kitchen">Transfer ke Dapur</div>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('kitchen.usage') ? 'active' : '' }}">
+                        <a href="{{ route('kitchen.usage') }}" class="menu-link">
+                            <div data-i18n="Usage Records">Catat Penggunaan</div>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('kitchen.adjustment') ? 'active' : '' }}">
+                        <a href="{{ route('kitchen.adjustment') }}" class="menu-link">
+                            <div data-i18n="Stock Adjustment">Penyesuaian Stok</div>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('kitchen.transactions') ? 'active' : '' }}">
+                        <a href="{{ route('kitchen.transactions') }}" class="menu-link">
+                            <div data-i18n="Kitchen Transactions">Transaksi Dapur</div>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('kitchen.report') ? 'active' : '' }}">
+                        <a href="{{ route('kitchen.report') }}" class="menu-link">
+                            <div data-i18n="Kitchen Report">Laporan Dapur</div>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
             <!-- Transaksi -->
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Transaksi</span>

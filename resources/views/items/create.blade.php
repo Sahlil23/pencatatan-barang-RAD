@@ -1,4 +1,3 @@
-
 @extends('layouts.admin')
 
 @section('title', 'Tambah Item - Chicking BJM')
@@ -25,8 +24,11 @@
   <div class="col-xl-8">
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Tambah Item Baru</h5>
-        <small class="text-muted float-end">Form input data item</small>
+        <h5 class="mb-0">
+          <i class="bx bx-plus me-2"></i>
+          Tambah Item Baru
+        </h5>
+        <small class="text-muted float-end">Monthly Balance System</small>
       </div>
       <div class="card-body">
         <form action="{{ route('items.store') }}" method="POST">
@@ -80,56 +82,6 @@
             @enderror
           </div>
 
-          <!-- Category and Supplier Row -->
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <label class="form-label" for="category_id">Kategori <span class="text-danger">*</span></label>
-              <div class="input-group input-group-merge">
-                <span class="input-group-text"><i class="bx bx-category"></i></span>
-                <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
-                  <option value="">Pilih Kategori</option>
-                  @foreach($categories as $category)
-                  <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
-                    {{ $category->category_name }}
-                  </option>
-                  @endforeach
-                </select>
-              </div>
-              @error('category_id')
-                <div class="form-text text-danger">{{ $message }}</div>
-              @else
-                <div class="form-text">
-                  <a href="{{ route('categories.create') }}" target="_blank" class="text-decoration-none">
-                    <i class="bx bx-plus me-1"></i>Tambah kategori baru
-                  </a>
-                </div>
-              @enderror
-            </div>
-            <div class="col-md-6">
-              <label class="form-label" for="supplier_id">Supplier</label>
-              <div class="input-group input-group-merge">
-                <span class="input-group-text"><i class="bx bx-store"></i></span>
-                <select class="form-select @error('supplier_id') is-invalid @enderror" id="supplier_id" name="supplier_id">
-                  <option value="">Pilih Supplier (Opsional)</option>
-                  @foreach($suppliers as $supplier)
-                  <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>
-                    {{ $supplier->supplier_name }}
-                  </option>
-                  @endforeach
-                </select>
-              </div>
-              @error('supplier_id')
-                <div class="form-text text-danger">{{ $message }}</div>
-              @else
-                <div class="form-text">
-                  <a href="{{ route('suppliers.create') }}" target="_blank" class="text-decoration-none">
-                    <i class="bx bx-plus me-1"></i>Tambah supplier baru
-                  </a>
-                </div>
-              @enderror
-            </div>
-          </div>
-
           <!-- Unit -->
           <div class="mb-3">
             <label class="form-label" for="unit">Unit <span class="text-danger">*</span></label>
@@ -157,26 +109,26 @@
           <!-- Stock Information Row -->
           <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label" for="current_stock">Stok Awal <span class="text-danger">*</span></label>
+              <label class="form-label" for="initial_stock">Stok Awal <span class="text-danger">*</span></label>
               <div class="input-group input-group-merge">
                 <span class="input-group-text"><i class="bx bx-box"></i></span>
                 <input
                   type="number"
-                  class="form-control @error('current_stock') is-invalid @enderror"
-                  id="current_stock"
-                  name="current_stock"
+                  class="form-control @error('initial_stock') is-invalid @enderror"
+                  id="initial_stock"
+                  name="initial_stock"
                   placeholder="0"
-                  value="{{ old('current_stock', 0) }}"
+                  value="{{ old('initial_stock', 0) }}"
                   step="0.01"
                   min="0"
                   required
                 />
                 <span class="input-group-text" id="stock-unit">pcs</span>
               </div>
-              @error('current_stock')
+              @error('initial_stock')
                 <div class="form-text text-danger">{{ $message }}</div>
               @else
-                <div class="form-text">Stok awal item ini</div>
+                <div class="form-text">Stok awal untuk bulan {{ now()->format('F Y') }}</div>
               @enderror
             </div>
             <div class="col-md-6">
@@ -202,6 +154,18 @@
                 <div class="form-text">Sistem akan memberikan peringatan jika stok mencapai batas ini</div>
               @enderror
             </div>
+          </div>
+
+          <!-- Monthly Balance Info -->
+          <div class="alert alert-info">
+            <h6 class="alert-heading">
+              <i class="bx bx-info-circle me-2"></i>
+              Monthly Balance System
+            </h6>
+            <p class="mb-0">
+              Stok awal akan menjadi <strong>opening stock</strong> untuk periode {{ now()->format('F Y') }}. 
+              Sistem akan otomatis melacak perubahan stok setiap bulan.
+            </p>
           </div>
 
           <!-- Action Buttons -->
@@ -236,14 +200,14 @@
         </h5>
       </div>
       <div class="card-body">
-        <div class="alert alert-info" role="alert">
-          <h6 class="alert-heading">Tips Item Baru:</h6>
+        <div class="alert alert-primary" role="alert">
+          <h6 class="alert-heading">Monthly Balance System:</h6>
           <ul class="mb-0">
             <li>SKU harus unik untuk setiap item</li>
-            <li>Nama item harus jelas dan deskriptif</li>
-            <li>Pilih kategori yang sesuai</li>
-            <li>Set batas minimum stok untuk notifikasi</li>
-            <li>Stok awal bisa diubah nanti</li>
+            <li>Stok awal akan menjadi opening stock</li>
+            <li>Sistem melacak stok per bulan</li>
+            <li>Set batas minimum untuk notifikasi</li>
+            <li>Stok dapat disesuaikan setelah dibuat</li>
           </ul>
         </div>
         
@@ -256,10 +220,6 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="text-muted">Kategori Tersedia:</span>
           <span class="badge bg-success">{{ $categories->count() }}</span>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="text-muted">Supplier Tersedia:</span>
-          <span class="badge bg-info">{{ $suppliers->count() }}</span>
         </div>
         <div class="d-flex justify-content-between align-items-center">
           <span class="text-muted">Stok Menipis:</span>
@@ -299,10 +259,6 @@
                 <small class="text-muted d-block">Kategori:</small>
                 <small class="fw-semibold" id="preview-category">Belum dipilih</small>
               </div>
-              <div class="col-6">
-                <small class="text-muted d-block">Supplier:</small>
-                <small class="fw-semibold" id="preview-supplier">Belum dipilih</small>
-              </div>
             </div>
             <div class="row mb-2">
               <div class="col-6">
@@ -336,10 +292,6 @@
             <i class="bx bx-plus me-1"></i>
             Tambah Kategori Baru
           </a>
-          <a href="{{ route('suppliers.create') }}" class="btn btn-outline-success btn-sm" target="_blank">
-            <i class="bx bx-plus me-1"></i>
-            Tambah Supplier Baru
-          </a>
           <a href="{{ route('items.index') }}" class="btn btn-outline-info btn-sm">
             <i class="bx bx-list-ul me-1"></i>
             Lihat Semua Item
@@ -362,17 +314,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const skuInput = document.getElementById('sku');
   const itemNameInput = document.getElementById('item_name');
   const categorySelect = document.getElementById('category_id');
-  const supplierSelect = document.getElementById('supplier_id');
   const unitSelect = document.getElementById('unit');
-  const currentStockInput = document.getElementById('current_stock');
+  const initialStockInput = document.getElementById('initial_stock');
   const thresholdInput = document.getElementById('low_stock_threshold');
   
   // Preview elements
   const previewName = document.getElementById('preview-name');
   const previewSku = document.getElementById('preview-sku');
   const previewUnit = document.getElementById('preview-unit');
-  const previewCategory = document.getElementById('preview-category');
-  const previewSupplier = document.getElementById('preview-supplier');
   const previewStock = document.getElementById('preview-stock');
   const previewThreshold = document.getElementById('preview-threshold');
   const previewStatus = document.getElementById('preview-status');
@@ -396,22 +345,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const name = itemNameInput.value || 'Nama Item';
     const sku = skuInput.value || 'SKU';
     const unit = unitSelect.value || 'Unit';
-    const stock = parseFloat(currentStockInput.value) || 0;
+    const stock = parseFloat(initialStockInput.value) || 0;
     const threshold = parseFloat(thresholdInput.value) || 0;
     
     const categoryText = categorySelect.options[categorySelect.selectedIndex]?.text === 'Pilih Kategori' ? 
                         'Belum dipilih' : 
                         categorySelect.options[categorySelect.selectedIndex]?.text || 'Belum dipilih';
     
-    const supplierText = supplierSelect.options[supplierSelect.selectedIndex]?.text === 'Pilih Supplier (Opsional)' ? 
-                        'Belum dipilih' : 
-                        supplierSelect.options[supplierSelect.selectedIndex]?.text || 'Belum dipilih';
     
     previewName.textContent = name;
     previewSku.textContent = sku;
     previewUnit.textContent = unit;
     previewCategory.textContent = categoryText;
-    previewSupplier.textContent = supplierText;
     previewStock.textContent = stock.toLocaleString('id-ID', { minimumFractionDigits: 2 });
     previewThreshold.textContent = threshold.toLocaleString('id-ID', { minimumFractionDigits: 2 });
     
@@ -439,9 +384,8 @@ document.addEventListener('DOMContentLoaded', function() {
   itemNameInput.addEventListener('input', updatePreview);
   skuInput.addEventListener('input', updatePreview);
   categorySelect.addEventListener('change', updatePreview);
-  supplierSelect.addEventListener('change', updatePreview);
   unitSelect.addEventListener('change', updatePreview);
-  currentStockInput.addEventListener('input', updatePreview);
+  initialStockInput.addEventListener('input', updatePreview);
   thresholdInput.addEventListener('input', updatePreview);
 
   // SKU formatting
@@ -473,19 +417,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const itemName = itemNameInput.value.trim();
     const categoryId = categorySelect.value;
     const unit = unitSelect.value;
-    const currentStock = currentStockInput.value;
+    const initialStock = initialStockInput.value;
     const threshold = thresholdInput.value;
     
-    if (!sku || !itemName || !categoryId || !unit || !currentStock || !threshold) {
+    if (!sku || !itemName || !categoryId || !unit || !initialStock || !threshold) {
       e.preventDefault();
       alert('Mohon lengkapi semua field yang wajib diisi');
       return false;
     }
     
-    if (parseFloat(currentStock) < 0) {
+    if (parseFloat(initialStock) < 0) {
       e.preventDefault();
       alert('Stok awal tidak boleh negatif');
-      currentStockInput.focus();
+      initialStockInput.focus();
       return false;
     }
     

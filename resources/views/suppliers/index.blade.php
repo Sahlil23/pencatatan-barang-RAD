@@ -40,13 +40,13 @@
       <div class="card-body">
         <div class="card-title d-flex align-items-start justify-content-between">
           <div class="avatar flex-shrink-0">
-            <img src="{{ asset('assets/img/icons/unicons/wallet-info.png') }}" alt="With Contact" class="rounded" />
+            <img src="{{ asset('assets/img/icons/unicons/wallet-info.png') }}" alt="Active Suppliers" class="rounded" />
           </div>
         </div>
-        <span class="fw-semibold d-block mb-1">Dengan Kontak</span>
-        <h3 class="card-title mb-2">{{ $suppliers->whereNotNull('contact_person')->count() }}</h3>
+        <span class="fw-semibold d-block mb-1">Supplier Aktif</span>
+        <h3 class="card-title mb-2">{{ $suppliers->where('active_transactions_count', '>', 0)->count() }}</h3>
         <small class="text-success fw-semibold">
-          <i class="bx bx-phone"></i> Supplier
+          <i class="bx bx-trending-up"></i> 3 Bulan Terakhir
         </small>
       </div>
     </div>
@@ -56,13 +56,13 @@
       <div class="card-body">
         <div class="card-title d-flex align-items-start justify-content-between">
           <div class="avatar flex-shrink-0">
-            <img src="{{ asset('assets/img/icons/unicons/cc-success.png') }}" alt="With Items" class="rounded" />
+            <img src="{{ asset('assets/img/icons/unicons/cc-success.png') }}" alt="Total Transactions" class="rounded" />
           </div>
         </div>
-        <span class="fw-semibold d-block mb-1">Dengan Item</span>
-        <h3 class="card-title mb-2">{{ $suppliers->where('items_count', '>', 0)->count() }}</h3>
+        <span class="fw-semibold d-block mb-1">Total Transaksi</span>
+        <h3 class="card-title mb-2">{{ $suppliers->sum('stock_transactions_count') }}</h3>
         <small class="text-info fw-semibold">
-          <i class="bx bx-package"></i> Supplier
+          <i class="bx bx-transfer"></i> Transaksi
         </small>
       </div>
     </div>
@@ -98,6 +98,11 @@
         <span class="input-group-text"><i class="bx bx-search"></i></span>
         <input type="text" class="form-control" placeholder="Cari supplier..." id="searchInput">
       </div>
+      <!-- Export -->
+      <button class="btn btn-outline-success" onclick="exportData()">
+        <i class="bx bx-export me-1"></i>
+        Export
+      </button>
       <!-- Add Button -->
       <a href="{{ route('suppliers.create') }}" class="btn btn-primary">
         <i class="bx bx-plus me-1"></i>
@@ -125,13 +130,17 @@
             <i class="bx bx-phone me-1"></i>
             Telepon
           </th>
-          <th>
+          <th class="text-center">
+            <i class="bx bx-transfer me-1"></i>
+            Transaksi
+          </th>
+          <th class="text-center">
             <i class="bx bx-package me-1"></i>
-            Total Item
+            Item
           </th>
           <th>
             <i class="bx bx-time me-1"></i>
-            Dibuat
+            Terakhir Aktif
           </th>
           <th class="text-center">
             <i class="bx bx-cog me-1"></i>
@@ -160,6 +169,9 @@
                   {{ Str::limit($supplier->address, 30) }}
                 </small>
                 @endif
+                @if($supplier->active_transactions_count > 0)
+                <br><span class="badge bg-success badge-sm">Aktif</span>
+                @endif
               </div>
             </div>
           </td>
@@ -180,7 +192,9 @@
             @if($supplier->phone)
               <div class="d-flex align-items-center">
                 <i class="bx bx-phone text-success me-2"></i>
-                <span>{{ $supplier->phone }}</span>
+                <a href="tel:{{ $supplier->phone }}" class="text-decoration-none">
+                  {{ $supplier->phone }}
+                </a>
               </div>
             @else
               <span class="text-muted">
@@ -189,18 +203,42 @@
               </span>
             @endif
           </td>
-          <td>
-            @if($supplier->items_count > 0)
-              <span class="badge bg-label-info">{{ $supplier->items_count }} Item</span>
+          <td class="text-center">
+            @if($supplier->stock_transactions_count > 0)
+              <div class="d-flex flex-column align-items-center">
+                <span class="badge bg-label-info">{{ $supplier->stock_transactions_count }}</span>
+                <small class="text-muted">Total</small>
+                @if($supplier->active_transactions_count > 0)
+                <small class="text-success">{{ $supplier->active_transactions_count }} aktif</small>
+                @endif
+              </div>
             @else
-              <span class="badge bg-label-secondary">0 Item</span>
+              <span class="badge bg-label-secondary">0</span>
+            @endif
+          </td>
+          <td class="text-center">
+            @if($supplier->items_count > 0)
+              <span class="badge bg-label-primary">{{ $supplier->items_count }}</span>
+            @else
+              <span class="badge bg-label-secondary">0</span>
             @endif
           </td>
           <td>
-            <div class="d-flex flex-column">
-              <small class="text-muted">{{ $supplier->created_at->format('d/m/Y') }}</small>
-              <small class="text-muted">{{ $supplier->created_at->format('H:i') }}</small>
-            </div>
+            @if($supplier->stockTransactions->isNotEmpty())
+              @php $lastTransaction = $supplier->stockTransactions->first(); @endphp
+              <div class="d-flex flex-column">
+                <small class="text-muted">{{ $lastTransaction->transaction_date->format('d/m/Y') }}</small>
+                <small class="text-muted">{{ $lastTransaction->transaction_date->diffForHumans() }}</small>
+                <span class="badge bg-{{ $lastTransaction->transaction_type_color }} badge-sm">
+                  {{ $lastTransaction->transaction_type }}
+                </span>
+              </div>
+            @else
+              <span class="text-muted">
+                <i class="bx bx-minus"></i>
+                <br><small>Belum ada transaksi</small>
+              </span>
+            @endif
           </td>
           <td class="text-center">
             <div class="dropdown">
@@ -216,13 +254,31 @@
                   <i class="bx bx-edit-alt me-1"></i> 
                   Edit
                 </a>
+                @if($supplier->stock_transactions_count > 0)
+                <a class="dropdown-item" href="{{ route('stock-transactions.index', ['supplier_id' => $supplier->id]) }}">
+                  <i class="bx bx-transfer me-1"></i> 
+                  Lihat Transaksi
+                </a>
+                @endif
+                @if($supplier->items_count > 0)
+                <a class="dropdown-item" href="{{ route('items.index', ['supplier_id' => $supplier->id]) }}">
+                  <i class="bx bx-package me-1"></i> 
+                  Lihat Items
+                </a>
+                @endif
+                <div class="dropdown-divider"></div>
+                {{-- UPDATE: TAMBAH QUICK ACTION CREATE TRANSACTION --}}
+                <a class="dropdown-item text-success" href="{{ route('stock-transactions.create', ['supplier' => $supplier->id]) }}">
+                  <i class="bx bx-plus me-1"></i> 
+                  Transaksi Baru
+                </a>
                 <div class="dropdown-divider"></div>
                 <form action="{{ route('suppliers.destroy', $supplier->id) }}" method="POST" class="d-inline">
                   @csrf
                   @method('DELETE')
                   <button type="submit" class="dropdown-item text-danger" 
-                          onclick="return confirm('Apakah Anda yakin ingin menghapus supplier {{ $supplier->supplier_name }}?')"
-                          {{ $supplier->items_count > 0 ? 'disabled title="Tidak dapat menghapus supplier yang memiliki item"' : '' }}>
+                          onclick="return confirm('Apakah Anda yakin ingin menghapus supplier {{ $supplier->supplier_name }}?\n\nPerhatian: Semua riwayat transaksi dengan supplier ini akan tetap ada, namun tidak akan terkait dengan supplier ini lagi.')"
+                          {{ $supplier->stock_transactions_count > 0 ? 'title="Supplier memiliki riwayat transaksi"' : '' }}>
                     <i class="bx bx-trash me-1"></i> 
                     Hapus
                   </button>
@@ -233,9 +289,9 @@
         </tr>
         @empty
         <tr>
-          <td colspan="7" class="text-center py-4">
+          <td colspan="8" class="text-center py-4">
             <div class="d-flex flex-column align-items-center">
-              <i class="bx bx-package" style="font-size: 48px; color: #ddd;"></i>
+              <i class="bx bx-store" style="font-size: 48px; color: #ddd;"></i>
               <h6 class="mt-2 text-muted">Belum ada data supplier</h6>
               <p class="text-muted mb-3">Mulai dengan menambahkan supplier pertama Anda</p>
               <a href="{{ route('suppliers.create') }}" class="btn btn-primary">
@@ -249,10 +305,6 @@
       </tbody>
     </table>
   </div>
-
-  <!-- Simple Pagination -->
-  <x-simple-pagination :items="$suppliers" type="supplier" />
-
 </div>
 @endsection
 
@@ -260,10 +312,19 @@
 <script>
 // Export function for suppliers
 function exportData() {
-  const headers = ['ID', 'Nama Supplier', 'Kontak Person', 'Telepon', 'Alamat', 'Total Item'];
+  const headers = ['ID', 'Nama Supplier', 'Kontak Person', 'Telepon', 'Alamat', 'Total Transaksi', 'Total Item', 'Status'];
   const rows = [
     @foreach($suppliers as $supplier)
-    ['{{ $supplier->id }}', '{{ addslashes($supplier->supplier_name) }}', '{{ addslashes($supplier->contact_person ?? "Tidak ada") }}', '{{ $supplier->phone ?? "Tidak ada" }}', '{{ addslashes($supplier->address ?? "Tidak ada") }}', '{{ $supplier->items_count }}'],
+    [
+      '{{ $supplier->id }}', 
+      '{{ addslashes($supplier->supplier_name) }}', 
+      '{{ addslashes($supplier->contact_person ?? "Tidak ada") }}', 
+      '{{ $supplier->phone ?? "Tidak ada" }}', 
+      '{{ addslashes($supplier->address ?? "Tidak ada") }}', 
+      '{{ $supplier->stock_transactions_count }}',
+      '{{ $supplier->items_count }}',
+      '{{ $supplier->active_transactions_count > 0 ? "Aktif" : "Tidak Aktif" }}'
+    ],
     @endforeach
   ];
   
@@ -281,11 +342,34 @@ document.getElementById('searchInput')?.addEventListener('keyup', function() {
     row.style.display = text.includes(filter) ? '' : 'none';
   });
 });
+
+// Download CSV helper function
+function downloadCSV(filename, headers, rows) {
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += headers.join(",") + "\n";
+  
+  rows.forEach(function(row) {
+    csvContent += row.map(field => `"${field}"`).join(",") + "\n";
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", filename + "_" + new Date().toISOString().slice(0,10) + ".csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 </script>
 @endpush
 
 @push('styles')
 <style>
+.badge-sm {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.4rem;
+}
+
 @media print {
   .btn, .breadcrumb, .card-header .d-flex .input-group, .card-header .d-flex .btn {
     display: none !important;

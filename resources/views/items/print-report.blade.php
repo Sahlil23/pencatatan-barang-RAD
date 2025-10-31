@@ -373,60 +373,6 @@
             </div>
         </div>
 
-        <!-- Filter Information -->
-        <!-- @if(array_filter($filterInfo))
-        <div class="filter-info">
-            <h4>📋 Filter yang Diterapkan:</h4>
-            <div class="filter-grid">
-                @if($filterInfo['category'])
-                <div class="filter-item">
-                    <span class="filter-label">Kategori:</span>
-                    <span class="filter-value">{{ $filterInfo['category'] }}</span>
-                </div>
-                @endif
-                
-                @if($filterInfo['supplier'])
-                <div class="filter-item">
-                    <span class="filter-label">Supplier:</span>
-                    <span class="filter-value">{{ $filterInfo['supplier'] }}</span>
-                </div>
-                @endif
-                
-                @if($filterInfo['stock_status'])
-                <div class="filter-item">
-                    <span class="filter-label">Status Stok:</span>
-                    <span class="filter-value">
-                        @switch($filterInfo['stock_status'])
-                            @case('in') Stok Tersedia @break
-                            @case('low') Stok Menipis @break
-                            @case('out') Stok Habis @break
-                        @endswitch
-                    </span>
-                </div>
-                @endif
-                
-                @if($filterInfo['search'])
-                <div class="filter-item">
-                    <span class="filter-label">Pencarian:</span>
-                    <span class="filter-value">{{ $filterInfo['search'] }}</span>
-                </div>
-                @endif
-                
-                <div class="filter-item">
-                    <span class="filter-label">Urutan:</span>
-                    <span class="filter-value">
-                        @switch($filterInfo['sort_by'])
-                            @case('item_name') Nama Item @break
-                            @case('sku') SKU @break
-                            @case('category') Kategori @break
-                            @case('stock') Stok @break
-                        @endswitch
-                        ({{ $filterInfo['sort_order'] === 'asc' ? 'A-Z' : 'Z-A' }})
-                    </span>
-                </div>
-            </div>
-        </div>
-        @endif -->
 
         <!-- Statistics -->
         <div class="statistics">
@@ -456,7 +402,6 @@
                     <th style="width: 12%;">SKU</th>
                     <th style="width: 25%;">Nama Item</th>
                     <th style="width: 15%;">Kategori</th>
-                    <th style="width: 15%;">Supplier</th>
                     <th style="width: 8%;">Unit</th>
                     <th style="width: 8%;">Stock Akhir</th>
                     <th style="width: 8%;">Min. Stock</th>
@@ -478,7 +423,7 @@
                         <strong>{{ $item->item_name }}</strong>
                     </td>
                     <td>{{ $item->category->category_name ?? '-' }}</td>
-                    <td>{{ $item->supplier->supplier_name ?? '-' }}</td>
+                    <!-- <td>{{ $item->supplier->supplier_name ?? '-' }}</td> -->
                     <td class="text-center">
                         <span class="badge badge-primary">{{ $item->unit }}</span>
                     </td>

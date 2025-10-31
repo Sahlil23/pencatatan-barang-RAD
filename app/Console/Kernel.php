@@ -22,28 +22,26 @@ class Kernel extends ConsoleKernel
             $controller->createBackup($filename, 'full');
         })->weekly()->sundays()->at('03:00');
 
-                // Check low stock every hour and send notification
-        $schedule->command('stock:check-low --notify')
-                 >dailyAt('09:00')
-                 ->when(function () {
-                     // Only run if notifications are enabled
-                     return config('services.fonnte.low_stock_enabled', true);
-                 })
-                 ->runInBackground();
 
-            // Alternative: Check daily at 9 AM
-            // $schedule->command('stock:check-low --notify')
-            //          ->dailyAt('09:00')
-            //          ->when(function () {
-            //              return config('services.fonnte.low_stock_enabled', true);
-            //          });
-        }
+        $schedule->command('stock:monthly-closing')
+                 ->monthlyOn(1, '00:30')
+                 ->withoutOverlapping()
+                 ->onOneServer()
+                 ->emailOutputOnFailure('admin@chickingbjm.com')
+                 ->appendOutputTo(storage_path('logs/monthly-closing.log'));
 
-        /**
-         * Register the commands for the application.
-         */
-        protected $commands = [
+        // TAMBAH: Backup harian
+        $schedule->command('backup:run')
+                 ->daily()
+                 ->at('02:00');
+    }
+
+    /**
+     * Register the commands for the application.
+     */
+    protected $commands = [
             Commands\CheckLowStockCommand::class,
+            Commands\MonthlyStockClosing::class,
     ];
 
 }

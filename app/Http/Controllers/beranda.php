@@ -26,7 +26,7 @@ class beranda extends Controller
 
         // Low stock items
         $lowStockItemsList = Item::lowStock()
-            ->with(['category', 'supplier'])
+            ->with(['category'])
             ->take(5)
             ->get();
 

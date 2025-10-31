@@ -77,43 +77,6 @@
             @enderror
           </div>
 
-          <!-- Category and Supplier Row -->
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <label class="form-label" for="category_id">Kategori <span class="text-danger">*</span></label>
-              <div class="input-group input-group-merge">
-                <span class="input-group-text"><i class="bx bx-category"></i></span>
-                <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
-                  <option value="">Pilih Kategori</option>
-                  @foreach($categories as $category)
-                  <option value="{{ $category->id }}" {{ old('category_id', $item->category_id) == $category->id ? 'selected' : '' }}>
-                    {{ $category->category_name }}
-                  </option>
-                  @endforeach
-                </select>
-              </div>
-              @error('category_id')
-                <div class="form-text text-danger">{{ $message }}</div>
-              @endif
-            </div>
-            <div class="col-md-6">
-              <label class="form-label" for="supplier_id">Supplier</label>
-              <div class="input-group input-group-merge">
-                <span class="input-group-text"><i class="bx bx-store"></i></span>
-                <select class="form-select @error('supplier_id') is-invalid @enderror" id="supplier_id" name="supplier_id">
-                  <option value="">Pilih Supplier (Opsional)</option>
-                  @foreach($suppliers as $supplier)
-                  <option value="{{ $supplier->id }}" {{ old('supplier_id', $item->supplier_id) == $supplier->id ? 'selected' : '' }}>
-                    {{ $supplier->supplier_name }}
-                  </option>
-                  @endforeach
-                </select>
-              </div>
-              @error('supplier_id')
-                <div class="form-text text-danger">{{ $message }}</div>
-              @endif
-            </div>
-          </div>
 
           <!-- Unit -->
           <div class="mb-3">

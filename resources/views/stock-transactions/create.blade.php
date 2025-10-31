@@ -20,7 +20,6 @@
   </div>
 </div>
 
-{{-- Ganti seluruh content setelah breadcrumb --}}
 <div class="row">
   <div class="col-12">
     <div class="card mb-4">
@@ -87,6 +86,34 @@
                           <div class="form-text">Ketik untuk mencari item berdasarkan nama atau SKU</div>
                       @enderror
                   </div>
+
+                  <div class="mb-4">
+                  <label class="form-label" for="supplier_id">Supplier</label>
+                  <div class="input-group input-group-merge">
+                    <span class="input-group-text"><i class="bx bx-store"></i></span>
+                    <select class="form-select @error('supplier_id') is-invalid @enderror" id="supplier_id" name="supplier_id">
+                      <option value="">Pilih Supplier (Opsional)</option>
+                      @foreach($suppliers as $supplier)
+                      <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}
+                              data-contact="{{ $supplier->contact_person }}"
+                              data-phone="{{ $supplier->phone }}"
+                              data-address="{{ $supplier->address }}">
+                        {{ $supplier->supplier_name }}
+                      </option>
+                      @endforeach
+                    </select>
+                  </div>
+                  @error('supplier_id')
+                    <div class="form-text text-danger">{{ $message }}</div>
+                  @else
+                    <div class="form-text">
+                      Pilih supplier jika transaksi ini berkaitan dengan supplier tertentu
+                      <a href="{{ route('suppliers.create') }}" target="_blank" class="text-decoration-none ms-2">
+                        <i class="bx bx-plus me-1"></i>Tambah supplier baru
+                      </a>
+                    </div>
+                  @enderror
+                </div>
 
                   <!-- Selected Item Info -->
                   <div id="itemInfo" class="card mb-4" style="display: none;">
@@ -538,7 +565,17 @@
         >
       </div>
       
-      <div class="col-md-3">
+      <div class="col-md-2">
+        <label class="form-label">Supplier</label>
+        <select class="form-select supplier" name="transactions[{rowId}][supplier_id]" data-row="{rowId}">
+          <option value="">Pilih...</option>
+          @foreach($suppliers as $supplier)
+          <option value="{{ $supplier->id }}">{{ $supplier->supplier_name }}</option>
+          @endforeach
+        </select>
+      </div>
+      
+      <div class="col-md-2">
         <label class="form-label">Tanggal</label>
         <input 
           type="datetime-local" 
@@ -548,7 +585,7 @@
         >
       </div>
       
-      <div class="col-md-2">
+      <div class="col-md-1">
         <label class="form-label">Aksi</label>
         <div class="d-flex gap-1">
           <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow({rowId})" title="Hapus">
@@ -582,7 +619,8 @@
           <small class="text-muted">
             <span class="current-stock">Stok: -</span> | 
             <span class="unit">Unit: -</span> | 
-            <span class="category">Kategori: -</span>
+            <span class="category">Kategori: -</span> | 
+            <span class="supplier-info">Supplier: -</span>
           </small>
         </div>
         <div class="row-validation text-danger d-none">
@@ -736,125 +774,148 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function updatePreview() {
-    const input = document.getElementById('item_search').value;
-    const datalist = document.getElementById('items_list');
-    const hiddenInput = document.getElementById('item_id');
-    const selectedType = document.querySelector('input[name="transaction_type"]:checked');
-    const quantity = quantityInput.value;
-    const preview = document.getElementById('transactionPreview');
-    
-    if (!hiddenInput.value) {
-      preview.innerHTML = `
-        <div class="text-center text-muted py-3">
-          <i class="bx bx-info-circle" style="font-size: 32px;"></i>
-          <p class="mt-2 mb-0">Pilih item untuk melihat preview</p>
-        </div>
-      `;
-      return;
-    }
-    
-    const option = [...datalist.options].find(opt => opt.value === input);
-    if (!option) return;
-    
-    const data = option.dataset;
-    const currentStock = parseFloat(data.stock);
-    let newStock = currentStock;
-    let typeText = '';
-    let typeColor = '';
-    let typeIcon = '';
-    
-    if (selectedType && quantity) {
-      const qty = parseFloat(quantity);
-      
-      switch (selectedType.value) {
-        case 'IN':
-          newStock = currentStock + qty;
-          typeText = 'Stok Masuk';
-          typeColor = 'success';
-          typeIcon = 'bx-plus-circle';
-          break;
-        case 'OUT':
-          newStock = currentStock - qty;
-          typeText = 'Stok Keluar';
-          typeColor = 'danger';
-          typeIcon = 'bx-minus-circle';
-          break;
-        case 'ADJUSTMENT':
-          newStock = qty;
-          typeText = 'Penyesuaian';
-          typeColor = 'warning';
-          typeIcon = 'bx-transfer';
-          break;
-      }
-    }
-    
+function updatePreview() {
+  const input = document.getElementById('item_search').value;
+  const datalist = document.getElementById('items_list');
+  const hiddenInput = document.getElementById('item_id');
+  const selectedType = document.querySelector('input[name="transaction_type"]:checked');
+  const quantity = quantityInput.value;
+  const supplierSelect = document.getElementById('supplier_id'); // TAMBAH INI
+  const preview = document.getElementById('transactionPreview');
+  
+  if (!hiddenInput.value) {
     preview.innerHTML = `
-      <div class="d-flex align-items-center mb-3">
-        <div class="avatar flex-shrink-0 me-3">
-          <span class="avatar-initial rounded bg-label-${data.statusColor}">
-            <i class="bx bx-package"></i>
-          </span>
-        </div>
-        <div>
-          <h6 class="mb-0">${data.name}</h6>
-          <small class="text-muted">${data.sku}</small>
-        </div>
+      <div class="text-center text-muted py-3">
+        <i class="bx bx-info-circle" style="font-size: 32px;"></i>
+        <p class="mt-2 mb-0">Pilih item untuk melihat preview</p>
+      </div>
+    `;
+    return;
+  }
+  
+  const option = [...datalist.options].find(opt => opt.value === input);
+  if (!option) return;
+  
+  const data = option.dataset;
+  const currentStock = parseFloat(data.stock);
+  let newStock = currentStock;
+  let typeText = '';
+  let typeColor = '';
+  let typeIcon = '';
+  
+  // Supplier info
+  const supplierInfo = supplierSelect.selectedOptions[0];
+  const supplierName = supplierInfo && supplierInfo.value ? supplierInfo.text : 'Tanpa supplier';
+  const hasSupplier = supplierInfo && supplierInfo.value;
+  
+  if (selectedType && quantity) {
+    const qty = parseFloat(quantity);
+    
+    switch (selectedType.value) {
+      case 'IN':
+        newStock = currentStock + qty;
+        typeText = 'Stok Masuk';
+        typeColor = 'success';
+        typeIcon = 'bx-plus-circle';
+        break;
+      case 'OUT':
+        newStock = currentStock - qty;
+        typeText = 'Stok Keluar';
+        typeColor = 'danger';
+        typeIcon = 'bx-minus-circle';
+        break;
+      case 'ADJUSTMENT':
+        newStock = qty;
+        typeText = 'Penyesuaian';
+        typeColor = 'warning';
+        typeIcon = 'bx-transfer';
+        break;
+    }
+  }
+  
+  preview.innerHTML = `
+    <div class="d-flex align-items-center mb-3">
+      <div class="avatar flex-shrink-0 me-3">
+        <span class="avatar-initial rounded bg-label-${data.statusColor}">
+          <i class="bx bx-package"></i>
+        </span>
+      </div>
+      <div>
+        <h6 class="mb-0">${data.name}</h6>
+        <small class="text-muted">${data.sku}</small>
+      </div>
+    </div>
+    
+    ${selectedType && quantity ? `
+    <div class="border rounded p-3 mb-3">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="badge bg-${typeColor}">
+          <i class="bx ${typeIcon} me-1"></i>
+          ${typeText}
+        </span>
+        <span class="fw-bold text-${typeColor}">
+          ${selectedType.value === 'OUT' ? '-' : '+'}${parseFloat(quantity).toLocaleString('id-ID')} ${data.unit}
+        </span>
       </div>
       
-      ${selectedType && quantity ? `
-      <div class="border rounded p-3 mb-3">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <span class="badge bg-${typeColor}">
-            <i class="bx ${typeIcon} me-1"></i>
-            ${typeText}
-          </span>
-          <span class="fw-bold text-${typeColor}">
-            ${selectedType.value === 'OUT' ? '-' : '+'}${parseFloat(quantity).toLocaleString('id-ID')} ${data.unit}
-          </span>
-        </div>
-        
-        <div class="row text-center">
-          <div class="col-6">
-            <small class="text-muted d-block">Stok Saat Ini</small>
-            <span class="fw-bold">${currentStock.toLocaleString('id-ID')}</span>
-          </div>
-          <div class="col-6">
-            <small class="text-muted d-block">Stok Setelah</small>
-            <span class="fw-bold text-${newStock < 0 ? 'danger' : (newStock <= parseFloat(data.threshold) ? 'warning' : 'success')}">${newStock.toLocaleString('id-ID')}</span>
-          </div>
-        </div>
-        
-        ${newStock < 0 ? '<div class="alert alert-danger mt-2 p-2"><small><i class="bx bx-error-circle me-1"></i>Stok akan menjadi negatif!</small></div>' : ''}
-        ${newStock === 0 ? '<div class="alert alert-warning mt-2 p-2"><small><i class="bx bx-error-circle me-1"></i>Stok akan habis!</small></div>' : ''}
-        ${newStock > 0 && newStock <= parseFloat(data.threshold) ? '<div class="alert alert-info mt-2 p-2"><small><i class="bx bx-info-circle me-1"></i>Stok akan menipis!</small></div>' : ''}
+      ${hasSupplier ? `
+      <div class="d-flex align-items-center mb-2">
+        <i class="bx bx-store text-success me-2"></i>
+        <span class="text-success fw-semibold">${supplierName}</span>
       </div>
       ` : ''}
       
-      <div class="border rounded p-3 bg-light">
-        <div class="row mb-2">
-          <div class="col-6">
-            <small class="text-muted d-block">Kategori:</small>
-            <small class="fw-semibold">${data.category}</small>
-          </div>
-          <div class="col-6">
-            <small class="text-muted d-block">Unit:</small>
-            <small class="fw-semibold">${data.unit}</small>
-          </div>
+      <div class="row text-center">
+        <div class="col-6">
+          <small class="text-muted d-block">Stok Saat Ini</small>
+          <span class="fw-bold">${currentStock.toLocaleString('id-ID')}</span>
         </div>
-        <div class="row">
-          <div class="col-6">
-            <small class="text-muted d-block">Stok Saat Ini:</small>
-            <small class="fw-semibold text-primary">${currentStock.toLocaleString('id-ID')}</small>
-          </div>
-          <div class="col-6">
-            <small class="text-muted d-block">Minimum:</small>
-            <small class="fw-semibold text-warning">${parseFloat(data.threshold).toLocaleString('id-ID')}</small>
-          </div>
+        <div class="col-6">
+          <small class="text-muted d-block">Stok Setelah</small>
+          <span class="fw-bold text-${newStock < 0 ? 'danger' : (newStock <= parseFloat(data.threshold) ? 'warning' : 'success')}">${newStock.toLocaleString('id-ID')}</span>
         </div>
       </div>
-    `;
-  }
+      
+      ${newStock < 0 ? '<div class="alert alert-danger mt-2 p-2"><small><i class="bx bx-error-circle me-1"></i>Stok akan menjadi negatif!</small></div>' : ''}
+      ${newStock === 0 ? '<div class="alert alert-warning mt-2 p-2"><small><i class="bx bx-error-circle me-1"></i>Stok akan habis!</small></div>' : ''}
+      ${newStock > 0 && newStock <= parseFloat(data.threshold) ? '<div class="alert alert-info mt-2 p-2"><small><i class="bx bx-info-circle me-1"></i>Stok akan menipis!</small></div>' : ''}
+    </div>
+    ` : ''}
+    
+    <div class="border rounded p-3 bg-light">
+      <div class="row mb-2">
+        <div class="col-6">
+          <small class="text-muted d-block">Kategori:</small>
+          <small class="fw-semibold">${data.category}</small>
+        </div>
+        <div class="col-6">
+          <small class="text-muted d-block">Unit:</small>
+          <small class="fw-semibold">${data.unit}</small>
+        </div>
+      </div>
+      <div class="row mb-2">
+        <div class="col-6">
+          <small class="text-muted d-block">Stok Saat Ini:</small>
+          <small class="fw-semibold text-primary">${currentStock.toLocaleString('id-ID')}</small>
+        </div>
+        <div class="col-6">
+          <small class="text-muted d-block">Minimum:</small>
+          <small class="fw-semibold text-warning">${parseFloat(data.threshold).toLocaleString('id-ID')}</small>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-12">
+          <small class="text-muted d-block">Supplier:</small>
+          <small class="fw-semibold ${hasSupplier ? 'text-success' : 'text-muted'}">${supplierName}</small>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// TAMBAH event listener untuk supplier select
+document.getElementById('supplier_id')?.addEventListener('change', updatePreview);
+
 
   // Event listeners for single form
   if (quantityInput) {

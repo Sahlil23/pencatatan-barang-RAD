@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\KitchenStockController;
 
 // Auth Routes (Public - Guest Only)
 Route::middleware('guest')->group(function () {
@@ -44,6 +45,8 @@ Route::middleware('auth')->group(function () {
     Route::post('items/{item}/adjust-stock', [ItemController::class, 'adjustStock'])->name('items.adjust-stock');
     Route::get('/items/report', [ItemController::class, 'report'])->name('items.report');
     Route::get('/items/print-report', [ItemController::class, 'printReport'])->name('items.print-report');
+    Route::get('/items/compare-months', [ItemController::class, 'compareMonths'])->name('items.compare-months');
+    Route::get('/items/{item}/monthly-history', [ItemController::class, 'monthlyHistory'])->name('items.monthly-history');
     Route::resource('items', ItemController::class);
 
 
@@ -71,7 +74,30 @@ Route::middleware('auth')->group(function () {
     Route::post('/backup/restore', [App\Http\Controllers\BackupController::class, 'restore'])->name('backup.restore');
     Route::delete('/backup/delete/{filename}', [App\Http\Controllers\BackupController::class, 'delete'])->name('backup.delete');
 
+
     Route::post('/items/send-low-stock-notification', [ItemController::class, 'sendLowStockNotification'])->name('items.send-low-stock-notification');
+    Route::post('/items/schedule-daily-low-stock', [ItemController::class, 'scheduleDailyLowStock'])
+         ->name('items.schedule-daily-low-stock');
+    Route::post('/items/cancel-daily-low-stock-schedule', [ItemController::class, 'cancelDailyLowStockSchedule'])
+         ->name('items.cancel-daily-low-stock-schedule');
+
+    Route::prefix('kitchen')->name('kitchen.')->group(function () {
+        Route::get('/', [KitchenStockController::class, 'index'])->name('index');
+        
+        Route::get('/transfer', [KitchenStockController::class, 'transfer'])->name('transfer');
+        Route::post('/transfer', [KitchenStockController::class, 'processTransfer'])->name('transfer.process');
+        
+        Route::get('/usage', [KitchenStockController::class, 'usage'])->name('usage');
+        Route::post('/usage', [KitchenStockController::class, 'processUsage'])->name('usage.process');
+        Route::post('/usage-multiple', [KitchenStockController::class, 'processMultipleUsage'])->name('usage.process-multiple');
+        
+        Route::get('/adjustment', [KitchenStockController::class, 'adjustment'])->name('adjustment');
+        Route::post('/adjustment', [KitchenStockController::class, 'processAdjustment'])->name('adjustment.process');
+        
+        Route::get('/transactions', [KitchenStockController::class, 'transactions'])->name('transactions');
+        Route::get('/report', [KitchenStockController::class, 'report'])->name('report');
+        Route::get('/print-report', [KitchenStockController::class, 'printReport'])->name('print-report');
+    });
 });
 
 Route::middleware(['auth'])->group(function () {
