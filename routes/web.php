@@ -13,6 +13,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\KitchenStockController;
+use App\Http\Controllers\CentralWarehouseController;
+use App\Http\Controllers\WarehouseController;
 
 // Auth Routes (Public - Guest Only)
 Route::middleware('guest')->group(function () {
@@ -98,6 +100,59 @@ Route::middleware('auth')->group(function () {
         Route::get('/report', [KitchenStockController::class, 'report'])->name('report');
         Route::get('/print-report', [KitchenStockController::class, 'printReport'])->name('print-report');
     });
+
+    Route::prefix('central-warehouse')->name('central-warehouse.')->group(function () {
+        // Dashboard (READ)
+        Route::get('/', [CentralWarehouseController::class, 'index'])->name('index');
+        Route::get('/{balance}/show', [CentralWarehouseController::class, 'show'])->name('show');
+        
+        // Stock Receipt (CREATE)
+        Route::get('/receive-stock', [CentralWarehouseController::class, 'receiveStock'])->name('receive-stock');
+        Route::get('/receiveStock', [CentralWarehouseController::class, 'receiveStock'])->name('receiveStock'); // Alias untuk compatibility
+        Route::post('/receive-stock', [CentralWarehouseController::class, 'storeReceipt'])->name('store-receipt');
+        Route::post('/receive-stock', [CentralWarehouseController::class, 'storeReceipt'])->name('store-receipt');
+        
+        // Stock Adjustment (UPDATE)
+        Route::get('/{balance}/adjust', [CentralWarehouseController::class, 'adjustStock'])->name('adjust-stock');
+        Route::post('/{balance}/adjust', [CentralWarehouseController::class, 'storeAdjustment'])->name('store-adjustment');
+        
+        // Stock Distribution (CREATE)
+        Route::get('/{balance}/distribute', [CentralWarehouseController::class, 'distributeStock'])->name('distribute-stock');
+        Route::post('/{balance}/distribute', [CentralWarehouseController::class, 'storeDistribution'])->name('store-distribution');
+        
+        // Cancel Transaction (DELETE)
+        Route::post('/cancel-transaction/{transaction}', [CentralWarehouseController::class, 'cancelTransaction'])->name('cancel-transaction');
+        
+        // AJAX Endpoints
+        Route::get('/api/stock-balance', [CentralWarehouseController::class, 'getStockBalance'])->name('api.stock-balance');
+        Route::get('/api/warehouse-items/{warehouse}', [CentralWarehouseController::class, 'getWarehouseItems'])->name('api.warehouse-items');
+    });
+
+    Route::prefix('warehouses')->name('warehouses.')->group(function () {
+        // Standard CRUD Operations
+        Route::get('/', [WarehouseController::class, 'index'])->name('index');
+        Route::get('/create', [WarehouseController::class, 'create'])->name('create');
+        Route::post('/', [WarehouseController::class, 'store'])->name('store');
+        Route::get('/{warehouse}', [WarehouseController::class, 'show'])->name('show');
+        Route::get('/{warehouse}/edit', [WarehouseController::class, 'edit'])->name('edit');
+        Route::put('/{warehouse}', [WarehouseController::class, 'update'])->name('update');
+        Route::delete('/{warehouse}', [WarehouseController::class, 'destroy'])->name('destroy');
+        
+        // Additional CRUD Actions
+        Route::post('/{warehouse}/restore', [WarehouseController::class, 'restore'])->name('restore');
+        Route::delete('/{warehouse}/force-delete', [WarehouseController::class, 'forceDestroy'])->name('force-destroy');
+        Route::post('/{warehouse}/change-status', [WarehouseController::class, 'changeStatus'])->name('change-status');
+        
+        // Bulk Operations
+        Route::post('/bulk-action', [WarehouseController::class, 'bulkAction'])->name('bulk-action');
+        
+        // Data Export & Import
+        Route::get('/export/csv', [WarehouseController::class, 'export'])->name('export');
+        
+        // AJAX Endpoints
+        Route::get('/api/list', [WarehouseController::class, 'getWarehouses'])->name('api.list');
+    });
+
 });
 
 Route::middleware(['auth'])->group(function () {

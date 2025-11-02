@@ -74,20 +74,9 @@
           <div class="menu-inner-shadow"></div>
 
           <ul class="menu-inner py-1">
-            <!-- Dashboard -->
-            <li class="menu-item {{ request()->routeIs('beranda') ? 'active' : '' }}">
-              <a href="{{ route('beranda') }}" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-home-circle"></i>
-                <div data-i18n="Dashboard">Dashboard</div>
-              </a>
-            </li>
+            <!-- 1. Data Master -->
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Data Master</span></li>
 
-            <!-- Inventory Management -->
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Inventory</span>
-            </li>
-
-            <!-- Barang/Produk -->
             <li class="menu-item {{ request()->routeIs('items.*') ? 'active open' : '' }}">
               <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons bx bx-package"></i>
@@ -95,114 +84,14 @@
               </a>
               <ul class="menu-sub">
                 <li class="menu-item {{ request()->routeIs('items.index') ? 'active' : '' }}">
-                  <a href="{{ route('items.index') }}" class="menu-link">
-                    <div data-i18n="All Products">Semua Barang</div>
-                  </a>
+                  <a href="{{ route('items.index') }}" class="menu-link"><div data-i18n="All Products">Semua Barang</div></a>
                 </li>
                 <li class="menu-item {{ request()->routeIs('items.create') ? 'active' : '' }}">
-                  <a href="{{ route('items.create') }}" class="menu-link">
-                    <div data-i18n="Add Product">Tambah Barang</div>
-                  </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('items.low-stock') ? 'active' : '' }}">
-                  <a href="{{ route('items.low-stock') }}" class="menu-link">
-                    <div data-i18n="Low Stock">Stok Menipis</div>
-                  </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('items.report') ? 'active' : '' }}">
-                  <a href="{{ route('items.report') }}" class="menu-link">
-                    <div data-i18n="Low Stock">Laporan Stok</div>
-                  </a>
+                  <a href="{{ route('items.create') }}" class="menu-link"><div data-i18n="Add Product">Tambah Barang</div></a>
                 </li>
               </ul>
             </li>
 
-            <li class="menu-header small text-uppercase">
-                <span class="menu-header-text">Stok Dapur</span>
-            </li>
-
-            <!-- Kitchen Stock Menu -->
-            <li class="menu-item {{ request()->routeIs('kitchen.*') ? 'active open' : '' }}">
-                <a href="javascript:void(0);" class="menu-link menu-toggle">
-                    <i class="menu-icon tf-icons bx bx-restaurant"></i>
-                    <div data-i18n="Kitchen Stock">Barang Dapur</div>
-                    @if(isset($kitchenLowStockCount) && $kitchenLowStockCount > 0)
-                        <span class="badge badge-center rounded-pill bg-danger ms-2">{{ $kitchenLowStockCount }}</span>
-                    @endif
-                </a>
-                <ul class="menu-sub">
-                    <li class="menu-item {{ request()->routeIs('kitchen.index') ? 'active' : '' }}">
-                        <a href="{{ route('kitchen.index') }}" class="menu-link">
-                            <div data-i18n="Kitchen Dashboard">Dashboard Dapur</div>
-                            @if(isset($kitchenLowStockCount) && $kitchenLowStockCount > 0)
-                                <span class="badge badge-center rounded-pill bg-warning ms-2">{{ $kitchenLowStockCount }}</span>
-                            @endif
-                        </a>
-                    </li>
-                    <li class="menu-item {{ request()->routeIs('kitchen.transfer') ? 'active' : '' }}">
-                        <a href="{{ route('kitchen.transfer') }}" class="menu-link">
-                            <div data-i18n="Transfer to Kitchen">Transfer ke Dapur</div>
-                        </a>
-                    </li>
-                    <li class="menu-item {{ request()->routeIs('kitchen.usage') ? 'active' : '' }}">
-                        <a href="{{ route('kitchen.usage') }}" class="menu-link">
-                            <div data-i18n="Usage Records">Catat Penggunaan</div>
-                        </a>
-                    </li>
-                    <li class="menu-item {{ request()->routeIs('kitchen.adjustment') ? 'active' : '' }}">
-                        <a href="{{ route('kitchen.adjustment') }}" class="menu-link">
-                            <div data-i18n="Stock Adjustment">Penyesuaian Stok</div>
-                        </a>
-                    </li>
-                    <li class="menu-item {{ request()->routeIs('kitchen.transactions') ? 'active' : '' }}">
-                        <a href="{{ route('kitchen.transactions') }}" class="menu-link">
-                            <div data-i18n="Kitchen Transactions">Transaksi Dapur</div>
-                        </a>
-                    </li>
-                    <li class="menu-item {{ request()->routeIs('kitchen.report') ? 'active' : '' }}">
-                        <a href="{{ route('kitchen.report') }}" class="menu-link">
-                            <div data-i18n="Kitchen Report">Laporan Dapur</div>
-                        </a>
-                    </li>
-                </ul>
-            </li>
-
-            <!-- Transaksi -->
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Transaksi</span>
-            </li>
-
-            <!-- Stock Transactions -->
-            <li class="menu-item {{ request()->routeIs('stock-transactions.*') ? 'active open' : '' }}">
-              <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-transfer"></i>
-                <div data-i18n="Stock Transactions">Transaksi Stok</div>
-              </a>
-              <ul class="menu-sub">
-                <li class="menu-item {{ request()->routeIs('stock-transactions.index') ? 'active' : '' }}">
-                  <a href="{{ route('stock-transactions.index') }}" class="menu-link">
-                    <div data-i18n="All Transactions">Semua Transaksi</div>
-                  </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('stock-transactions.create') ? 'active' : '' }}">
-                  <a href="{{ route('stock-transactions.create') }}" class="menu-link">
-                    <div data-i18n="Add Transaction">Input Transaksi</div>
-                  </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('stock-transactions.report') ? 'active' : '' }}">
-                  <a href="{{ route('stock-transactions.report') }}" class="menu-link">
-                    <div data-i18n="Reports">Laporan</div>
-                  </a>
-                </li>
-              </ul>
-            </li>
-
-            <!-- Master Data -->
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Master Data</span>
-            </li>
-            
-            <!-- Kategori Produk -->
             <li class="menu-item {{ request()->routeIs('categories.*') ? 'active open' : '' }}">
               <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons bx bx-category"></i>
@@ -210,38 +99,62 @@
               </a>
               <ul class="menu-sub">
                 <li class="menu-item {{ request()->routeIs('categories.index') ? 'active' : '' }}">
-                  <a href="{{ route('categories.index') }}" class="menu-link">
-                    <div data-i18n="All Categories">Semua Kategori</div>
-                  </a>
+                  <a href="{{ route('categories.index') }}" class="menu-link"><div data-i18n="All Categories">Semua Kategori</div></a>
                 </li>
                 <li class="menu-item {{ request()->routeIs('categories.create') ? 'active' : '' }}">
-                  <a href="{{ route('categories.create') }}" class="menu-link">
-                    <div data-i18n="Add Category">Tambah Kategori</div>
-                  </a>
+                  <a href="{{ route('categories.create') }}" class="menu-link"><div data-i18n="Add Category">Tambah Kategori</div></a>
                 </li>
               </ul>
             </li>
 
-            <!-- Supplier -->
             <li class="menu-item {{ request()->routeIs('suppliers.*') ? 'active open' : '' }}">
               <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon tf-icons bx bx-group"></i>
-                <div data-i18n="Suppliers">Supplier</div>
+                <div data-i18n="Suppliers">Suplier</div>
               </a>
               <ul class="menu-sub">
                 <li class="menu-item {{ request()->routeIs('suppliers.index') ? 'active' : '' }}">
-                  <a href="{{ route('suppliers.index') }}" class="menu-link">
-                    <div data-i18n="All Suppliers">Semua Supplier</div>
-                  </a>
+                  <a href="{{ route('suppliers.index') }}" class="menu-link"><div data-i18n="All Suppliers">Semua Suplier</div></a>
                 </li>
                 <li class="menu-item {{ request()->routeIs('suppliers.create') ? 'active' : '' }}">
-                  <a href="{{ route('suppliers.create') }}" class="menu-link">
-                    <div data-i18n="Add Supplier">Tambah Supplier</div>
-                  </a>
+                  <a href="{{ route('suppliers.create') }}" class="menu-link"><div data-i18n="Add Supplier">Tambah Suplier</div></a>
                 </li>
               </ul>
             </li>
 
+            <!-- 2. Warehouse -->
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Warehouse</span></li>
+            <li class="menu-item {{ request()->routeIs('warehouses.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Warehouses">Warehouse</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('warehouses.index') ? 'active' : '' }}">
+                  <a href="{{ route('warehouses.index') }}" class="menu-link"><div data-i18n="List">Warehouse</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('warehouses.create') ? 'active' : '' }}">
+                  <a href="{{ route('warehouses.create') }}" class="menu-link"><div data-i18n="Create">Create</div></a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- 3. Central Warehouse -->
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Central Warehouse</span></li>
+            <li class="menu-item {{ request()->routeIs('central-warehouse.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="CentralWarehouse">Central Warehouse</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('central-warehouse.index') ? 'active' : '' }}">
+                  <a href="{{ route('central-warehouse.index') }}" class="menu-link"><div data-i18n="Read">Stock Central Warehouse</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('central-warehouse.receive-stock') ? 'active' : '' }}">
+                  <a href="{{ route('central-warehouse.receive-stock') }}" class="menu-link"><div data-i18n="Receive">Receive Stock</div></a>
+                </li>
+              </ul>
+            </li>
             <!-- Recipe -->
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Resep</span>
@@ -286,57 +199,32 @@
               </ul>
             </li>
 
-            <!-- User Management - Admin Only -->
-            @if(Auth::user()->isAdmin())
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">User Management</span>
-            </li>
-            <li class="menu-item">
-              <a href="{{ route('users.index') }}" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-user"></i>
-                <div data-i18n="Users">Manage Users</div>
-              </a>
-            </li>
-            @endif
-
-            <li class="menu-header small text-uppercase">
-              <span class="menu-header-text">Account</span>
-            </li>
-            <li class="menu-item {{ request()->routeIs('backup.*') ? 'active open' : '' }}">
-              <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-user"></i>
-                <div data-i18n="Account">Account</div>
-              </a>
-              <ul class="menu-sub">
-                <li class="menu-item">
-                  <a href="{{ route('profile') }}" class="menu-link">
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">User</span></li>
+                @if(Auth::user()->isAdmin())
+                <li class="menu-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                  <a href="{{ route('users.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-user"></i>
+                    <div data-i18n="ManageUsers">Manage User</div>
+                  </a>
+                </li>
+                @endif
+                <li class="menu-item {{ request()->routeIs('profile') ? 'active' : '' }}">
+                  <a href="{{ route('profile') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-id-card"></i>
                     <div data-i18n="Profile">Profile</div>
                   </a>
                 </li>
-                            <li class="menu-item">
-              <form action="{{ route('logout') }}" method="POST" style="display: inline;">
-                @csrf
-                <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent" style="padding: 0.625rem 1rem;">
-                  <i class="menu-icon tf-icons bx bx-power-off"></i>
-                  <div data-i18n="Logout">Logout</div>
-                </button>
-              </form>
-            </li>
+                <li class="menu-item">
+                  <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                    @csrf
+                    <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent" style="padding: 0.625rem 1rem;">
+                      <i class="menu-icon tf-icons bx bx-power-off"></i>
+                      <div data-i18n="Logout">Logout</div>
+                    </button>
+                  </form>
+                </li>
               </ul>
-            </li>
-            <!-- Logout -->
-              <!-- <li class="menu-item">
-                <form action="{{ route('logout') }}" method="POST" style="display: inline;">
-                  @csrf
-                  <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent" style="padding: 0.625rem 1rem;">
-                    <i class="menu-icon tf-icons bx bx-power-off"></i>
-                    <div data-i18n="Logout">Logout</div>
-                  </button>
-                </form>
-              </li>
-            </ul> -->
-        </aside>
+            </aside>
         <!-- / Menu -->
 
         <!-- Layout container -->

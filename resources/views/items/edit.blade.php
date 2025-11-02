@@ -12,7 +12,7 @@
           <a href="{{ route('beranda') }}">Dashboard</a>
         </li>
         <li class="breadcrumb-item">
-          <a href="{{ route('items.index') }}">Item</a>
+          <a href="{{ route('items.index') }}">Data Master Item</a>
         </li>
         <li class="breadcrumb-item active" aria-current="page">Edit Item</li>
       </ol>
@@ -24,34 +24,37 @@
   <div class="col-xl-8">
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Edit Item</h5>
-        <small class="text-muted float-end">Form edit data item</small>
+        <h5 class="mb-0">
+          <i class="bx bx-edit me-2"></i>
+          Edit Data Master Item
+        </h5>
+        <small class="text-muted float-end">Master Data Management</small>
       </div>
       <div class="card-body">
         <form action="{{ route('items.update', $item->id) }}" method="POST">
           @csrf
           @method('PUT')
           
-          <!-- SKU -->
+          <!-- Item Code -->
           <div class="mb-3">
-            <label class="form-label" for="sku">SKU (Stock Keeping Unit) <span class="text-danger">*</span></label>
+            <label class="form-label" for="item_code">Kode Item <span class="text-danger">*</span></label>
             <div class="input-group input-group-merge">
               <span class="input-group-text"><i class="bx bx-barcode"></i></span>
               <input
                 type="text"
-                class="form-control @error('sku') is-invalid @enderror"
-                id="sku"
-                name="sku"
-                placeholder="Contoh: CHK-001"
-                value="{{ old('sku', $item->sku) }}"
+                class="form-control @error('item_code') is-invalid @enderror"
+                id="item_code"
+                name="item_code"
+                placeholder="Contoh: CHK001"
+                value="{{ old('item_code', $item->item_code) }}"
                 required
                 style="text-transform: uppercase;"
               />
             </div>
-            @error('sku')
+            @error('item_code')
               <div class="form-text text-danger">{{ $message }}</div>
             @else
-              <div class="form-text">SKU harus unik dan maksimal 50 karakter</div>
+              <div class="form-text">Kode item harus unik dan maksimal 50 karakter</div>
             @enderror
           </div>
 
@@ -77,6 +80,26 @@
             @enderror
           </div>
 
+          <!-- Category -->
+          <div class="mb-3">
+            <label class="form-label" for="category_id">Kategori <span class="text-danger">*</span></label>
+            <div class="input-group input-group-merge">
+              <span class="input-group-text"><i class="bx bx-category"></i></span>
+              <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                <option value="">Pilih Kategori</option>
+                @foreach($categories as $category)
+                <option value="{{ $category->id }}" {{ old('category_id', $item->category_id) == $category->id ? 'selected' : '' }}>
+                  {{ $category->category_name }}
+                </option>
+                @endforeach
+              </select>
+            </div>
+            @error('category_id')
+              <div class="form-text text-danger">{{ $message }}</div>
+            @else
+              <div class="form-text">Pilih kategori yang sesuai untuk item ini</div>
+            @enderror
+          </div>
 
           <!-- Unit -->
           <div class="mb-3">
@@ -102,29 +125,6 @@
             @enderror
           </div>
 
-          <!-- Current Stock (Read Only) -->
-          <div class="mb-3">
-            <label class="form-label">Stok Saat Ini</label>
-            <div class="input-group input-group-merge">
-              <span class="input-group-text"><i class="bx bx-box"></i></span>
-              <input
-                type="text"
-                class="form-control"
-                value="{{ number_format($item->current_stock, 2) }} {{ $item->unit }}"
-                readonly
-              />
-              <span class="input-group-text">
-                <span class="badge bg-{{ $item->stock_status_color }}">
-                  {{ $item->stock_status }}
-                </span>
-              </span>
-            </div>
-            <div class="form-text">
-              <i class="bx bx-info-circle me-1"></i>
-              Stok tidak dapat diubah melalui form edit. Gunakan fitur <strong>Sesuaikan Stok</strong> untuk mengubah stok.
-            </div>
-          </div>
-
           <!-- Low Stock Threshold -->
           <div class="mb-3">
             <label class="form-label" for="low_stock_threshold">Batas Minimum Stok <span class="text-danger">*</span></label>
@@ -146,8 +146,62 @@
             @error('low_stock_threshold')
               <div class="form-text text-danger">{{ $message }}</div>
             @else
-              <div class="form-text">Sistem akan memberikan peringatan jika stok mencapai batas ini</div>
+              <div class="form-text">Batas untuk notifikasi stok menipis</div>
             @enderror
+          </div>
+
+          <!-- Unit Cost (Optional) -->
+          <div class="mb-3">
+            <label class="form-label" for="unit_cost">Harga Per Unit</label>
+            <div class="input-group input-group-merge">
+              <span class="input-group-text"><i class="bx bx-dollar"></i></span>
+              <input
+                type="number"
+                class="form-control @error('unit_cost') is-invalid @enderror"
+                id="unit_cost"
+                name="unit_cost"
+                placeholder="Contoh: 25000"
+                value="{{ old('unit_cost', $item->unit_cost) }}"
+                step="0.01"
+                min="0"
+              />
+              <span class="input-group-text">IDR</span>
+            </div>
+            @error('unit_cost')
+              <div class="form-text text-danger">{{ $message }}</div>
+            @else
+              <div class="form-text">Harga per unit (opsional, untuk referensi)</div>
+            @enderror
+          </div>
+
+          <!-- Status -->
+          <div class="mb-3">
+            <label class="form-label" for="status">Status Item <span class="text-danger">*</span></label>
+            <div class="input-group input-group-merge">
+              <span class="input-group-text"><i class="bx bx-signal-3"></i></span>
+              <select class="form-select @error('status') is-invalid @enderror" id="status" name="status" required>
+                <option value="ACTIVE" {{ old('status', $item->status) == 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
+                <option value="INACTIVE" {{ old('status', $item->status) == 'INACTIVE' ? 'selected' : '' }}>Nonaktif</option>
+              </select>
+            </div>
+            @error('status')
+              <div class="form-text text-danger">{{ $message }}</div>
+            @else
+              <div class="form-text">Status aktif/nonaktif untuk master data</div>
+            @enderror
+          </div>
+
+          <!-- Master Data Info -->
+          <div class="alert alert-info">
+            <h6 class="alert-heading">
+              <i class="bx bx-info-circle me-2"></i>
+              Data Master Item
+            </h6>
+            <p class="mb-0">
+              <strong>Focus:</strong> Data referensi item untuk semua modul sistem |
+              <strong>Stock:</strong> Dikelola di modul warehouse terpisah |
+              <strong>Status:</strong> Nonaktif = tidak muncul di transaksi baru
+            </p>
           </div>
 
           <!-- Created/Updated Info -->
@@ -189,10 +243,6 @@
                 <i class="bx bx-show me-1"></i>
                 Lihat Detail
               </a>
-              <button type="button" class="btn btn-outline-warning me-2" onclick="showStockAdjustment()">
-                <i class="bx bx-transfer me-1"></i>
-                Sesuaikan Stok
-              </button>
               <button type="reset" class="btn btn-outline-secondary me-2">
                 <i class="bx bx-reset me-1"></i>
                 Reset
@@ -218,16 +268,17 @@
         </h5>
       </div>
       <div class="card-body">
-        <div class="alert alert-warning" role="alert">
+        <div class="alert alert-primary" role="alert">
           <h6 class="alert-heading">
-            <i class="bx bx-error-circle me-1"></i>
-            Perhatian!
+            <i class="bx bx-package me-1"></i>
+            Master Data
           </h6>
           <ul class="mb-0">
-            <li>Perubahan kategori dapat mempengaruhi laporan</li>
-            <li>SKU tidak boleh duplikat dengan item lain</li>
-            <li>Stok hanya bisa diubah melalui penyesuaian stok</li>
-            <li>Item ini memiliki <strong>{{ $item->stockTransactions()->count() }} transaksi</strong> stok</li>
+            <li>Kode item harus unik dalam sistem</li>
+            <li>Kategori mempengaruhi pengelompokan laporan</li>
+            <li>Unit cost untuk referensi perhitungan</li>
+            <li>Status nonaktif = tidak tampil di transaksi baru</li>
+            <li>Data stok dikelola terpisah di warehouse</li>
           </ul>
         </div>
 
@@ -235,16 +286,12 @@
 
         <!-- Item Statistics -->
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="text-muted">SKU:</span>
-          <span class="badge bg-primary">{{ $item->sku }}</span>
+          <span class="text-muted">Kode Item:</span>
+          <span class="badge bg-primary">{{ $item->item_code }}</span>
         </div>
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="text-muted">Status Stok:</span>
-          <span class="badge bg-{{ $item->stock_status_color }}">{{ $item->stock_status }}</span>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="text-muted">Total Transaksi:</span>
-          <span class="badge bg-info">{{ $item->stockTransactions()->count() }} Transaksi</span>
+          <span class="text-muted">Kategori:</span>
+          <span class="badge bg-info">{{ $item->category->category_name ?? 'Tidak ada' }}</span>
         </div>
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="text-muted">Dibuat:</span>
@@ -276,7 +323,7 @@
             <div class="flex-grow-1">
               <h6 class="mb-0" id="preview-name">{{ $item->item_name }}</h6>
               <small class="text-muted">
-                <span id="preview-sku">{{ $item->sku }}</span> • 
+                <span id="preview-code">{{ $item->item_code }}</span> • 
                 <span id="preview-unit">{{ $item->unit }}</span>
               </small>
             </div>
@@ -288,15 +335,17 @@
                 <small class="text-muted d-block">Kategori:</small>
                 <small class="fw-semibold" id="preview-category">{{ $item->category->category_name ?? 'Tidak ada' }}</small>
               </div>
-              <div class="col-6">
-                <small class="text-muted d-block">Supplier:</small>
-                <small class="fw-semibold" id="preview-supplier">{{ $item->supplier->supplier_name ?? 'Tidak ada' }}</small>
-              </div>
             </div>
             <div class="row mb-2">
               <div class="col-6">
-                <small class="text-muted d-block">Stok Saat Ini:</small>
-                <small class="fw-semibold text-{{ $item->stock_status_color }}">{{ number_format($item->current_stock, 2) }}</small>
+                <small class="text-muted d-block">Unit Cost:</small>
+                <small class="fw-semibold text-success" id="preview-cost">
+                  @if($item->unit_cost)
+                    Rp {{ number_format($item->unit_cost, 0) }}
+                  @else
+                    -
+                  @endif
+                </small>
               </div>
               <div class="col-6">
                 <small class="text-muted d-block">Batas Minimum:</small>
@@ -304,110 +353,15 @@
               </div>
             </div>
             <div class="text-center">
-              <span class="badge bg-{{ $item->stock_status_color }}">{{ $item->stock_status }}</span>
+              <span class="badge bg-{{ $item->status === 'ACTIVE' ? 'success' : 'warning' }}" id="preview-badge">
+                {{ $item->status === 'ACTIVE' ? 'Aktif' : 'Nonaktif' }}
+              </span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Recent Transactions -->
-    @if($item->stockTransactions()->count() > 0)
-    <div class="card mt-4">
-      <div class="card-header">
-        <h6 class="mb-0">
-          <i class="bx bx-history me-2"></i>
-          Transaksi Terakhir
-        </h6>
-      </div>
-      <div class="card-body">
-        <div class="list-group list-group-flush">
-          @foreach($item->stockTransactions()->latest()->take(5)->get() as $transaction)
-          <div class="list-group-item px-0 py-2 border-0">
-            <div class="d-flex align-items-center">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-{{ $transaction->transaction_type == 'IN' ? 'success' : ($transaction->transaction_type == 'OUT' ? 'danger' : 'warning') }}">
-                  <i class="bx {{ $transaction->transaction_type == 'IN' ? 'bx-plus' : ($transaction->transaction_type == 'OUT' ? 'bx-minus' : 'bx-transfer') }}"></i>
-                </span>
-              </div>
-              <div class="flex-grow-1">
-                <h6 class="mb-0">{{ $transaction->transaction_type }}</h6>
-                <small class="text-muted">{{ Str::limit($transaction->notes, 30) }}</small>
-              </div>
-              <div class="text-end">
-                <small class="fw-bold text-{{ $transaction->transaction_type == 'IN' ? 'success' : ($transaction->transaction_type == 'OUT' ? 'danger' : 'warning') }}">
-                  {{ $transaction->transaction_type == 'OUT' ? '-' : '+' }}{{ number_format($transaction->quantity, 2) }}
-                </small>
-                <br><small class="text-muted">{{ $transaction->transaction_date->format('d/m/Y') }}</small>
-              </div>
-            </div>
-          </div>
-          @endforeach
-          
-          @if($item->stockTransactions()->count() > 5)
-          <div class="list-group-item px-0 py-2 border-0 text-center">
-            <small class="text-muted">Dan {{ $item->stockTransactions()->count() - 5 }} transaksi lainnya...</small>
-          </div>
-          @endif
-        </div>
-      </div>
-    </div>
-    @endif
-  </div>
-</div>
-
-<!-- Stock Adjustment Modal -->
-<div class="modal fade" id="stockAdjustmentModal" tabindex="-1" aria-labelledby="stockAdjustmentModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="stockAdjustmentModalLabel">
-          <i class="bx bx-transfer me-2"></i>
-          Sesuaikan Stok
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <form action="{{ route('items.adjust-stock', $item->id) }}" method="POST">
-        @csrf
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Item</label>
-            <input type="text" class="form-control" value="{{ $item->item_name }}" readonly>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Stok Saat Ini</label>
-            <input type="text" class="form-control" value="{{ number_format($item->current_stock, 2) }} {{ $item->unit }}" readonly>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Tipe Penyesuaian <span class="text-danger">*</span></label>
-            <select class="form-select" name="adjustment_type" required>
-              <option value="">Pilih tipe penyesuaian</option>
-              <option value="add">Tambah Stok</option>
-              <option value="reduce">Kurangi Stok</option>
-            </select>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Jumlah <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" name="quantity" step="0.01" min="0.01" required>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Catatan <span class="text-danger">*</span></label>
-            <textarea class="form-control" name="notes" rows="3" placeholder="Alasan penyesuaian stok..." required></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="bx bx-save me-1"></i>
-            Simpan Penyesuaian
-          </button>
-        </div>
-      </form>
-    </div>
   </div>
 </div>
 @endsection
@@ -416,59 +370,71 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // Elements
-  const skuInput = document.getElementById('sku');
+  const itemCodeInput = document.getElementById('item_code');
   const itemNameInput = document.getElementById('item_name');
   const categorySelect = document.getElementById('category_id');
-  const supplierSelect = document.getElementById('supplier_id');
   const unitSelect = document.getElementById('unit');
   const thresholdInput = document.getElementById('low_stock_threshold');
+  const unitCostInput = document.getElementById('unit_cost');
+  const statusSelect = document.getElementById('status');
   
   // Preview elements
   const previewName = document.getElementById('preview-name');
-  const previewSku = document.getElementById('preview-sku');
+  const previewCode = document.getElementById('preview-code');
   const previewUnit = document.getElementById('preview-unit');
   const previewCategory = document.getElementById('preview-category');
-  const previewSupplier = document.getElementById('preview-supplier');
+  const previewStatus = document.getElementById('preview-status');
+  const previewCost = document.getElementById('preview-cost');
   const previewThreshold = document.getElementById('preview-threshold');
+  const previewBadge = document.getElementById('preview-badge');
   const thresholdUnit = document.getElementById('threshold-unit');
 
   // Update preview
   function updatePreview() {
     const name = itemNameInput.value || "{{ $item->item_name }}";
-    const sku = skuInput.value || "{{ $item->sku }}";
+    const code = itemCodeInput.value || "{{ $item->item_code }}";
     const unit = unitSelect.value || "{{ $item->unit }}";
     const threshold = thresholdInput.value || "{{ $item->low_stock_threshold }}";
+    const cost = unitCostInput.value || 0;
+    const status = statusSelect.value || "{{ $item->status }}";
     
     const categoryText = categorySelect.options[categorySelect.selectedIndex]?.text || 'Tidak ada';
-    const supplierText = supplierSelect.options[supplierSelect.selectedIndex]?.text || 'Tidak ada';
+    const statusText = status === 'ACTIVE' ? 'Aktif' : 'Nonaktif';
+    const statusColor = status === 'ACTIVE' ? 'success' : 'warning';
     
     previewName.textContent = name;
-    previewSku.textContent = sku;
+    previewCode.textContent = code;
     previewUnit.textContent = unit;
     previewCategory.textContent = categoryText;
-    previewSupplier.textContent = supplierText;
+    previewStatus.textContent = statusText;
     previewThreshold.textContent = parseFloat(threshold).toLocaleString('id-ID', { minimumFractionDigits: 2 });
     thresholdUnit.textContent = unit;
+    
+    // Update cost
+    if (cost && parseFloat(cost) > 0) {
+      previewCost.textContent = 'Rp ' + parseFloat(cost).toLocaleString('id-ID');
+    } else {
+      previewCost.textContent = '-';
+    }
+    
+    // Update badge
+    previewBadge.textContent = statusText;
+    previewBadge.className = `badge bg-${statusColor}`;
   }
 
   // Event listeners
   itemNameInput.addEventListener('input', updatePreview);
-  skuInput.addEventListener('input', updatePreview);
+  itemCodeInput.addEventListener('input', updatePreview);
   categorySelect.addEventListener('change', updatePreview);
-  supplierSelect.addEventListener('change', updatePreview);
   unitSelect.addEventListener('change', updatePreview);
   thresholdInput.addEventListener('input', updatePreview);
+  unitCostInput.addEventListener('input', updatePreview);
+  statusSelect.addEventListener('change', updatePreview);
 
-  // SKU formatting
-  skuInput.addEventListener('input', function() {
+  // Item code formatting
+  itemCodeInput.addEventListener('input', function() {
     this.value = this.value.toUpperCase();
   });
-
-  // Stock adjustment modal
-  window.showStockAdjustment = function() {
-    const modal = new bootstrap.Modal(document.getElementById('stockAdjustmentModal'));
-    modal.show();
-  };
 
   // Initialize
   updatePreview();
@@ -476,13 +442,13 @@ document.addEventListener('DOMContentLoaded', function() {
   // Form validation
   const form = document.querySelector('form[action*="update"]');
   form.addEventListener('submit', function(e) {
-    const sku = skuInput.value.trim();
+    const code = itemCodeInput.value.trim();
     const itemName = itemNameInput.value.trim();
     const categoryId = categorySelect.value;
     const unit = unitSelect.value;
     const threshold = thresholdInput.value;
     
-    if (!sku || !itemName || !categoryId || !unit || !threshold) {
+    if (!code || !itemName || !categoryId || !unit || !threshold) {
       e.preventDefault();
       alert('Mohon lengkapi semua field yang wajib diisi');
       return false;
@@ -498,4 +464,26 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+@endpush
+
+@push('styles')
+<style>
+.avatar-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+
+.form-control:focus {
+  border-color: #696cff;
+  box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.25);
+}
+
+.preview-content .border {
+  background-color: #f8f9fa;
+}
+</style>
 @endpush

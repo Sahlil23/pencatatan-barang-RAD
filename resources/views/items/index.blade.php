@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Daftar Item - Chicking BJM')
+@section('title', 'Data Master Item - Chicking BJM')
 
 @section('content')
 <div class="row">
@@ -11,7 +11,7 @@
         <li class="breadcrumb-item">
           <a href="{{ route('beranda') }}">Dashboard</a>
         </li>
-        <li class="breadcrumb-item active" aria-current="page">Item</li>
+        <li class="breadcrumb-item active" aria-current="page">Data Master Item</li>
       </ol>
     </nav>
   </div>
@@ -28,56 +28,9 @@
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Total Item</span>
-        <h3 class="card-title mb-2">{{ $items->total() }}</h3>
+        <h3 class="card-title mb-2">{{ $stats['total'] ?? 0 }}</h3>
         <small class="text-primary fw-semibold">
-          <i class="bx bx-package"></i> Item
-        </small>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
-    <div class="card">
-      <div class="card-body">
-        <div class="card-title d-flex align-items-start justify-content-between">
-          <div class="avatar flex-shrink-0">
-            <img src="{{ asset('assets/img/icons/unicons/wallet-info.png') }}" alt="Low Stock" class="rounded" />
-          </div>
-        </div>
-        <span class="fw-semibold d-block mb-1">Stok Menipis</span>
-        @php 
-          // Gunakan monthly balance prioritas, fallback ke current_stock
-          $lowStockCount = App\Models\Item::lowStockMonthly()->count();
-          if ($lowStockCount == 0) {
-            $lowStockCount = App\Models\Item::lowStock()->count();
-          }
-        @endphp
-        <h3 class="card-title mb-2 {{ $lowStockCount > 0 ? 'text-warning' : 'text-success' }}">{{ $lowStockCount }}</h3>
-        <small class="{{ $lowStockCount > 0 ? 'text-warning' : 'text-success' }} fw-semibold">
-          <i class="bx {{ $lowStockCount > 0 ? 'bx-error' : 'bx-check' }}"></i> 
-          {{ $lowStockCount > 0 ? 'Perlu Perhatian' : 'Aman' }}
-        </small>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-3 col-md-6 col-sm-6 mb-4">
-    <div class="card">
-      <div class="card-body">
-        <div class="card-title d-flex align-items-start justify-content-between">
-          <div class="avatar flex-shrink-0">
-            <img src="{{ asset('assets/img/icons/unicons/cc-success.png') }}" alt="Out of Stock" class="rounded" />
-          </div>
-        </div>
-        <span class="fw-semibold d-block mb-1">Stok Habis</span>
-        @php 
-          $outOfStockCount = App\Models\Item::outOfStockMonthly()->count();
-          if ($outOfStockCount == 0) {
-            $outOfStockCount = App\Models\Item::outOfStock()->count();
-          }
-        @endphp
-        <h3 class="card-title mb-2 {{ $outOfStockCount > 0 ? 'text-danger' : 'text-success' }}">{{ $outOfStockCount }}</h3>
-        <small class="{{ $outOfStockCount > 0 ? 'text-danger' : 'text-success' }} fw-semibold">
-          <i class="bx {{ $outOfStockCount > 0 ? 'bx-x' : 'bx-check' }}"></i> 
-          {{ $outOfStockCount > 0 ? 'Stok Kosong' : 'Tersedia' }}
+          <i class="bx bx-package"></i> Master Data
         </small>
       </div>
     </div>
@@ -93,23 +46,23 @@
         <span class="fw-semibold d-block mb-1">Kategori</span>
         <h3 class="card-title mb-2">{{ $categories->count() }}</h3>
         <small class="text-info fw-semibold">
-          <i class="bx bx-category"></i> Aktif
+          <i class="bx bx-category"></i> Total
         </small>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Monthly Balance Info -->
+<!-- Master Data Info -->
 <div class="alert alert-info alert-dismissible mb-4" role="alert">
   <h6 class="alert-heading mb-2">
     <i class="bx bx-info-circle me-2"></i>
-    Informasi Monthly Balance System
+    Data Master Item Management
   </h6>
   <p class="mb-0">
-    <strong>Stok Awal:</strong> Stok di awal bulan {{ now()->format('F Y') }} |
-    <strong>Stok Akhir:</strong> Stok saat ini |
-    <strong>Selisih:</strong> Perubahan stok dalam bulan ini
+    <strong>Focus:</strong> Kelola data master item, kategori, dan informasi dasar |
+    <strong>Status:</strong> Data referensi untuk semua modul |
+    <strong>Note:</strong> Data stok dikelola di modul warehouse masing-masing
   </p>
   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
@@ -123,7 +76,7 @@
         <label class="form-label">Cari Item</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bx bx-search"></i></span>
-          <input type="text" class="form-control" name="search" value="{{ request('search') }}" placeholder="Nama item atau SKU...">
+          <input type="text" class="form-control" name="search" value="{{ request('search') }}" placeholder="Nama item atau kode...">
         </div>
       </div>
       
@@ -140,14 +93,13 @@
         </select>
       </div>
       
-      <!-- Stock Status Filter -->
+      <!-- Status Filter -->
       <div class="col-md-3">
-        <label class="form-label">Status Stok</label>
-        <select class="form-select" name="stock_status">
+        <label class="form-label">Status Item</label>
+        <select class="form-select" name="status">
           <option value="">Semua Status</option>
-          <option value="in" {{ request('stock_status') == 'in' ? 'selected' : '' }}>Stok Tersedia</option>
-          <option value="low" {{ request('stock_status') == 'low' ? 'selected' : '' }}>Stok Menipis</option>
-          <option value="out" {{ request('stock_status') == 'out' ? 'selected' : '' }}>Stok Habis</option>
+          <option value="ACTIVE" {{ request('status') == 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
+          <option value="INACTIVE" {{ request('status') == 'INACTIVE' ? 'selected' : '' }}>Nonaktif</option>
         </select>
       </div>
       
@@ -173,20 +125,16 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">
       <i class="bx bx-package me-2"></i>
-      Daftar Item - {{ now()->format('F Y') }}
-      @if(request()->hasAny(['search', 'category_id', 'stock_status']))
+      Data Master Item
+      @if(request()->hasAny(['search', 'category_id', 'status']))
         <span class="badge bg-label-primary">Filtered</span>
       @endif
     </h5>
     <div class="d-flex gap-2">
-      <a href="{{ route('items.low-stock') }}" class="btn btn-outline-warning btn-sm">
-        <i class="bx bx-error me-1"></i>
-        Stok Menipis
-      </a>
-      <a href="{{ route('items.report') }}" class="btn btn-outline-info btn-sm">
-        <i class="bx bx-chart me-1"></i>
-        Laporan
-      </a>
+      <button type="button" class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+        <i class="bx bx-upload me-1"></i>
+        Import CSV
+      </button>
       <a href="{{ route('items.create') }}" class="btn btn-primary">
         <i class="bx bx-plus me-1"></i>
         Tambah Item
@@ -200,7 +148,7 @@
         <tr>
           <th style="width: 80px;">
             <i class="bx bx-hash me-1"></i>
-            SKU
+            Kode
           </th>
           <th>
             <i class="bx bx-package me-1"></i>
@@ -211,21 +159,21 @@
             Kategori
           </th>
           <th class="text-center">
-            <i class="bx bx-trending-up me-1"></i>
-            Stok Awal
+            <i class="bx bx-cube me-1"></i>
+            Unit
           </th>
           <th class="text-center">
-            <i class="bx bx-box me-1"></i>
-            Stok Akhir
+            <i class="bx bx-line-chart me-1"></i>
+            Threshold
           </th>
           <th class="text-center">
-            <i class="bx bx-transfer me-1"></i>
-            Selisih
+            <i class="bx bx-dollar me-1"></i>
+            Unit Cost
           </th>
-          <!-- <th class="text-center">
+          <th class="text-center">
             <i class="bx bx-signal-3 me-1"></i>
             Status
-          </th> -->
+          </th>
           <th class="text-center">
             <i class="bx bx-cog me-1"></i>
             Aksi
@@ -234,19 +182,13 @@
       </thead>
       <tbody class="table-border-bottom-0">
         @forelse ($items as $item)
-        @php
-          // Prioritas: monthly balance dulu, jika tidak ada gunakan current_stock
-          $balance = $item->currentBalance;
-          $openingStock = $balance ? $balance->opening_stock : 0;
-          $closingStock = $balance ? $balance->closing_stock : 0;
-          $difference = $closingStock - $openingStock;
-          $stockStatus = $balance ? $item->stock_status_monthly : $item->stock_status;
-          $stockStatusColor = $balance ? $item->stock_status_color_monthly : $item->stock_status_color;
-        @endphp
         <tr>
+          <!-- Item Code -->
           <td>
             <span class="badge bg-label-secondary">{{ $item->sku }}</span>
           </td>
+          
+          <!-- Item Info -->
           <td>
             <div class="d-flex align-items-center">
               <div class="avatar flex-shrink-0 me-3">
@@ -257,22 +199,22 @@
               <div>
                 <strong>{{ $item->item_name }}</strong>
                 <br><small class="text-muted">
-                  <i class="bx bx-cube"></i>
-                  {{ $item->unit }}
-                  @if($balance)
-                    <span class="badge bg-success ms-1" title="Menggunakan Monthly Balance">MB</span>
-                  @else
-                    <span class="badge bg-warning ms-1" title="Menggunakan Current Stock">CS</span>
-                  @endif
+                  <i class="bx bx-time"></i>
+                  {{ $item->created_at->format('d M Y') }}
                 </small>
               </div>
             </div>
           </td>
+          
+          <!-- Category -->
           <td>
             @if($item->category)
               <div class="d-flex align-items-center">
-                <i class="bx bx-category text-primary me-2"></i>
-                <span>{{ $item->category->category_name }}</span>
+                <!-- <i class="bx bx-category text-primary me-2"></i> -->
+                <div>
+                  <span>{{ $item->category->category_name }}</span>
+                  <!-- <br><small class="text-muted">{{ $item->category->category_code ?? '-' }}</small> -->
+                </div>
               </div>
             @else
               <span class="text-muted">
@@ -281,78 +223,43 @@
               </span>
             @endif
           </td>
+          
+          <!-- Unit -->
           <td class="text-center">
-            @if($balance)
-            <div class="d-flex flex-column align-items-center">
-              <span class="fw-bold text-info">
-                {{ number_format($openingStock, 0) }}
-              </span>
-              <small class="text-muted">Awal {{ now()->format('M') }}</small>
-            </div>
-            @else
-            <span class="text-muted">
-              <i class="bx bx-minus"></i>
-              <br><small>No data</small>
+            <span class="fw-bold text-info">
+              {{ $item->unit }}
             </span>
+          </td>
+          
+          <!-- Low Stock Threshold -->
+          <td class="text-center">
+            <span class="fw-bold">
+              {{ number_format($item->low_stock_threshold, 0) }}
+            </span>
+            <br><small class="text-muted">Min Stock</small>
+          </td>
+          
+          <!-- Unit Cost -->
+          <td class="text-center">
+            @if($item->unit_cost)
+              <span class="fw-bold text-success">
+                Rp {{ number_format($item->unit_cost, 0) }}
+              </span>
+            @else
+              <span class="text-muted">-</span>
             @endif
           </td>
+          
+          <!-- Status -->
           <td class="text-center">
-            <div class="d-flex flex-column align-items-center">
-              <span class="fw-bold text-{{ $stockStatusColor }}">
-                {{ number_format($closingStock, 0) }}
-              </span>
-              <small class="text-muted">
-                Min: {{ number_format($item->low_stock_threshold, 0) }}
-              </small>
-              @if($balance)
-              <div class="progress mt-1" style="width: 60px; height: 4px;">
-                @php $percentage = $item->low_stock_threshold > 0 ? min(100, ($closingStock / $item->low_stock_threshold) * 100) : 0; @endphp
-                <div class="progress-bar bg-{{ $stockStatusColor }}" style="width: {{ $percentage }}%"></div>
-              </div>
-              @endif
-            </div>
-          </td>
-          <td class="text-center">
-            @if($balance)
-            <div class="d-flex flex-column align-items-center">
-              @if($difference > 0)
-                <span class="fw-bold text-success">
-                  <i class="bx bx-up-arrow-alt"></i>
-                  +{{ number_format($difference, 0) }}
-                </span>
-                <small class="text-success">Naik</small>
-              @elseif($difference < 0)
-                <span class="fw-bold text-danger">
-                  <i class="bx bx-down-arrow-alt"></i>
-                  {{ number_format($difference, 0) }}
-                </span>
-                <small class="text-danger">Turun</small>
-              @else
-                <span class="fw-bold text-muted">
-                  <i class="bx bx-minus"></i>
-                  0
-                </span>
-                <small class="text-muted">Tetap</small>
-              @endif
-              @if($balance->stock_in > 0 || $balance->stock_out > 0)
-              <div class="mt-1">
-                <small class="text-success">+{{ number_format($balance->stock_in, 0) }}</small>
-                <small class="text-danger">-{{ number_format($balance->stock_out, 0) }}</small>
-              </div>
-              @endif
-            </div>
+            @if($item->status === 'ACTIVE')
+              <span class="badge bg-success">Aktif</span>
             @else
-            <span class="text-muted">
-              <i class="bx bx-minus"></i>
-              <br><small>No data</small>
-            </span>
+              <span class="badge bg-warning">Nonaktif</span>
             @endif
           </td>
-          <!-- <td class="text-center">
-            <span class="badge bg-{{ $stockStatusColor }}">
-              {{ $stockStatus }}
-            </span>
-          </td> -->
+          
+          <!-- Actions -->
           <td class="text-center">
             <div class="dropdown">
               <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
@@ -368,23 +275,11 @@
                   Edit
                 </a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="#" onclick="showStockAdjustment({{ $item->id }}, '{{ $item->item_name }}', {{ $closingStock }})">
-                  <i class="bx bx-transfer me-1"></i> 
-                  Sesuaikan Stok
-                </a>
-                @if(!$balance)
-                <a class="dropdown-item text-info" href="#" onclick="createMonthlyBalance({{ $item->id }})">
-                  <i class="bx bx-plus me-1"></i> 
-                  Buat Monthly Balance
-                </a>
-                @endif
-                <div class="dropdown-divider"></div>
                 <form action="{{ route('items.destroy', $item->id) }}" method="POST" class="d-inline">
                   @csrf
                   @method('DELETE')
                   <button type="submit" class="dropdown-item text-danger" 
-                          onclick="return confirm('Apakah Anda yakin ingin menghapus item {{ $item->item_name }}?')"
-                          {{ $item->stockTransactions()->count() > 0 ? 'disabled title="Tidak dapat menghapus item yang memiliki riwayat transaksi"' : '' }}>
+                          onclick="return confirm('Apakah Anda yakin ingin menghapus item {{ $item->item_name }}? Ini akan menghapus semua data terkait.')">
                     <i class="bx bx-trash me-1"></i> 
                     Hapus
                   </button>
@@ -399,20 +294,20 @@
             <div class="d-flex flex-column align-items-center">
               <i class="bx bx-package" style="font-size: 48px; color: #ddd;"></i>
               <h6 class="mt-2 text-muted">
-                @if(request()->hasAny(['search', 'category_id', 'stock_status']))
+                @if(request()->hasAny(['search', 'category_id', 'status']))
                   Tidak ada item yang sesuai dengan filter
                 @else
                   Belum ada data item
                 @endif
               </h6>
               <p class="text-muted mb-3">
-                @if(request()->hasAny(['search', 'category_id', 'stock_status']))
+                @if(request()->hasAny(['search', 'category_id', 'status']))
                   Coba ubah filter atau kata kunci pencarian
                 @else
                   Mulai dengan menambahkan item pertama Anda
                 @endif
               </p>
-              @if(!request()->hasAny(['search', 'category_id', 'stock_status']))
+              @if(!request()->hasAny(['search', 'category_id', 'status']))
               <a href="{{ route('items.create') }}" class="btn btn-primary">
                 <i class="bx bx-plus me-1"></i>
                 Tambah Item Pertama
@@ -431,58 +326,70 @@
     </table>
   </div>
 
-  <x-simple-pagination :items="$items" type="item" />
+  <!-- Pagination -->
+  @if($items->hasPages())
+  <div class="card-footer">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="text-muted">
+        Showing {{ $items->firstItem() }} to {{ $items->lastItem() }} of {{ $items->total() }} items
+      </div>
+      {{ $items->links() }}
+    </div>
+  </div>
+  @endif
 </div>
 
-<!-- Stock Adjustment Modal -->
-<div class="modal fade" id="stockAdjustmentModal" tabindex="-1" aria-labelledby="stockAdjustmentModalLabel" aria-hidden="true">
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="stockAdjustmentModalLabel">
-          <i class="bx bx-transfer me-2"></i>
-          Sesuaikan Stok
+        <h5 class="modal-title" id="importModalLabel">
+          <i class="bx bx-upload me-2"></i>
+          Import Item dari CSV
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form id="stockAdjustmentForm" method="POST">
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Action Modal -->
+<div class="modal fade" id="bulkActionModal" tabindex="-1" aria-labelledby="bulkActionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bulkActionModalLabel">
+          <i class="bx bx-check-square me-2"></i>
+          Bulk Action
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="#}" method="POST">
         @csrf
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">Item</label>
-            <input type="text" class="form-control" id="adjustmentItemName" readonly>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Stok Saat Ini</label>
-            <input type="text" class="form-control" id="adjustmentCurrentStock" readonly>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Tipe Penyesuaian <span class="text-danger">*</span></label>
-            <select class="form-select" name="adjustment_type" required>
-              <option value="">Pilih tipe penyesuaian</option>
-              <option value="add">Tambah Stok</option>
-              <option value="reduce">Kurangi Stok</option>
-              <option value="set">Set Stok (Atur Ulang)</option>
+            <label class="form-label">Pilih Aksi <span class="text-danger">*</span></label>
+            <select class="form-select" name="action" required>
+              <option value="">Pilih aksi...</option>
+              <option value="activate">Aktifkan Item</option>
+              <option value="deactivate">Nonaktifkan Item</option>
+              <option value="delete">Hapus Item</option>
             </select>
           </div>
           
           <div class="mb-3">
-            <label class="form-label">Jumlah <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" name="quantity" step="0.01" min="0.01" required>
-          </div>
-          
-          <div class="mb-3">
-            <label class="form-label">Catatan <span class="text-danger">*</span></label>
-            <textarea class="form-control" name="notes" rows="3" placeholder="Alasan penyesuaian stok..." required></textarea>
+            <label class="form-label">Item yang Dipilih</label>
+            <div id="selectedItemsList" class="border rounded p-2 bg-light">
+              <small class="text-muted">Pilih item dari tabel terlebih dahulu</small>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
           <button type="submit" class="btn btn-primary">
-            <i class="bx bx-save me-1"></i>
-            Simpan Penyesuaian
+            <i class="bx bx-check me-1"></i>
+            Jalankan Aksi
           </button>
         </div>
       </form>
@@ -493,49 +400,88 @@
 
 @push('scripts')
 <script>
-// Stock adjustment modal
-function showStockAdjustment(itemId, itemName, currentStock) {
-  document.getElementById('adjustmentItemName').value = itemName;
-  document.getElementById('adjustmentCurrentStock').value = currentStock;
-  document.getElementById('stockAdjustmentForm').action = `/items/${itemId}/adjust-stock`;
+// Bulk selection functionality
+let selectedItems = [];
+
+function toggleItemSelection(itemId, itemName) {
+  const index = selectedItems.findIndex(item => item.id === itemId);
   
-  const modal = new bootstrap.Modal(document.getElementById('stockAdjustmentModal'));
+  if (index > -1) {
+    selectedItems.splice(index, 1);
+  } else {
+    selectedItems.push({ id: itemId, name: itemName });
+  }
+  
+  updateBulkActionButton();
+  updateSelectedItemsList();
+}
+
+function updateBulkActionButton() {
+  const bulkActionBtn = document.getElementById('bulkActionBtn');
+  if (bulkActionBtn) {
+    if (selectedItems.length > 0) {
+      bulkActionBtn.style.display = 'inline-block';
+      bulkActionBtn.textContent = `Bulk Action (${selectedItems.length})`;
+    } else {
+      bulkActionBtn.style.display = 'none';
+    }
+  }
+}
+
+function updateSelectedItemsList() {
+  const listContainer = document.getElementById('selectedItemsList');
+  if (selectedItems.length === 0) {
+    listContainer.innerHTML = '<small class="text-muted">Pilih item dari tabel terlebih dahulu</small>';
+  } else {
+    listContainer.innerHTML = selectedItems.map(item => 
+      `<div class="badge bg-primary me-1 mb-1">${item.name}</div>`
+    ).join('');
+  }
+}
+
+function showBulkActionModal() {
+  if (selectedItems.length === 0) {
+    alert('Pilih minimal satu item terlebih dahulu');
+    return;
+  }
+  
+  // Add hidden inputs for selected items
+  const form = document.querySelector('#bulkActionModal form');
+  const existingInputs = form.querySelectorAll('input[name="item_ids[]"]');
+  existingInputs.forEach(input => input.remove());
+  
+  selectedItems.forEach(item => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'item_ids[]';
+    input.value = item.id;
+    form.appendChild(input);
+  });
+  
+  const modal = new bootstrap.Modal(document.getElementById('bulkActionModal'));
   modal.show();
 }
 
-// Create monthly balance for legacy items
-function createMonthlyBalance(itemId) {
-  if (confirm('Buat monthly balance untuk item ini? Ini akan menggunakan current stock sebagai opening stock.')) {
-    fetch(`/items/${itemId}/create-monthly-balance`, {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-        'Content-Type': 'application/json',
-      }
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();
-      } else {
-        alert('Error: ' + data.message);
-      }
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert('Terjadi kesalahan saat membuat monthly balance');
-    });
+// Add checkbox column and bulk action button (optional enhancement)
+document.addEventListener('DOMContentLoaded', function() {
+  // Add bulk action button to header if needed
+  const headerActions = document.querySelector('.card-header .d-flex.gap-2');
+  if (headerActions && selectedItems.length === 0) {
+    const bulkBtn = document.createElement('button');
+    bulkBtn.type = 'button';
+    bulkBtn.className = 'btn btn-outline-primary btn-sm';
+    bulkBtn.id = 'bulkActionBtn';
+    bulkBtn.style.display = 'none';
+    bulkBtn.onclick = showBulkActionModal;
+    bulkBtn.innerHTML = '<i class="bx bx-check-square me-1"></i> Bulk Action';
+    headerActions.insertBefore(bulkBtn, headerActions.firstChild);
   }
-}
+});
 </script>
 @endpush
 
 @push('styles')
 <style>
-.progress {
-  background-color: #e9ecef;
-}
-
 .badge {
   font-size: 0.65em;
 }
@@ -553,22 +499,19 @@ function createMonthlyBalance(itemId) {
   font-size: 18px;
 }
 
-/* Additional styles for monthly balance display */
-.stock-diff-positive {
-  color: #71dd37;
+/* Selection checkbox styling */
+.item-checkbox {
+  transform: scale(1.2);
 }
 
-.stock-diff-negative {
-  color: #ff3e1d;
+.selected-row {
+  background-color: rgba(105, 108, 255, 0.1) !important;
 }
 
-.stock-diff-neutral {
-  color: #6c757d;
-}
-
-.monthly-info {
-  font-size: 0.7em;
-  line-height: 1.2;
-}
+/* Status badge colors */
+.badge.bg-success { background-color: #71dd37 !important; }
+.badge.bg-warning { background-color: #ffab00 !important; }
+.badge.bg-danger { background-color: #ff3e1d !important; }
+.badge.bg-info { background-color: #03c3ec !important; }
 </style>
 @endpush

@@ -1,620 +1,658 @@
 <?php
+// filepath: app/Http/Controllers/ItemController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\Category;
-use App\Models\Supplier;
-use App\Models\MonthlyStockBalance;
 use Illuminate\Http\Request;
-use App\Services\FonnteService;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class ItemController extends Controller
 {
+    // ========================================
+    // 📋 READ - INDEX (List all items)
+    // ========================================
+
+    /**
+     * Display a listing of items (Data Master only)
+     */
     public function index(Request $request)
     {
-        // FIX: Load dengan cara yang benar untuk supplier
-        $query = Item::with([
-            'category', 
-            'currentBalance',
-            'stockTransactions' => function($q) {
-                $q->whereNotNull('supplier_id')
-                  ->with('supplier')
-                  ->latest()
-                  ->take(1);
+        try {
+            $query = Item::with('category')->orderBy('created_at', 'desc');
+
+            // Apply filters
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('item_name', 'LIKE', "%{$search}%")
+                      ->orWhere('item_code', 'LIKE', "%{$search}%");
+                });
             }
-        ]);
 
-        // Filter by category
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        // TAMBAH FILTER BY SUPPLIER (MELALUI STOCK TRANSACTIONS)
-        if ($request->filled('supplier_id')) {
-            $query->whereHas('stockTransactions', function($q) use ($request) {
-                $q->where('supplier_id', $request->supplier_id);
-            });
-        }
-
-        // Filter by stock status menggunakan monthly balance
-        if ($request->filled('stock_status')) {
-            switch ($request->stock_status) {
-                case 'low':
-                    $query->lowStock();
-                    break;
-                case 'out':
-                    $query->outOfStock();
-                    break;
-                case 'in':
-                    $query->inStock();
-                    break;
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
             }
+
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            // Paginate results
+            $items = $query->paginate(15)->appends($request->query());
+            
+            // Get data for filters
+            $categories = Category::orderBy('category_name')->get();
+
+            // Statistics
+            $stats = [
+                'total' => Item::count(),
+                'by_category' => Item::selectRaw('categories.category_name, COUNT(*) as count')
+                    ->join('categories', 'items.category_id', '=', 'categories.id')
+                    ->groupBy('categories.id', 'categories.category_name')
+                    ->get()
+            ];
+
+            return view('items.index', compact('items', 'categories', 'stats'));
+
+        } catch (\Exception $e) {
+            Log::error('Item index error: ' . $e->getMessage());
+            return back()->with('error', 'Error loading items: ' . $e->getMessage());
         }
-
-        // Search
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('item_name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
-            });
-        }
-
-        $items = $query->latest()->paginate(15);
-        
-        // FIX: Process items untuk menambahkan supplier info
-        $items->getCollection()->transform(function ($item) {
-            $item->supplier_info = $item->getSupplierInfo();
-            return $item;
-        });
-        
-        $categories = Category::get();
-        $suppliers = Supplier::whereHas('stockTransactions')->get(); // Hanya supplier yang memiliki transaksi
-
-        return view('items.index', compact('items', 'categories', 'suppliers'));
     }
 
+    // ========================================
+    // 👁️ READ - SHOW (View single item)
+    // ========================================
+
+    /**
+     * Display the specified item (Data Master only)
+     */
+    public function show($id)
+    {
+        try {
+            $item = Item::with('category')->findOrFail($id);
+
+            // Item detail information only - no stock data
+            $itemInfo = [
+                'created_date' => $item->created_at,
+                'updated_date' => $item->updated_at,
+                'category_info' => $item->category,
+                'unit_info' => $item->unit,
+                'threshold_info' => $item->low_stock_threshold,
+                'cost_info' => $item->unit_cost
+            ];
+
+            return view('items.show', compact('item', 'itemInfo'));
+
+        } catch (\Exception $e) {
+            Log::error('Item show error: ' . $e->getMessage());
+            return back()->with('error', 'Error loading item details: ' . $e->getMessage());
+        }
+    }
+
+    // ========================================
+    // ➕ CREATE - FORM & STORE
+    // ========================================
+
+    /**
+     * Show the form for creating a new item
+     */
     public function create()
     {
-        $categories = Category::get();
-        // $suppliers = Supplier::all();
-        return view('items.create', compact('categories'));
+        try {
+            $categories = Category::orderBy('category_name')->get();
+            
+            return view('items.create', compact('categories'));
+
+        } catch (\Exception $e) {
+            Log::error('Item create form error: ' . $e->getMessage());
+            return back()->with('error', 'Error loading create form: ' . $e->getMessage());
+        }
     }
 
+    /**
+     * Store a newly created item
+     */
     public function store(Request $request)
     {
-        $request->validate([
-            'sku' => 'required|string|max:50|unique:items',
-            'item_name' => 'required|string|max:150',
-            'category_id' => 'required|exists:categories,id',
-            // 'supplier_id' => 'nullable|exists:suppliers,id',
-            'unit' => 'required|string|max:20',
-            'initial_stock' => 'required|numeric|min:0', // Ganti dari current_stock
-            'low_stock_threshold' => 'required|numeric|min:0'
-        ]);
+        // Validation
+        $validator = Validator::make($request->all(), Item::validationRules(), Item::validationMessages());
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
 
         DB::beginTransaction();
         try {
-            // Create item tanpa current_stock
-            $item = Item::create($request->except('initial_stock'));
+            // Auto-generate item code if not provided
+            $itemCode = $request->item_code;
+            if (!$itemCode) {
+                $categoryCode = Category::find($request->category_id)->category_code ?? 'ITM';
+                $itemCode = $this->generateItemCode($categoryCode);
+            }
 
-            // Create monthly balance untuk bulan ini dengan initial stock
-            MonthlyStockBalance::create([
-                'item_id' => $item->id,
-                'year' => now()->year,
-                'month' => now()->month,
-                'opening_stock' => $request->initial_stock,
-                'closing_stock' => $request->initial_stock,
-                'stock_in' => 0,
-                'stock_out' => 0,
-                'adjustments' => 0
-            ]);
+            // Prepare data
+            $data = $request->all();
+            $data['item_code'] = $itemCode;
+            $data['status'] = $data['status'] ?? 'ACTIVE';
+
+            // Create item (only master data)
+            $item = Item::create($data);
 
             DB::commit();
 
+            Log::info('Item created successfully', [
+                'item_id' => $item->id,
+                'item_code' => $item->item_code,
+                'item_name' => $item->item_name
+            ]);
+
             return redirect()->route('items.index')
-                ->with('success', 'Item berhasil ditambahkan!');
+                           ->with('success', 'Item created successfully: ' . $item->item_name);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Gagal menambahkan item: ' . $e->getMessage());
+            DB::rollback();
+            Log::error('Item creation error: ' . $e->getMessage());
+            return back()->with('error', 'Error creating item: ' . $e->getMessage())->withInput();
         }
     }
 
-    public function show(Item $item)
+    // ========================================
+    // ✏️ UPDATE - EDIT FORM & UPDATE
+    // ========================================
+
+    /**
+     * Show the form for editing the specified item
+     */
+    public function edit($id)
     {
-        $item->load([
-            'category', 
-            'supplier', 
-            'stockTransactions' => function($query) {
-                $query->latest()->take(10);
-            },
-            'currentBalance'
-        ]);
-        
-        return view('items.show', compact('item'));
+        try {
+            $item = Item::findOrFail($id);
+            $categories = Category::orderBy('category_name')->get();
+
+            return view('items.edit', compact('item', 'categories'));
+
+        } catch (\Exception $e) {
+            Log::error('Item edit form error: ' . $e->getMessage());
+            return back()->with('error', 'Error loading edit form: ' . $e->getMessage());
+        }
     }
 
-    public function edit(Item $item)
+    /**
+     * Update the specified item
+     */
+    public function update(Request $request, $id)
     {
-        $categories = Category::get();
-        return view('items.edit', compact('item', 'categories'));
-    }
+        // Validation
+        $validator = Validator::make($request->all(), Item::validationRules($id), Item::validationMessages());
 
-    public function update(Request $request, Item $item)
-    {
-        $request->validate([
-            'sku' => 'required|string|max:50|unique:items,sku,' . $item->id,
-            'item_name' => 'required|string|max:150',
-            'category_id' => 'required|exists:categories,id',
-            // 'supplier_id' => 'nullable|exists:suppliers,id',
-            'unit' => 'required|string|max:20',
-            'low_stock_threshold' => 'required|numeric|min:0'
-        ]);
-
-        $item->update($request->all());
-
-        return redirect()->route('items.index')
-            ->with('success', 'Item berhasil diupdate!');
-    }
-
-    public function destroy(Item $item)
-    {
-        if ($item->stockTransactions()->count() > 0) {
-            return redirect()->route('items.index')
-                ->with('error', 'Item tidak dapat dihapus karena memiliki riwayat transaksi!');
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
         }
 
         DB::beginTransaction();
         try {
-            // Hapus monthly balances
-            $item->monthlyBalances()->delete();
-            
-            // Hapus item
+            $item = Item::findOrFail($id);
+
+            // Update item (only master data)
+            $item->update($request->all());
+
+            DB::commit();
+
+            Log::info('Item updated successfully', [
+                'item_id' => $item->id,
+                'item_code' => $item->item_code,
+                'changes' => $item->getChanges()
+            ]);
+
+            return redirect()->route('items.index')
+                           ->with('success', 'Item updated successfully: ' . $item->item_name);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Item update error: ' . $e->getMessage());
+            return back()->with('error', 'Error updating item: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    // ========================================
+    // 🗑️ DELETE - DESTROY
+    // ========================================
+
+    /**
+     * Remove the specified item
+     */
+    public function destroy($id)
+    {
+        DB::beginTransaction();
+        try {
+            $item = Item::findOrFail($id);
+
+            // Check if item has related data (central stock, branch stock, transactions)
+            $hasRelatedData = $item->centralStockBalances()->exists() ||
+                             $item->centralStockTransactions()->exists() ||
+                             $item->branchMonthlyBalances()->exists() ||
+                             $item->branchStockTransactions()->exists();
+
+            if ($hasRelatedData) {
+                return back()->with('warning', 'Cannot delete item with existing stock records or transactions. Set status to INACTIVE instead.');
+            }
+
+            // Store info for log
+            $itemInfo = [
+                'id' => $item->id,
+                'code' => $item->item_code,
+                'name' => $item->item_name,
+                'category' => $item->category->category_name ?? 'Unknown'
+            ];
+
+            // Delete item
             $item->delete();
 
             DB::commit();
 
+            Log::info('Item deleted successfully', $itemInfo);
+
             return redirect()->route('items.index')
-                ->with('success', 'Item berhasil dihapus!');
+                           ->with('success', 'Item deleted successfully: ' . $itemInfo['name']);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->route('items.index')
-                ->with('error', 'Gagal menghapus item: ' . $e->getMessage());
+            DB::rollback();
+            Log::error('Item deletion error: ' . $e->getMessage());
+            return back()->with('error', 'Error deleting item: ' . $e->getMessage());
         }
     }
 
-    public function lowStock()
-    {
-        $items = Item::lowStock()->with(['category', 'currentBalance'])->get();
-        return view('items.low-stock', compact('items'));
-    }
+    // ========================================
+    // 🔄 ADDITIONAL CRUD ACTIONS
+    // ========================================
 
-    public function adjustStock(Request $request, Item $item)
+    /**
+     * Change item status (Active/Inactive)
+     */
+    public function changeStatus(Request $request, $id)
     {
-        $request->validate([
-            'adjustment_type' => 'required|in:add,reduce,set',
-            'quantity' => 'required|numeric|min:0',
-            'notes' => 'required|string|max:255',
-            'supplier_id' => 'nullable|exists:suppliers,id' 
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:ACTIVE,INACTIVE',
+            'reason' => 'nullable|string|max:500'
         ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator);
+        }
 
         DB::beginTransaction();
         try {
-            $monthlyBalance = MonthlyStockBalance::getOrCreateBalance($item->id);
+            $item = Item::findOrFail($id);
+            $oldStatus = $item->status;
+            
+            $item->update([
+                'status' => $request->status
+            ]);
 
-            switch ($request->adjustment_type) {
-                case 'add':
-                    $item->addStock($request->quantity, $request->notes, auth()->id(), $request->supplier_id);
-                    $message = 'Stok berhasil ditambahkan!';
-                    break;
+            DB::commit();
 
-                case 'reduce':
-                    if ($monthlyBalance->closing_stock < $request->quantity) {
-                        DB::rollBack();
-                        return redirect()->back()
-                            ->with('error', 'Stok tidak mencukupi! Stok saat ini: ' . $monthlyBalance->closing_stock);
-                    }
-                    $item->reduceStock($request->quantity, $request->notes, auth()->id(), $request->supplier_id);
-                    $message = 'Stok berhasil dikurangi!';
-                    break;
+            Log::info('Item status changed', [
+                'item_id' => $item->id,
+                'item_code' => $item->item_code,
+                'old_status' => $oldStatus,
+                'new_status' => $request->status,
+                'reason' => $request->reason
+            ]);
 
-                case 'set':
-                    $item->adjustStock($request->quantity, $request->notes, auth()->id(), $request->supplier_id);
-                    $message = 'Stok berhasil disesuaikan!';
-                    break;
+            return back()->with('success', 'Item status updated successfully.');
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Item status change error: ' . $e->getMessage());
+            return back()->with('error', 'Error updating item status: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Bulk actions for multiple items
+     */
+    public function bulkAction(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'action' => 'required|in:delete,activate,deactivate',
+            'item_ids' => 'required|array|min:1',
+            'item_ids.*' => 'exists:items,id'
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator);
+        }
+
+        DB::beginTransaction();
+        try {
+            $items = Item::whereIn('id', $request->item_ids)->get();
+            $count = 0;
+
+            foreach ($items as $item) {
+                switch ($request->action) {
+                    case 'delete':
+                        // Check related data before delete
+                        $hasRelatedData = $item->centralStockBalances()->exists() ||
+                                         $item->centralStockTransactions()->exists() ||
+                                         $item->branchMonthlyBalances()->exists() ||
+                                         $item->branchStockTransactions()->exists();
+                        
+                        if (!$hasRelatedData) {
+                            $item->delete();
+                            $count++;
+                        }
+                        break;
+                    case 'activate':
+                        $item->update(['status' => 'ACTIVE']);
+                        $count++;
+                        break;
+                    case 'deactivate':
+                        $item->update(['status' => 'INACTIVE']);
+                        $count++;
+                        break;
+                }
             }
 
             DB::commit();
 
-            return redirect()->route('items.show', $item)
-                ->with('success', $message);
+            Log::info('Bulk item action completed', [
+                'action' => $request->action,
+                'items_affected' => $count,
+                'total_selected' => count($request->item_ids)
+            ]);
+
+            return back()->with('success', "Bulk action completed successfully. {$count} items affected.");
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->with('error', 'Gagal melakukan penyesuaian stok: ' . $e->getMessage());
+            DB::rollback();
+            Log::error('Bulk item action error: ' . $e->getMessage());
+            return back()->with('error', 'Error performing bulk action: ' . $e->getMessage());
         }
     }
 
-    public function report(Request $request)
+    /**
+     * Duplicate item
+     */
+    public function duplicate($id)
     {
-        // Parse periode dari request (default bulan ini)
-        $selectedPeriod = $request->get('period', now()->format('Y-m'));
-        [$selectedYear, $selectedMonth] = explode('-', $selectedPeriod);
-        $selectedYear = (int) $selectedYear;
-        $selectedMonth = (int) $selectedMonth;
-
-        // Periode sebelumnya untuk perbandingan
-        $prevDate = Carbon::create($selectedYear, $selectedMonth, 1)->subMonth();
-        $prevYear = $prevDate->year;
-        $prevMonth = $prevDate->month;
-
-        $query = Item::with([
-            'category', 
-            'monthlyBalances' => function($q) use ($selectedYear, $selectedMonth, $prevYear, $prevMonth) {
-                $q->where(function($subQuery) use ($selectedYear, $selectedMonth, $prevYear, $prevMonth) {
-                    $subQuery->where(function($current) use ($selectedYear, $selectedMonth) {
-                        $current->where('year', $selectedYear)->where('month', $selectedMonth);
-                    })
-                    ->orWhere(function($previous) use ($prevYear, $prevMonth) {
-                        $previous->where('year', $prevYear)->where('month', $prevMonth);
-                    });
-                });
-            }
-        ]);
-
-        // Filter berdasarkan kategori
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-
-        // Filter berdasarkan status stok untuk periode yang dipilih
-        if ($request->filled('stock_status')) {
-            switch ($request->stock_status) {
-                case 'low':
-                    $query->lowStockForPeriod($selectedYear, $selectedMonth);
-                    break;
-                case 'out':
-                    $query->outOfStockForPeriod($selectedYear, $selectedMonth);
-                    break;
-                case 'in':
-                    $query->inStockForPeriod($selectedYear, $selectedMonth);
-                    break;
-            }
-        }
-
-        // Pencarian berdasarkan nama item atau SKU
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('item_name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
-            });
-        }
-
-        // Urutkan berdasarkan pilihan user
-        $sortBy = $request->get('sort_by', 'item_name');
-        $sortOrder = $request->get('sort_order', 'asc');
-        
-        if ($sortBy === 'stock') {
-            // Sort berdasarkan closing stock dari monthly balance
-            $query->leftJoin('monthly_stock_balances', function($join) use ($selectedYear, $selectedMonth) {
-                $join->on('items.id', '=', 'monthly_stock_balances.item_id')
-                     ->where('monthly_stock_balances.year', $selectedYear)
-                     ->where('monthly_stock_balances.month', $selectedMonth);
-            })
-            ->orderBy('monthly_stock_balances.closing_stock', $sortOrder)
-            ->select('items.*');
-        } elseif ($sortBy === 'category') {
-            $query->join('categories', 'items.category_id', '=', 'categories.id')
-                  ->orderBy('categories.category_name', $sortOrder)
-                  ->select('items.*');
-        } else {
-            $query->orderBy($sortBy, $sortOrder);
-        }
-
-        $items = $query->get();
-        
-        // Process items untuk mendapatkan current dan previous balance
-        $items = $items->map(function($item) use ($selectedYear, $selectedMonth, $prevYear, $prevMonth) {
-            // Pisahkan current dan previous balance dari collection
-            $currentBalance = $item->monthlyBalances->where('year', $selectedYear)
-                                                   ->where('month', $selectedMonth)
-                                                   ->first();
+        DB::beginTransaction();
+        try {
+            $originalItem = Item::findOrFail($id);
             
-            $previousBalance = $item->monthlyBalances->where('year', $prevYear)
-                                                    ->where('month', $prevMonth)
-                                                    ->first();
+            // Generate new item code
+            $categoryCode = $originalItem->category->category_code ?? 'ITM';
+            $newItemCode = $this->generateItemCode($categoryCode);
             
-            // Tambahkan sebagai property item
-            $item->currentBalance = $currentBalance;
-            $item->previousBalance = $previousBalance;
-            
-            return $item;
-        });
+            // Create duplicate with new code
+            $duplicateItem = $originalItem->replicate();
+            $duplicateItem->item_code = $newItemCode;
+            $duplicateItem->item_name = $originalItem->item_name . ' (Copy)';
+            $duplicateItem->status = 'INACTIVE'; // Set as inactive by default
+            $duplicateItem->save();
 
-        $categories = Category::all();
-        $suppliers = Supplier::all();
+            DB::commit();
 
-        // Get available periods untuk dropdown
-        $availablePeriods = MonthlyStockBalance::getAvailablePeriods();
-        
-        // Jika belum ada data monthly balance, tambahkan bulan ini
-        if ($availablePeriods->isEmpty() || !$availablePeriods->contains('value', now()->format('Y-m'))) {
-            $availablePeriods->prepend([
-                'year' => now()->year,
-                'month' => now()->month,
-                'label' => now()->format('F Y'),
-                'value' => now()->format('Y-m')
+            Log::info('Item duplicated successfully', [
+                'original_id' => $originalItem->id,
+                'original_code' => $originalItem->item_code,
+                'duplicate_id' => $duplicateItem->id,
+                'duplicate_code' => $duplicateItem->item_code
             ]);
-        }
 
-        // Summary untuk periode yang dipilih
-        $currentSummary = MonthlyStockBalance::getPeriodSummary($selectedYear, $selectedMonth);
-        $previousSummary = MonthlyStockBalance::getPeriodSummary($prevYear, $prevMonth);
+            return redirect()->route('items.edit', $duplicateItem->id)
+                           ->with('success', 'Item duplicated successfully. Please update the details.');
 
-        // Statistik untuk laporan
-        $totalItems = $items->count();
-        $totalStockValue = 0;
-        $lowStockItems = 0;
-        $outOfStockItems = 0;
-
-        foreach ($items as $item) {
-            $balance = $item->currentBalance;
-            $stock = $balance ? $balance->closing_stock : 0;
-            
-            $totalStockValue += $stock;
-            
-            if ($stock <= 0) {
-                $outOfStockItems++;
-            } elseif ($stock <= $item->low_stock_threshold) {
-                $lowStockItems++;
-            }
-        }
-
-        return view('items.report', compact(
-            'items', 'categories', 'suppliers', 'totalItems', 
-            'totalStockValue', 'lowStockItems', 'outOfStockItems',
-            'availablePeriods', 'selectedPeriod', 'selectedYear', 'selectedMonth',
-            'currentSummary', 'previousSummary', 'prevYear', 'prevMonth'
-        ));
-    }
-public function printReport(Request $request)
-{
-    // Parse periode dari request (default bulan ini)
-    $selectedPeriod = $request->get('period', now()->format('Y-m'));
-    [$selectedYear, $selectedMonth] = explode('-', $selectedPeriod);
-    $selectedYear = (int) $selectedYear;
-    $selectedMonth = (int) $selectedMonth;
-
-    // Periode sebelumnya untuk perbandingan
-    $prevDate = Carbon::create($selectedYear, $selectedMonth, 1)->subMonth();
-    $prevYear = $prevDate->year;
-    $prevMonth = $prevDate->month;
-
-    $query = Item::with([
-        'category', 
-        'monthlyBalances' => function($q) use ($selectedYear, $selectedMonth, $prevYear, $prevMonth) {
-            $q->where(function($subQuery) use ($selectedYear, $selectedMonth, $prevYear, $prevMonth) {
-                $subQuery->where(function($current) use ($selectedYear, $selectedMonth) {
-                    $current->where('year', $selectedYear)->where('month', $selectedMonth);
-                })
-                ->orWhere(function($previous) use ($prevYear, $prevMonth) {
-                    $previous->where('year', $prevYear)->where('month', $prevMonth);
-                });
-            });
-        }
-    ]);
-
-    // Filter berdasarkan kategori
-    if ($request->filled('category_id')) {
-        $query->where('category_id', $request->category_id);
-    }
-
-    // Filter berdasarkan status stok untuk periode yang dipilih
-    if ($request->filled('stock_status')) {
-        switch ($request->stock_status) {
-            case 'low':
-                $query->lowStockForPeriod($selectedYear, $selectedMonth);
-                break;
-            case 'out':
-                $query->outOfStockForPeriod($selectedYear, $selectedMonth);
-                break;
-            case 'in':
-                $query->inStockForPeriod($selectedYear, $selectedMonth);
-                break;
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Item duplication error: ' . $e->getMessage());
+            return back()->with('error', 'Error duplicating item: ' . $e->getMessage());
         }
     }
 
-    // Pencarian berdasarkan nama item atau SKU
-    if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function($q) use ($search) {
-            $q->where('item_name', 'like', "%{$search}%")
-              ->orWhere('sku', 'like', "%{$search}%");
-        });
-    }
+    // ========================================
+    // 📊 UTILITY METHODS
+    // ========================================
 
-    // Urutkan berdasarkan pilihan user
-    $sortBy = $request->get('sort_by', 'item_name');
-    $sortOrder = $request->get('sort_order', 'asc');
-    
-    if ($sortBy === 'stock') {
-        // Sort berdasarkan closing stock dari monthly balance
-        $query->leftJoin('monthly_stock_balances', function($join) use ($selectedYear, $selectedMonth) {
-            $join->on('items.id', '=', 'monthly_stock_balances.item_id')
-                 ->where('monthly_stock_balances.year', $selectedYear)
-                 ->where('monthly_stock_balances.month', $selectedMonth);
-        })
-        ->orderBy('monthly_stock_balances.closing_stock', $sortOrder)
-        ->select('items.*');
-    } elseif ($sortBy === 'category') {
-        $query->join('categories', 'items.category_id', '=', 'categories.id')
-              ->orderBy('categories.category_name', $sortOrder)
-              ->select('items.*');
-    } else {
-        $query->orderBy($sortBy, $sortOrder);
-    }
-
-    $items = $query->get();
-    
-    // Process items untuk mendapatkan current dan previous balance
-    $items = $items->map(function($item) use ($selectedYear, $selectedMonth, $prevYear, $prevMonth) {
-        // Pisahkan current dan previous balance dari collection
-        $currentBalance = $item->monthlyBalances->where('year', $selectedYear)
-                                               ->where('month', $selectedMonth)
-                                               ->first();
-        
-        $previousBalance = $item->monthlyBalances->where('year', $prevYear)
-                                                ->where('month', $prevMonth)
-                                                ->first();
-        
-        // Tambahkan sebagai property item
-        $item->currentBalance = $currentBalance;
-        $item->previousBalance = $previousBalance;
-        
-        return $item;
-    });
-
-    $categories = Category::all();
-
-    // Summary untuk periode yang dipilih
-    $currentSummary = MonthlyStockBalance::getPeriodSummary($selectedYear, $selectedMonth);
-    $previousSummary = MonthlyStockBalance::getPeriodSummary($prevYear, $prevMonth);
-
-    // Statistik untuk laporan
-    $totalItems = $items->count();
-    $totalStockValue = 0;
-    $lowStockItems = 0;
-    $outOfStockItems = 0;
-
-    foreach ($items as $item) {
-        $balance = $item->currentBalance;
-        $stock = $balance ? $balance->closing_stock : 0;
-        
-        $totalStockValue += $stock;
-        
-        if ($stock <= 0) {
-            $outOfStockItems++;
-        } elseif ($stock <= $item->low_stock_threshold) {
-            $lowStockItems++;
-        }
-    }
-
-    // Data untuk print
-    $printData = [
-        'items' => $items,
-        'categories' => $categories,
-        'totalItems' => $totalItems,
-        'totalStockValue' => $totalStockValue,
-        'lowStockItems' => $lowStockItems,
-        'outOfStockItems' => $outOfStockItems,
-        'selectedPeriod' => $selectedPeriod,
-        'selectedYear' => $selectedYear,
-        'selectedMonth' => $selectedMonth,
-        'currentSummary' => $currentSummary,
-        'previousSummary' => $previousSummary,
-        'prevYear' => $prevYear,
-        'prevMonth' => $prevMonth,
-        'generatedAt' => now(),
-        'generatedBy' => auth()->user(),
-        'filters' => [
-            'search' => $request->get('search'),
-            'category_id' => $request->get('category_id'),
-            'stock_status' => $request->get('stock_status'),
-            'sort_by' => $sortBy,
-            'sort_order' => $sortOrder
-        ]
-    ];
-
-    return view('items.print-report', $printData);
-}
-
-    public function compareMonths(Request $request)
+    /**
+     * Export items data
+     */
+    public function export(Request $request)
     {
-        $currentPeriod = $request->get('current_period', now()->format('Y-m'));
-        $comparePeriod = $request->get('compare_period', now()->subMonth()->format('Y-m'));
+        try {
+            $query = Item::with('category');
 
-        [$currentYear, $currentMonth] = explode('-', $currentPeriod);
-        [$compareYear, $compareMonth] = explode('-', $comparePeriod);
-
-        // Get data untuk kedua periode
-        $items = Item::with([
-            'category',
-            'monthlyBalances' => function($q) use ($currentYear, $currentMonth, $compareYear, $compareMonth) {
-                $q->where(function($subQuery) use ($currentYear, $currentMonth, $compareYear, $compareMonth) {
-                    $subQuery->where(function($current) use ($currentYear, $currentMonth) {
-                        $current->where('year', $currentYear)->where('month', $currentMonth);
-                    })
-                    ->orWhere(function($compare) use ($compareYear, $compareMonth) {
-                        $compare->where('year', $compareYear)->where('month', $compareMonth);
-                    });
+            // Apply same filters as index
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('item_name', 'LIKE', "%{$search}%")
+                      ->orWhere('item_code', 'LIKE', "%{$search}%");
                 });
             }
-        ])->get();
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
 
-        // Process items untuk mendapatkan current dan compare balance
-        $items = $items->map(function($item) use ($currentYear, $currentMonth, $compareYear, $compareMonth) {
-            $currentBalance = $item->monthlyBalances->where('year', $currentYear)
-                                                   ->where('month', $currentMonth)
-                                                   ->first();
-            
-            $compareBalance = $item->monthlyBalances->where('year', $compareYear)
-                                                   ->where('month', $compareMonth)
-                                                   ->first();
-            
-            $item->currentBalance = $currentBalance;
-            $item->compareBalance = $compareBalance;
-            
-            return $item;
-        });
+            $items = $query->get();
 
-        $availablePeriods = MonthlyStockBalance::getAvailablePeriods();
-
-        // Statistik perbandingan
-        $currentSummary = MonthlyStockBalance::getPeriodSummary($currentYear, $currentMonth);
-        $compareSummary = MonthlyStockBalance::getPeriodSummary($compareYear, $compareMonth);
-
-        return view('items.compare-months', compact(
-            'items', 'availablePeriods', 'currentPeriod', 'comparePeriod',
-            'currentSummary', 'compareSummary', 'currentYear', 'currentMonth',
-            'compareYear', 'compareMonth'
-        ));
-    }
-
-    public function monthlyHistory(Item $item)
-    {
-        $history = MonthlyStockBalance::getItemHistory($item->id, 12);
-        
-        // Chart data untuk grafik
-        $chartData = $history->reverse()->map(function($balance) {
-            return [
-                'period' => $balance->formatted_period,
-                'opening_stock' => $balance->opening_stock,
-                'closing_stock' => $balance->closing_stock,
-                'stock_in' => $balance->stock_in,
-                'stock_out' => $balance->stock_out,
-                'net_change' => $balance->net_change
+            // Simple CSV export
+            $filename = 'items_master_' . now()->format('Y-m-d_His') . '.csv';
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
             ];
-        });
 
-        return view('items.monthly-history', compact('item', 'history', 'chartData'));
+            $callback = function() use ($items) {
+                $file = fopen('php://output', 'w');
+                
+                // Header
+                fputcsv($file, [
+                    'Item Code', 'Item Name', 'Category', 'Unit', 
+                    'Low Stock Threshold', 'Unit Cost', 'Status', 
+                    'Created Date', 'Updated Date'
+                ]);
+
+                // Data
+                foreach ($items as $item) {
+                    fputcsv($file, [
+                        $item->item_code,
+                        $item->item_name,
+                        $item->category ? $item->category->category_name : '-',
+                        $item->unit,
+                        $item->low_stock_threshold,
+                        $item->unit_cost ?: '-',
+                        $item->status,
+                        $item->created_at->format('Y-m-d H:i:s'),
+                        $item->updated_at->format('Y-m-d H:i:s')
+                    ]);
+                }
+
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+
+        } catch (\Exception $e) {
+            Log::error('Item export error: ' . $e->getMessage());
+            return back()->with('error', 'Error exporting items: ' . $e->getMessage());
+        }
     }
 
-    // Method untuk create monthly balance - sudah tidak diperlukan karena selalu ada
-    public function createMonthlyBalance(Item $item)
+    /**
+     * Get items for AJAX calls
+     */
+    public function getItems(Request $request)
     {
-        return response()->json([
-            'success' => false,
-            'message' => 'Monthly balance system sudah aktif untuk semua item'
+        try {
+            $query = Item::where('status', 'ACTIVE');
+
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('item_name', 'LIKE', "%{$search}%")
+                      ->orWhere('item_code', 'LIKE', "%{$search}%");
+                });
+            }
+
+            $items = $query->with('category')
+                          ->get(['id', 'item_code', 'item_name', 'category_id', 'unit', 'low_stock_threshold', 'unit_cost']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $items
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get items AJAX error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading items'
+            ], 500);
+        }
+    }
+
+    /**
+     * Import items from CSV
+     */
+    public function import(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'import_file' => 'required|file|mimes:csv,txt|max:2048'
         ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator);
+        }
+
+        DB::beginTransaction();
+        try {
+            $file = $request->file('import_file');
+            $path = $file->getRealPath();
+            $data = array_map('str_getcsv', file($path));
+            
+            // Remove header
+            $header = array_shift($data);
+            
+            $imported = 0;
+            $errors = [];
+
+            foreach ($data as $index => $row) {
+                try {
+                    if (count($row) < 4) continue; // Skip incomplete rows
+                    
+                    // Find or create category
+                    $category = Category::firstOrCreate(
+                        ['category_name' => $row[2]],
+                        ['category_code' => strtoupper(substr($row[2], 0, 3))]
+                    );
+
+                    // Create item
+                    Item::create([
+                        'item_code' => $row[0],
+                        'item_name' => $row[1],
+                        'category_id' => $category->id,
+                        'unit' => $row[3] ?? 'pcs',
+                        'low_stock_threshold' => isset($row[4]) ? floatval($row[4]) : 0,
+                        'unit_cost' => isset($row[5]) ? floatval($row[5]) : null,
+                        'status' => isset($row[6]) ? strtoupper($row[6]) : 'ACTIVE'
+                    ]);
+                    
+                    $imported++;
+                    
+                } catch (\Exception $e) {
+                    $errors[] = "Row " . ($index + 2) . ": " . $e->getMessage();
+                }
+            }
+
+            DB::commit();
+
+            $message = "Import completed. {$imported} items imported successfully.";
+            if (!empty($errors)) {
+                $message .= " " . count($errors) . " errors occurred.";
+            }
+
+            Log::info('Items import completed', [
+                'imported_count' => $imported,
+                'error_count' => count($errors)
+            ]);
+
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('Items import error: ' . $e->getMessage());
+            return back()->with('error', 'Error importing items: ' . $e->getMessage());
+        }
+    }
+
+    // ========================================
+    // 🔧 HELPER METHODS
+    // ========================================
+
+    /**
+     * Generate unique item code
+     */
+    private function generateItemCode($categoryCode)
+    {
+        $prefix = strtoupper(substr($categoryCode, 0, 3));
+        $lastItem = Item::where('item_code', 'LIKE', $prefix . '%')
+                       ->orderBy('item_code', 'desc')
+                       ->first();
+
+        if ($lastItem) {
+            $lastNumber = intval(substr($lastItem->item_code, -3));
+            $newNumber = $lastNumber + 1;
+        } else {
+            $newNumber = 1;
+        }
+
+        return $prefix . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Get item statistics
+     */
+    public function getStats()
+    {
+        try {
+            $stats = [
+                'total_items' => Item::count(),
+                'active_items' => Item::where('status', 'ACTIVE')->count(),
+                'inactive_items' => Item::where('status', 'INACTIVE')->count(),
+                'by_category' => Item::selectRaw('categories.category_name, COUNT(*) as count')
+                    ->join('categories', 'items.category_id', '=', 'categories.id')
+                    ->groupBy('categories.id', 'categories.category_name')
+                    ->orderBy('count', 'desc')
+                    ->get(),
+                'recent_items' => Item::with('category')
+                    ->latest()
+                    ->take(5)
+                    ->get()
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get item stats error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading statistics'
+            ], 500);
+        }
     }
 }

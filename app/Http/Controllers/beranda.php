@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Item;
 use App\Models\Category;
 use App\Models\Supplier;
-use App\Models\StockTransaction;
+use App\Models\BranchStockTransaction;
 use Carbon\Carbon;
 
 class beranda extends Controller
@@ -19,7 +19,7 @@ class beranda extends Controller
         $lowStockItems = Item::lowStock()->count();
 
         // Recent transactions
-        $recentTransactions = StockTransaction::with(['item.category'])
+        $recentTransactions = BranchStockTransaction::with(['item.category'])
             ->latest()
             ->take(10)
             ->get();
@@ -31,27 +31,27 @@ class beranda extends Controller
             ->get();
 
         // Today's transactions summary
-        $todayStockIn = StockTransaction::stockIn()
+        $todayStockIn = BranchStockTransaction::stockIn()
             ->whereDate('created_at', today())
             ->sum('quantity');
 
-        $todayStockOut = StockTransaction::stockOut()
+        $todayStockOut = BranchStockTransaction::stockOut()
             ->whereDate('created_at', today())
             ->sum('quantity');
 
         // This month's transactions summary
-        $monthStockIn = StockTransaction::stockIn()
+        $monthStockIn = BranchStockTransaction::stockIn()
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('quantity');
 
-        $monthStockOut = StockTransaction::stockOut()
+        $monthStockOut = BranchStockTransaction::stockOut()
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('quantity');
 
         // Monthly chart data - daily breakdown for current month
-        $monthlyChartData = StockTransaction::selectRaw('
+        $monthlyChartData = BranchStockTransaction::selectRaw('
                 DATE(created_at) as date,
                 transaction_type,
                 SUM(quantity) as total
@@ -110,7 +110,7 @@ class beranda extends Controller
             'total_items' => Item::count(),
             'low_stock_count' => Item::lowStock()->count(),
             'out_of_stock_count' => Item::outOfStock()->count(),
-            'today_transactions' => StockTransaction::whereDate('created_at', today())->count()
+            'today_transactions' => BranchStockTransaction::whereDate('created_at', today())->count()
         ]);
     }
 }

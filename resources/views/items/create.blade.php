@@ -12,7 +12,7 @@
           <a href="{{ route('beranda') }}">Dashboard</a>
         </li>
         <li class="breadcrumb-item">
-          <a href="{{ route('items.index') }}">Item</a>
+          <a href="{{ route('items.index') }}">Data Master Item</a>
         </li>
         <li class="breadcrumb-item active" aria-current="page">Tambah Item</li>
       </ol>
@@ -28,35 +28,34 @@
           <i class="bx bx-plus me-2"></i>
           Tambah Item Baru
         </h5>
-        <small class="text-muted float-end">Monthly Balance System</small>
+        <small class="text-muted float-end">Master Data Management</small>
       </div>
       <div class="card-body">
         <form action="{{ route('items.store') }}" method="POST">
           @csrf
           
-          <!-- SKU -->
+          <!-- Item Code -->
           <div class="mb-3">
-            <label class="form-label" for="sku">SKU (Stock Keeping Unit) <span class="text-danger">*</span></label>
+            <label class="form-label" for="item_code">Kode Item <span class="text-danger">*</span></label>
             <div class="input-group input-group-merge">
               <span class="input-group-text"><i class="bx bx-barcode"></i></span>
               <input
                 type="text"
-                class="form-control @error('sku') is-invalid @enderror"
-                id="sku"
-                name="sku"
-                placeholder="Contoh: CHK-001"
-                value="{{ old('sku') }}"
-                required
+                class="form-control @error('item_code') is-invalid @enderror"
+                id="item_code"
+                name="item_code"
+                placeholder="Contoh: CHK001 (kosongkan untuk auto-generate)"
+                value="{{ old('item_code') }}"
                 style="text-transform: uppercase;"
               />
-              <button type="button" class="btn btn-outline-secondary" onclick="generateSKU()">
+              <button type="button" class="btn btn-outline-secondary" onclick="generateItemCode()">
                 <i class="bx bx-refresh"></i>
               </button>
             </div>
-            @error('sku')
+            @error('item_code')
               <div class="form-text text-danger">{{ $message }}</div>
             @else
-              <div class="form-text">SKU harus unik dan maksimal 50 karakter. Klik refresh untuk generate otomatis.</div>
+              <div class="form-text">Kode item harus unik. Kosongkan untuk auto-generate berdasarkan kategori.</div>
             @enderror
           </div>
 
@@ -79,6 +78,27 @@
               <div class="form-text text-danger">{{ $message }}</div>
             @else
               <div class="form-text">Nama item maksimal 150 karakter</div>
+            @enderror
+          </div>
+
+          <!-- Category -->
+          <div class="mb-3">
+            <label class="form-label" for="category_id">Kategori <span class="text-danger">*</span></label>
+            <div class="input-group input-group-merge">
+              <span class="input-group-text"><i class="bx bx-category"></i></span>
+              <select class="form-select @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                <option value="">Pilih Kategori</option>
+                @foreach($categories as $category)
+                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>
+                  {{ $category->category_name }}
+                </option>
+                @endforeach
+              </select>
+            </div>
+            @error('category_id')
+              <div class="form-text text-danger">{{ $message }}</div>
+            @else
+              <div class="form-text">Pilih kategori yang sesuai untuk item ini</div>
             @enderror
           </div>
 
@@ -106,31 +126,8 @@
             @enderror
           </div>
 
-          <!-- Stock Information Row -->
+          <!-- Master Data Information Row -->
           <div class="row mb-3">
-            <div class="col-md-6">
-              <label class="form-label" for="initial_stock">Stok Awal <span class="text-danger">*</span></label>
-              <div class="input-group input-group-merge">
-                <span class="input-group-text"><i class="bx bx-box"></i></span>
-                <input
-                  type="number"
-                  class="form-control @error('initial_stock') is-invalid @enderror"
-                  id="initial_stock"
-                  name="initial_stock"
-                  placeholder="0"
-                  value="{{ old('initial_stock', 0) }}"
-                  step="0.01"
-                  min="0"
-                  required
-                />
-                <span class="input-group-text" id="stock-unit">pcs</span>
-              </div>
-              @error('initial_stock')
-                <div class="form-text text-danger">{{ $message }}</div>
-              @else
-                <div class="form-text">Stok awal untuk bulan {{ now()->format('F Y') }}</div>
-              @enderror
-            </div>
             <div class="col-md-6">
               <label class="form-label" for="low_stock_threshold">Batas Minimum Stok <span class="text-danger">*</span></label>
               <div class="input-group input-group-merge">
@@ -151,20 +148,43 @@
               @error('low_stock_threshold')
                 <div class="form-text text-danger">{{ $message }}</div>
               @else
-                <div class="form-text">Sistem akan memberikan peringatan jika stok mencapai batas ini</div>
+                <div class="form-text">Batas untuk notifikasi stok menipis</div>
+              @enderror
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="unit_cost">Harga Per Unit</label>
+              <div class="input-group input-group-merge">
+                <span class="input-group-text"><i class="bx bx-dollar"></i></span>
+                <input
+                  type="number"
+                  class="form-control @error('unit_cost') is-invalid @enderror"
+                  id="unit_cost"
+                  name="unit_cost"
+                  placeholder="25000"
+                  value="{{ old('unit_cost') }}"
+                  step="0.01"
+                  min="0"
+                />
+                <span class="input-group-text">IDR</span>
+              </div>
+              @error('unit_cost')
+                <div class="form-text text-danger">{{ $message }}</div>
+              @else
+                <div class="form-text">Harga per unit (opsional)</div>
               @enderror
             </div>
           </div>
 
-          <!-- Monthly Balance Info -->
+          <!-- Master Data Info -->
           <div class="alert alert-info">
             <h6 class="alert-heading">
               <i class="bx bx-info-circle me-2"></i>
-              Monthly Balance System
+              Data Master Item
             </h6>
             <p class="mb-0">
-              Stok awal akan menjadi <strong>opening stock</strong> untuk periode {{ now()->format('F Y') }}. 
-              Sistem akan otomatis melacak perubahan stok setiap bulan.
+              <strong>Focus:</strong> Data referensi item untuk semua modul sistem |
+              <strong>Stock:</strong> Dikelola terpisah di modul warehouse |
+              <strong>Auto-Code:</strong> Kode otomatis berdasarkan kategori jika dikosongkan
             </p>
           </div>
 
@@ -196,18 +216,18 @@
       <div class="card-header">
         <h5 class="mb-0">
           <i class="bx bx-info-circle me-2"></i>
-          Informasi
+          Informasi Master Data
         </h5>
       </div>
       <div class="card-body">
         <div class="alert alert-primary" role="alert">
-          <h6 class="alert-heading">Monthly Balance System:</h6>
+          <h6 class="alert-heading">Data Master Item:</h6>
           <ul class="mb-0">
-            <li>SKU harus unik untuk setiap item</li>
-            <li>Stok awal akan menjadi opening stock</li>
-            <li>Sistem melacak stok per bulan</li>
-            <li>Set batas minimum untuk notifikasi</li>
-            <li>Stok dapat disesuaikan setelah dibuat</li>
+            <li>Kode item auto-generate berdasarkan kategori</li>
+            <li>Unit cost untuk referensi perhitungan</li>
+            <li>Threshold untuk notifikasi stok menipis</li>
+            <li>Status mengatur visibilitas di transaksi</li>
+            <li>Data stok dikelola terpisah di warehouse</li>
           </ul>
         </div>
         
@@ -220,10 +240,6 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="text-muted">Kategori Tersedia:</span>
           <span class="badge bg-success">{{ $categories->count() }}</span>
-        </div>
-        <div class="d-flex justify-content-between align-items-center">
-          <span class="text-muted">Stok Menipis:</span>
-          <span class="badge bg-warning">{{ App\Models\Item::lowStock()->count() }}</span>
         </div>
       </div>
     </div>
@@ -247,7 +263,7 @@
             <div class="flex-grow-1">
               <h6 class="mb-0" id="preview-name">Nama Item</h6>
               <small class="text-muted">
-                <span id="preview-sku">SKU</span> • 
+                <span id="preview-code">AUTO-CODE</span> • 
                 <span id="preview-unit">Unit</span>
               </small>
             </div>
@@ -262,8 +278,8 @@
             </div>
             <div class="row mb-2">
               <div class="col-6">
-                <small class="text-muted d-block">Stok Awal:</small>
-                <small class="fw-semibold text-primary" id="preview-stock">0</small>
+                <small class="text-muted d-block">Unit Cost:</small>
+                <small class="fw-semibold text-success" id="preview-cost">-</small>
               </div>
               <div class="col-6">
                 <small class="text-muted d-block">Batas Minimum:</small>
@@ -271,7 +287,7 @@
               </div>
             </div>
             <div class="text-center">
-              <span class="badge bg-success" id="preview-status">Stok Tersedia</span>
+              <span class="badge bg-success" id="preview-badge">Master Data</span>
             </div>
           </div>
         </div>
@@ -296,10 +312,6 @@
             <i class="bx bx-list-ul me-1"></i>
             Lihat Semua Item
           </a>
-          <a href="{{ route('items.low-stock') }}" class="btn btn-outline-warning btn-sm">
-            <i class="bx bx-error me-1"></i>
-            Item Stok Menipis
-          </a>
         </div>
       </div>
     </div>
@@ -311,98 +323,104 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // Elements
-  const skuInput = document.getElementById('sku');
+  const itemCodeInput = document.getElementById('item_code');
   const itemNameInput = document.getElementById('item_name');
   const categorySelect = document.getElementById('category_id');
   const unitSelect = document.getElementById('unit');
-  const initialStockInput = document.getElementById('initial_stock');
   const thresholdInput = document.getElementById('low_stock_threshold');
+  const unitCostInput = document.getElementById('unit_cost');
+  // const statusSelect = document.getElementById('status');
   
   // Preview elements
   const previewName = document.getElementById('preview-name');
-  const previewSku = document.getElementById('preview-sku');
+  const previewCode = document.getElementById('preview-code');
   const previewUnit = document.getElementById('preview-unit');
-  const previewStock = document.getElementById('preview-stock');
+  const previewCategory = document.getElementById('preview-category');
+  // const previewStatus = document.getElementById('preview-status');
+  const previewCost = document.getElementById('preview-cost');
   const previewThreshold = document.getElementById('preview-threshold');
-  const previewStatus = document.getElementById('preview-status');
+  const previewBadge = document.getElementById('preview-badge');
   
   // Unit display elements
-  const stockUnit = document.getElementById('stock-unit');
   const thresholdUnit = document.getElementById('threshold-unit');
 
-  // Generate SKU function
-  window.generateSKU = function() {
-    const prefix = 'CHK';
-    const timestamp = Date.now().toString().slice(-6);
+  // Generate Item Code function
+  window.generateItemCode = function() {
+    const categoryId = categorySelect.value;
+    if (!categoryId) {
+      alert('Pilih kategori terlebih dahulu');
+      categorySelect.focus();
+      return;
+    }
+    
+    // Get category code from selected option
+    const categoryText = categorySelect.options[categorySelect.selectedIndex].text;
+    const categoryCode = categoryText.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
+    
+    const timestamp = Date.now().toString().slice(-4);
     const randomNum = Math.floor(Math.random() * 99).toString().padStart(2, '0');
-    const sku = `${prefix}-${timestamp}${randomNum}`;
-    skuInput.value = sku;
+    const code = `${categoryCode || 'ITM'}${timestamp}${randomNum}`;
+    
+    itemCodeInput.value = code;
     updatePreview();
   };
 
   // Update preview
   function updatePreview() {
     const name = itemNameInput.value || 'Nama Item';
-    const sku = skuInput.value || 'SKU';
+    const code = itemCodeInput.value || 'AUTO-CODE';
     const unit = unitSelect.value || 'Unit';
-    const stock = parseFloat(initialStockInput.value) || 0;
-    const threshold = parseFloat(thresholdInput.value) || 0;
+    const threshold = parseFloat(thresholdInput.value) || 10;
+    const cost = parseFloat(unitCostInput.value) || 0;
+    const status = statusSelect.value || 'ACTIVE';
     
     const categoryText = categorySelect.options[categorySelect.selectedIndex]?.text === 'Pilih Kategori' ? 
                         'Belum dipilih' : 
                         categorySelect.options[categorySelect.selectedIndex]?.text || 'Belum dipilih';
     
+    const statusText = status === 'ACTIVE' ? 'Aktif' : 'Nonaktif';
+    const statusColor = status === 'ACTIVE' ? 'success' : 'warning';
     
     previewName.textContent = name;
-    previewSku.textContent = sku;
+    previewCode.textContent = code;
     previewUnit.textContent = unit;
     previewCategory.textContent = categoryText;
-    previewStock.textContent = stock.toLocaleString('id-ID', { minimumFractionDigits: 2 });
+    previewStatus.textContent = statusText;
     previewThreshold.textContent = threshold.toLocaleString('id-ID', { minimumFractionDigits: 2 });
     
     // Update unit displays
-    stockUnit.textContent = unit;
     thresholdUnit.textContent = unit;
     
-    // Update status
-    let status = 'Stok Tersedia';
-    let statusClass = 'bg-success';
-    
-    if (stock === 0) {
-      status = 'Stok Habis';
-      statusClass = 'bg-danger';
-    } else if (stock <= threshold) {
-      status = 'Stok Menipis';
-      statusClass = 'bg-warning';
+    // Update cost
+    if (cost > 0) {
+      previewCost.textContent = 'Rp ' + cost.toLocaleString('id-ID');
+    } else {
+      previewCost.textContent = '-';
     }
     
-    previewStatus.textContent = status;
-    previewStatus.className = `badge ${statusClass}`;
+    // Update badge
+    previewBadge.textContent = statusText;
+    previewBadge.className = `badge bg-${statusColor}`;
   }
 
   // Event listeners
   itemNameInput.addEventListener('input', updatePreview);
-  skuInput.addEventListener('input', updatePreview);
+  itemCodeInput.addEventListener('input', updatePreview);
   categorySelect.addEventListener('change', updatePreview);
   unitSelect.addEventListener('change', updatePreview);
-  initialStockInput.addEventListener('input', updatePreview);
   thresholdInput.addEventListener('input', updatePreview);
+  unitCostInput.addEventListener('input', updatePreview);
+  statusSelect.addEventListener('change', updatePreview);
 
-  // SKU formatting
-  skuInput.addEventListener('input', function() {
+  // Item code formatting
+  itemCodeInput.addEventListener('input', function() {
     this.value = this.value.toUpperCase();
   });
 
-  // Auto-generate SKU on item name change if SKU is empty
-  itemNameInput.addEventListener('input', function() {
-    if (!skuInput.value.trim()) {
-      const name = this.value.trim();
-      if (name) {
-        const prefix = 'CHK';
-        const namePrefix = name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
-        const randomNum = Math.floor(Math.random() * 999).toString().padStart(3, '0');
-        skuInput.value = `${prefix}-${namePrefix || 'ITM'}-${randomNum}`;
-      }
+  // Auto-generate code on category change if code is empty
+  categorySelect.addEventListener('change', function() {
+    if (!itemCodeInput.value.trim() && this.value) {
+      generateItemCode();
     }
     updatePreview();
   });
@@ -413,23 +431,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Form validation
   const form = document.querySelector('form');
   form.addEventListener('submit', function(e) {
-    const sku = skuInput.value.trim();
     const itemName = itemNameInput.value.trim();
     const categoryId = categorySelect.value;
     const unit = unitSelect.value;
-    const initialStock = initialStockInput.value;
     const threshold = thresholdInput.value;
     
-    if (!sku || !itemName || !categoryId || !unit || !initialStock || !threshold) {
+    if (!itemName || !categoryId || !unit || !threshold) {
       e.preventDefault();
       alert('Mohon lengkapi semua field yang wajib diisi');
-      return false;
-    }
-    
-    if (parseFloat(initialStock) < 0) {
-      e.preventDefault();
-      alert('Stok awal tidak boleh negatif');
-      initialStockInput.focus();
       return false;
     }
     
@@ -437,6 +446,13 @@ document.addEventListener('DOMContentLoaded', function() {
       e.preventDefault();
       alert('Batas minimum stok tidak boleh negatif');
       thresholdInput.focus();
+      return false;
+    }
+    
+    if (unitCostInput.value && parseFloat(unitCostInput.value) < 0) {
+      e.preventDefault();
+      alert('Unit cost tidak boleh negatif');
+      unitCostInput.focus();
       return false;
     }
   });
@@ -450,9 +466,9 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Focus management
-  skuInput.addEventListener('focus', function() {
-    if (!this.value) {
-      generateSKU();
+  itemCodeInput.addEventListener('focus', function() {
+    if (!this.value && categorySelect.value) {
+      generateItemCode();
     }
   });
 });

@@ -1,47 +1,51 @@
 <?php
-// filepath: app/Models/MonthlyKitchenStockBalance.php
+// filepath: app/Models/BranchMonthlyBalance.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
 
-class MonthlyKitchenStockBalance extends Model
+class BranchMonthlyBalance extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'item_id',
         'branch_id',
+        'warehouse_id',
         'year',
         'month',
         'opening_stock',
         'closing_stock',
-        'transfer_in',
-        'usage_out',
+        'stock_in',
+        'stock_out',
         'adjustments',
-        'is_closed',
-        'closed_at'
+        'receive_from_central',
+        'transfer_to_kitchen',
+        'return_to_central',
+        'local_purchase_in'
     ];
 
     protected $casts = [
-        'opening_stock' => 'decimal:2',
-        'closing_stock' => 'decimal:2',
-        'transfer_in' => 'decimal:2',
-        'usage_out' => 'decimal:2',
-        'adjustments' => 'decimal:2',
+        'opening_stock' => 'decimal:3',
+        'closing_stock' => 'decimal:3',
+        'stock_in' => 'decimal:3',
+        'stock_out' => 'decimal:3',
+        'adjustments' => 'decimal:3',
+        'receive_from_central' => 'decimal:3',
+        'transfer_to_kitchen' => 'decimal:3',
+        'return_to_central' => 'decimal:3',
+        'local_purchase_in' => 'decimal:3',
         'year' => 'integer',
         'month' => 'integer',
-        'is_closed' => 'boolean',
-        'closed_at' => 'datetime',
     ];
 
     // ========================================
     // RELATIONSHIPS
     // ========================================
-    
+
     /**
      * Balance belongs to item
      */
@@ -59,12 +63,21 @@ class MonthlyKitchenStockBalance extends Model
     }
 
     /**
-     * Related kitchen stock transactions untuk period ini
+     * Balance belongs to warehouse
      */
-    public function kitchenStockTransactions()
+    public function warehouse()
     {
-        return $this->hasMany(KitchenStockTransaction::class, 'item_id', 'item_id')
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    /**
+     * Related stock transactions untuk period ini
+     */
+    public function stockTransactions()
+    {
+        return $this->hasMany(BranchStockTransaction::class, 'item_id', 'item_id')
             ->where('branch_id', $this->branch_id)
+            ->where('warehouse_id', $this->warehouse_id)
             ->whereYear('transaction_date', $this->year)
             ->whereMonth('transaction_date', $this->month);
     }
@@ -74,7 +87,8 @@ class MonthlyKitchenStockBalance extends Model
      */
     public function stockPeriod()
     {
-        return $this->belongsTo(StockPeriod::class, 'branch_id', 'branch_id')
+        return $this->belongsTo(StockPeriod::class, 'warehouse_id', 'warehouse_id')
+            ->where('branch_id', $this->branch_id)
             ->where('year', $this->year)
             ->where('month', $this->month);
     }
@@ -82,11 +96,11 @@ class MonthlyKitchenStockBalance extends Model
     // ========================================
     // STATIC METHODS
     // ========================================
-    
+
     /**
      * Dapatkan atau buat balance untuk bulan tertentu
      */
-    public static function getOrCreateBalance($itemId, $branchId, $year = null, $month = null)
+    public static function getOrCreateBalance($itemId, $branchId, $warehouseId, $year = null, $month = null)
     {
         $year = $year ?? now()->year;
         $month = $month ?? now()->month;
@@ -94,26 +108,30 @@ class MonthlyKitchenStockBalance extends Model
         $balance = static::where([
             'item_id' => $itemId,
             'branch_id' => $branchId,
+            'warehouse_id' => $warehouseId,
             'year' => $year,
             'month' => $month
         ])->first();
         
         if (!$balance) {
             // Cari opening stock dari bulan sebelumnya
-            $openingStock = static::getOpeningStock($itemId, $branchId, $year, $month);
+            $openingStock = static::getOpeningStock($itemId, $branchId, $warehouseId, $year, $month);
             
             $balance = static::create([
                 'item_id' => $itemId,
                 'branch_id' => $branchId,
+                'warehouse_id' => $warehouseId,
                 'year' => $year,
                 'month' => $month,
                 'opening_stock' => $openingStock,
                 'closing_stock' => $openingStock,
-                'transfer_in' => 0,
-                'usage_out' => 0,
+                'stock_in' => 0,
+                'stock_out' => 0,
                 'adjustments' => 0,
-                'is_closed' => false,
-                'closed_at' => null
+                'receive_from_central' => 0,
+                'transfer_to_kitchen' => 0,
+                'return_to_central' => 0,
+                'local_purchase_in' => 0
             ]);
         }
         
@@ -123,7 +141,7 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Hitung opening stock dari closing stock bulan sebelumnya
      */
-    public static function getOpeningStock($itemId, $branchId, $year, $month)
+    public static function getOpeningStock($itemId, $branchId, $warehouseId, $year, $month)
     {
         // Tentukan bulan sebelumnya
         if ($month == 1) {
@@ -138,6 +156,7 @@ class MonthlyKitchenStockBalance extends Model
         $previousBalance = static::where([
             'item_id' => $itemId,
             'branch_id' => $branchId,
+            'warehouse_id' => $warehouseId,
             'year' => $prevYear,
             'month' => $prevMonth
         ])->first();
@@ -146,18 +165,20 @@ class MonthlyKitchenStockBalance extends Model
             return $previousBalance->closing_stock;
         }
         
-        // Jika tidak ada data bulan sebelumnya, mulai dari 0 (kitchen stock awalnya kosong)
+        // Jika tidak ada data bulan sebelumnya, coba ambil dari central stock balance initial
+        // atau gunakan 0 sebagai starting point
         return 0;
     }
 
     /**
      * Dapatkan balance untuk bulan tertentu (tanpa create)
      */
-    public static function getBalance($itemId, $branchId, $year, $month)
+    public static function getBalance($itemId, $branchId, $warehouseId, $year, $month)
     {
         return static::where([
             'item_id' => $itemId,
             'branch_id' => $branchId,
+            'warehouse_id' => $warehouseId,
             'year' => $year,
             'month' => $month
         ])->first();
@@ -166,7 +187,7 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Dapatkan balance bulan sebelumnya
      */
-    public static function getPreviousMonthBalance($itemId, $branchId, $year = null, $month = null)
+    public static function getPreviousMonthBalance($itemId, $branchId, $warehouseId, $year = null, $month = null)
     {
         $year = $year ?? now()->year;
         $month = $month ?? now()->month;
@@ -180,17 +201,18 @@ class MonthlyKitchenStockBalance extends Model
             $prevYear = $year;
         }
 
-        return static::getBalance($itemId, $branchId, $prevYear, $prevMonth);
+        return static::getBalance($itemId, $branchId, $warehouseId, $prevYear, $prevMonth);
     }
 
     /**
-     * Dapatkan all balance untuk item tertentu di branch (riwayat bulanan)
+     * Dapatkan all balance untuk item tertentu di branch/warehouse (riwayat bulanan)
      */
-    public static function getItemHistory($itemId, $branchId, $limit = 12)
+    public static function getItemHistory($itemId, $branchId, $warehouseId, $limit = 12)
     {
         return static::where([
                 'item_id' => $itemId,
-                'branch_id' => $branchId
+                'branch_id' => $branchId,
+                'warehouse_id' => $warehouseId
             ])
             ->orderBy('year', 'desc')
             ->orderBy('month', 'desc')
@@ -201,37 +223,29 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Dapatkan summary untuk periode tertentu di branch
      */
-    public static function getBranchPeriodSummary($branchId, $year, $month)
+    public static function getBranchPeriodSummary($branchId, $year, $month, $warehouseId = null)
     {
-        return static::where([
+        $query = static::where([
             'branch_id' => $branchId,
             'year' => $year,
             'month' => $month
-        ])->selectRaw('
-                COUNT(*) as total_items,
-                SUM(opening_stock) as total_opening_stock,
-                SUM(transfer_in) as total_transfer_in,
-                SUM(usage_out) as total_usage_out,
-                SUM(closing_stock) as total_closing_stock,
-                SUM(adjustments) as total_adjustments
-            ')
-            ->first();
-    }
+        ]);
 
-    /**
-     * Dapatkan summary untuk periode tertentu (semua branch)
-     */
-    public static function getPeriodSummary($year, $month)
-    {
-        return static::where('year', $year)
-            ->where('month', $month)
-            ->selectRaw('
+        if ($warehouseId) {
+            $query->where('warehouse_id', $warehouseId);
+        }
+
+        return $query->selectRaw('
                 COUNT(*) as total_items,
                 SUM(opening_stock) as total_opening_stock,
-                SUM(transfer_in) as total_transfer_in,
-                SUM(usage_out) as total_usage_out,
+                SUM(stock_in) as total_stock_in,
+                SUM(stock_out) as total_stock_out,
                 SUM(closing_stock) as total_closing_stock,
-                SUM(adjustments) as total_adjustments
+                SUM(adjustments) as total_adjustments,
+                SUM(receive_from_central) as total_receive_from_central,
+                SUM(transfer_to_kitchen) as total_transfer_to_kitchen,
+                SUM(return_to_central) as total_return_to_central,
+                SUM(local_purchase_in) as total_local_purchase_in
             ')
             ->first();
     }
@@ -245,27 +259,36 @@ class MonthlyKitchenStockBalance extends Model
             ->where('month', $month)
             ->selectRaw('
                 branch_id,
+                warehouse_id,
                 COUNT(*) as total_items,
                 SUM(opening_stock) as total_opening_stock,
-                SUM(transfer_in) as total_transfer_in,
-                SUM(usage_out) as total_usage_out,
+                SUM(stock_in) as total_stock_in,
+                SUM(stock_out) as total_stock_out,
                 SUM(closing_stock) as total_closing_stock,
-                SUM(adjustments) as total_adjustments
+                SUM(adjustments) as total_adjustments,
+                SUM(receive_from_central) as total_receive_from_central,
+                SUM(transfer_to_kitchen) as total_transfer_to_kitchen,
+                SUM(return_to_central) as total_return_to_central,
+                SUM(local_purchase_in) as total_local_purchase_in
             ')
-            ->with('branch')
-            ->groupBy('branch_id')
+            ->with('branch', 'warehouse')
+            ->groupBy('branch_id', 'warehouse_id')
             ->get();
     }
 
     /**
      * Dapatkan available periods untuk branch
      */
-    public static function getAvailablePeriods($branchId = null)
+    public static function getAvailablePeriods($branchId = null, $warehouseId = null)
     {
         $query = static::selectRaw('DISTINCT year, month');
 
         if ($branchId) {
             $query->where('branch_id', $branchId);
+        }
+
+        if ($warehouseId) {
+            $query->where('warehouse_id', $warehouseId);
         }
 
         return $query->orderBy('year', 'desc')
@@ -314,30 +337,6 @@ class MonthlyKitchenStockBalance extends Model
         return collect($results);
     }
 
-    /**
-     * Get cross-branch comparison
-     */
-    public static function getCrossBranchComparison($year, $month)
-    {
-        $branchSummaries = static::getAllBranchPeriodSummary($year, $month);
-        
-        return $branchSummaries->map(function($summary) {
-            $usageRate = $summary->total_transfer_in > 0 ? 
-                ($summary->total_usage_out / $summary->total_transfer_in) * 100 : 0;
-            
-            $stockTurnover = $summary->total_opening_stock > 0 ? 
-                $summary->total_usage_out / $summary->total_opening_stock : 0;
-
-            return [
-                'branch' => $summary->branch,
-                'summary' => $summary,
-                'usage_rate' => $usageRate,
-                'stock_turnover' => $stockTurnover,
-                'efficiency_score' => $usageRate * 0.7 + ($stockTurnover * 30) // Weighted score
-            ];
-        })->sortByDesc('efficiency_score');
-    }
-
     // ========================================
     // INSTANCE METHODS
     // ========================================
@@ -349,7 +348,8 @@ class MonthlyKitchenStockBalance extends Model
     {
         $openingStock = static::getOpeningStock(
             $this->item_id, 
-            $this->branch_id,
+            $this->branch_id, 
+            $this->warehouse_id, 
             $this->year, 
             $this->month
         );
@@ -361,11 +361,11 @@ class MonthlyKitchenStockBalance extends Model
     }
     
     /**
-     * Hitung ulang closing stock berdasarkan formula
+     * Hitung ulang closing stock berdasarkan formula untuk branch
      */
     public function recalculateClosingStock()
     {
-        $newClosingStock = $this->opening_stock + $this->transfer_in - $this->usage_out + $this->adjustments;
+        $newClosingStock = $this->opening_stock + $this->stock_in - $this->stock_out + $this->adjustments;
         $this->update(['closing_stock' => $newClosingStock]);
     }
 
@@ -374,13 +374,17 @@ class MonthlyKitchenStockBalance extends Model
      */
     public function recalculateFromTransactions()
     {
-        $transactions = $this->kitchenStockTransactions;
+        $transactions = $this->stockTransactions;
 
-        // Reset movement columns
+        // Reset detailed columns
         $this->update([
-            'transfer_in' => 0,
-            'usage_out' => 0,
-            'adjustments' => 0
+            'stock_in' => 0,
+            'stock_out' => 0,
+            'adjustments' => 0,
+            'receive_from_central' => 0,
+            'transfer_to_kitchen' => 0,
+            'return_to_central' => 0,
+            'local_purchase_in' => 0
         ]);
 
         // Recalculate from transactions
@@ -394,6 +398,55 @@ class MonthlyKitchenStockBalance extends Model
 
         return $this;
     }
+    
+    /**
+     * Update stock movement dengan branch-specific logic
+     */
+    public function updateMovement($type, $quantity)
+    {
+        switch (strtoupper($type)) {
+            case 'IN':
+                $this->increment('stock_in', $quantity);
+                $this->increment('closing_stock', $quantity);
+                break;
+                
+            case 'OUT':
+                $this->increment('stock_out', $quantity);
+                $this->decrement('closing_stock', $quantity);
+                break;
+                
+            case 'ADJUSTMENT':
+                // Adjustment bisa positif atau negatif
+                $this->increment('adjustments', $quantity);
+                $this->increment('closing_stock', $quantity);
+                break;
+
+            // Branch-specific movements
+            case 'RECEIVE_FROM_CENTRAL':
+                $this->increment('receive_from_central', $quantity);
+                $this->increment('stock_in', $quantity);
+                $this->increment('closing_stock', $quantity);
+                break;
+
+            case 'TRANSFER_TO_KITCHEN':
+                $this->increment('transfer_to_kitchen', $quantity);
+                $this->increment('stock_out', $quantity);
+                $this->decrement('closing_stock', $quantity);
+                break;
+
+            case 'RETURN_TO_CENTRAL':
+                $this->increment('return_to_central', $quantity);
+                $this->increment('stock_out', $quantity);
+                $this->decrement('closing_stock', $quantity);
+                break;
+
+            case 'LOCAL_PURCHASE_IN':
+                $this->increment('local_purchase_in', $quantity);
+                $this->increment('stock_in', $quantity);
+                $this->increment('closing_stock', $quantity);
+                break;
+        }
+    }
 
     /**
      * Process individual transaction untuk detailed tracking
@@ -403,32 +456,44 @@ class MonthlyKitchenStockBalance extends Model
         $quantity = $transaction->quantity;
 
         switch ($transaction->transaction_type) {
-            case KitchenStockTransaction::TYPE_RECEIVE_FROM_WAREHOUSE:
-            case KitchenStockTransaction::TYPE_TRANSFER_IN:
-            case KitchenStockTransaction::TYPE_RETURN_FROM_PRODUCTION:
-                $this->transfer_in += $quantity;
+            case BranchStockTransaction::TYPE_RECEIVE_FROM_CENTRAL:
+                $this->receive_from_central += $quantity;
+                $this->stock_in += $quantity;
                 break;
 
-            case KitchenStockTransaction::TYPE_USAGE_PRODUCTION:
-            case KitchenStockTransaction::TYPE_USAGE_COOKING:
-            case KitchenStockTransaction::TYPE_USAGE_PREPARATION:
-            case KitchenStockTransaction::TYPE_USAGE:
-            case KitchenStockTransaction::TYPE_WASTAGE:
-            case KitchenStockTransaction::TYPE_RETURN_TO_WAREHOUSE:
-                $this->usage_out += $quantity;
+            case BranchStockTransaction::TYPE_RECEIVE_FROM_SUPPLIER:
+            case BranchStockTransaction::TYPE_RETURN_FROM_KITCHEN:
+                $this->local_purchase_in += $quantity;
+                $this->stock_in += $quantity;
                 break;
 
-            case KitchenStockTransaction::TYPE_ADJUSTMENT_IN:
+            case BranchStockTransaction::TYPE_TRANSFER_TO_KITCHEN:
+                $this->transfer_to_kitchen += $quantity;
+                $this->stock_out += $quantity;
+                break;
+
+            case BranchStockTransaction::TYPE_TRANSFER_TO_CENTRAL:
+                $this->return_to_central += $quantity;
+                $this->stock_out += $quantity;
+                break;
+
+            case BranchStockTransaction::TYPE_TRANSFER_TO_BRANCH:
+            case BranchStockTransaction::TYPE_WASTAGE:
+            case BranchStockTransaction::TYPE_SOLD:
+                $this->stock_out += $quantity;
+                break;
+
+            case BranchStockTransaction::TYPE_ADJUSTMENT_IN:
                 $this->adjustments += $quantity;
-                $this->transfer_in += $quantity;
+                $this->stock_in += $quantity;
                 break;
 
-            case KitchenStockTransaction::TYPE_ADJUSTMENT_OUT:
+            case BranchStockTransaction::TYPE_ADJUSTMENT_OUT:
                 $this->adjustments -= $quantity;
-                $this->usage_out += $quantity;
+                $this->stock_out += $quantity;
                 break;
 
-            case KitchenStockTransaction::TYPE_STOCK_TAKE:
+            case BranchStockTransaction::TYPE_STOCK_TAKE:
                 // Stock take is treated as adjustment
                 $currentStock = $this->closing_stock;
                 $difference = $quantity - $currentStock;
@@ -444,89 +509,14 @@ class MonthlyKitchenStockBalance extends Model
     }
 
     /**
-     * Update stock movement (TRANSFER_IN/USAGE/ADJUSTMENT)
-     */
-    public function updateMovement($type, $quantity)
-    {
-        // Cek apakah bulan ini sudah ditutup
-        if ($this->is_closed) {
-            throw new \Exception("Tidak dapat melakukan transaksi pada bulan yang sudah ditutup ({$this->formatted_period})");
-        }
-
-        switch (strtoupper($type)) {
-            case 'IN':
-            case 'TRANSFER_IN':
-                $this->increment('transfer_in', $quantity);
-                $this->increment('closing_stock', $quantity);
-                break;
-                
-            case 'OUT':
-            case 'USAGE':
-                $this->increment('usage_out', $quantity);
-                $this->decrement('closing_stock', $quantity);
-                break;
-                
-            case 'ADJUSTMENT':
-                // Adjustment bisa positif atau negatif
-                if ($quantity >= 0) {
-                    $this->increment('adjustments', $quantity);
-                    $this->increment('closing_stock', $quantity);
-                } else {
-                    $this->increment('adjustments', $quantity); // quantity already negative
-                    $this->increment('closing_stock', $quantity); // will decrease
-                }
-                break;
-        }
-    }
-
-    /**
-     * Close this month's balance
-     */
-    public function closeMonth($userId = null)
-    {
-        if ($this->is_closed) {
-            throw new \Exception("Bulan {$this->formatted_period} sudah ditutup sebelumnya");
-        }
-
-        $this->update([
-            'is_closed' => true,
-            'closed_at' => now(),
-            'closed_by' => $userId ?? auth()->id()
-        ]);
-
-        Log::info("Kitchen stock balance closed for {$this->branch->branch_name} - {$this->formatted_period}");
-
-        return $this;
-    }
-
-    /**
-     * Reopen this month's balance
-     */
-    public function reopenMonth($userId = null)
-    {
-        if (!$this->is_closed) {
-            throw new \Exception("Bulan {$this->formatted_period} belum ditutup");
-        }
-
-        $this->update([
-            'is_closed' => false,
-            'closed_at' => null,
-            'closed_by' => null
-        ]);
-
-        Log::info("Kitchen stock balance reopened for {$this->branch->branch_name} - {$this->formatted_period}");
-
-        return $this;
-    }
-
-    /**
      * Get comparison with previous month
      */
     public function getPreviousMonthComparison()
     {
         $previousBalance = static::getPreviousMonthBalance(
             $this->item_id, 
-            $this->branch_id,
+            $this->branch_id, 
+            $this->warehouse_id, 
             $this->year, 
             $this->month
         );
@@ -539,9 +529,51 @@ class MonthlyKitchenStockBalance extends Model
             'previous_balance' => $previousBalance,
             'opening_stock_change' => $this->opening_stock - $previousBalance->closing_stock,
             'closing_stock_change' => $this->closing_stock - $previousBalance->closing_stock,
-            'transfer_in_change' => $this->transfer_in - $previousBalance->transfer_in,
-            'usage_out_change' => $this->usage_out - $previousBalance->usage_out,
-            'net_change_comparison' => $this->net_change - $previousBalance->net_change
+            'stock_in_change' => $this->stock_in - $previousBalance->stock_in,
+            'stock_out_change' => $this->stock_out - $previousBalance->stock_out,
+            'net_change_comparison' => $this->net_change - $previousBalance->net_change,
+            'central_receive_change' => $this->receive_from_central - $previousBalance->receive_from_central,
+            'kitchen_transfer_change' => $this->transfer_to_kitchen - $previousBalance->transfer_to_kitchen
+        ];
+    }
+
+    /**
+     * Get branch movement breakdown
+     */
+    public function getMovementBreakdown()
+    {
+        $totalIn = $this->stock_in;
+        $totalOut = $this->stock_out;
+
+        return [
+            'stock_in_breakdown' => [
+                'receive_from_central' => [
+                    'amount' => $this->receive_from_central,
+                    'percentage' => $totalIn > 0 ? ($this->receive_from_central / $totalIn) * 100 : 0
+                ],
+                'local_purchase' => [
+                    'amount' => $this->local_purchase_in,
+                    'percentage' => $totalIn > 0 ? ($this->local_purchase_in / $totalIn) * 100 : 0
+                ],
+                'adjustments_in' => [
+                    'amount' => max(0, $this->adjustments),
+                    'percentage' => $totalIn > 0 ? (max(0, $this->adjustments) / $totalIn) * 100 : 0
+                ]
+            ],
+            'stock_out_breakdown' => [
+                'transfer_to_kitchen' => [
+                    'amount' => $this->transfer_to_kitchen,
+                    'percentage' => $totalOut > 0 ? ($this->transfer_to_kitchen / $totalOut) * 100 : 0
+                ],
+                'return_to_central' => [
+                    'amount' => $this->return_to_central,
+                    'percentage' => $totalOut > 0 ? ($this->return_to_central / $totalOut) * 100 : 0
+                ],
+                'other_out' => [
+                    'amount' => $totalOut - $this->transfer_to_kitchen - $this->return_to_central,
+                    'percentage' => $totalOut > 0 ? (($totalOut - $this->transfer_to_kitchen - $this->return_to_central) / $totalOut) * 100 : 0
+                ]
+            ]
         ];
     }
 
@@ -562,6 +594,11 @@ class MonthlyKitchenStockBalance extends Model
     public function scopeForBranch($query, $branchId)
     {
         return $query->where('branch_id', $branchId);
+    }
+
+    public function scopeForWarehouse($query, $warehouseId)
+    {
+        return $query->where('warehouse_id', $warehouseId);
     }
     
     public function scopeCurrentMonth($query)
@@ -584,21 +621,11 @@ class MonthlyKitchenStockBalance extends Model
         return $query;
     }
 
-    public function scopeOpenMonths($query)
-    {
-        return $query->where('is_closed', false);
-    }
-
-    public function scopeClosedMonths($query)
-    {
-        return $query->where('is_closed', true);
-    }
-
     public function scopeLowStock($query)
     {
         return $query->whereHas('item', function($q) {
-            $q->whereRaw('monthly_kitchen_stock_balances.closing_stock <= (items.low_stock_threshold * 0.5)')
-              ->where('monthly_kitchen_stock_balances.closing_stock', '>', 0);
+            $q->whereRaw('branch_monthly_balances.closing_stock <= items.low_stock_threshold')
+              ->where('branch_monthly_balances.closing_stock', '>', 0);
         });
     }
 
@@ -607,9 +634,9 @@ class MonthlyKitchenStockBalance extends Model
         return $query->where('closing_stock', '<=', 0);
     }
 
-    public function scopeHighUsage($query, $threshold = 50)
+    public function scopeHighMovement($query, $threshold = 100)
     {
-        return $query->where('usage_out', '>=', $threshold);
+        return $query->whereRaw('(stock_in + stock_out) >= ?', [$threshold]);
     }
 
     // ========================================
@@ -628,7 +655,7 @@ class MonthlyKitchenStockBalance extends Model
     
     public function getTotalMovementAttribute()
     {
-        return $this->transfer_in + $this->usage_out + abs($this->adjustments);
+        return $this->stock_in + $this->stock_out + abs($this->adjustments);
     }
     
     public function getFormattedPeriodAttribute()
@@ -658,24 +685,14 @@ class MonthlyKitchenStockBalance extends Model
         return $this->year == $prevDate->year && $this->month == $prevDate->month;
     }
 
-    public function getCanEditAttribute()
-    {
-        return !$this->is_closed;
-    }
-
-    public function getStatusTextAttribute()
-    {
-        return $this->is_closed ? 'Ditutup' : 'Terbuka';
-    }
-
-    public function getStatusColorAttribute()
-    {
-        return $this->is_closed ? 'danger' : 'success';
-    }
-
     public function getBranchNameAttribute()
     {
         return $this->branch ? $this->branch->branch_name : 'Unknown Branch';
+    }
+
+    public function getWarehouseNameAttribute()
+    {
+        return $this->warehouse ? $this->warehouse->warehouse_name : 'Unknown Warehouse';
     }
 
     public function getItemNameAttribute()
@@ -683,28 +700,11 @@ class MonthlyKitchenStockBalance extends Model
         return $this->item ? $this->item->item_name : 'Unknown Item';
     }
 
-    public function getUsageRateAttribute()
-    {
-        return $this->transfer_in > 0 ? ($this->usage_out / $this->transfer_in) * 100 : 0;
-    }
-
-    public function getStockTurnoverAttribute()
-    {
-        $avgStock = ($this->opening_stock + $this->closing_stock) / 2;
-        return $avgStock > 0 ? $this->usage_out / $avgStock : 0;
-    }
-
-    public function getEfficiencyScoreAttribute()
-    {
-        // Weighted efficiency score based on usage rate and turnover
-        return ($this->usage_rate * 0.7) + ($this->stock_turnover * 30);
-    }
-
     public function getStockStatusAttribute()
     {
         if ($this->closing_stock <= 0) {
             return 'Habis';
-        } elseif ($this->item && $this->closing_stock <= ($this->item->low_stock_threshold * 0.5)) {
+        } elseif ($this->item && $this->closing_stock <= $this->item->low_stock_threshold) {
             return 'Menipis';
         } else {
             return 'Tersedia';
@@ -721,6 +721,22 @@ class MonthlyKitchenStockBalance extends Model
         };
     }
 
+    public function getCentralDependencyRateAttribute()
+    {
+        return $this->stock_in > 0 ? ($this->receive_from_central / $this->stock_in) * 100 : 0;
+    }
+
+    public function getKitchenTransferRateAttribute()
+    {
+        return $this->stock_out > 0 ? ($this->transfer_to_kitchen / $this->stock_out) * 100 : 0;
+    }
+
+    public function getStockTurnoverAttribute()
+    {
+        $avgStock = ($this->opening_stock + $this->closing_stock) / 2;
+        return $avgStock > 0 ? $this->stock_out / $avgStock : 0;
+    }
+
     // ========================================
     // VALIDATION
     // ========================================
@@ -730,13 +746,18 @@ class MonthlyKitchenStockBalance extends Model
         return [
             'item_id' => 'required|exists:items,id',
             'branch_id' => 'required|exists:branches,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'year' => 'required|integer|min:2020|max:2050',
             'month' => 'required|integer|min:1|max:12',
             'opening_stock' => 'required|numeric|min:0',
             'closing_stock' => 'required|numeric|min:0',
-            'transfer_in' => 'required|numeric|min:0',
-            'usage_out' => 'required|numeric|min:0',
-            'adjustments' => 'nullable|numeric'
+            'stock_in' => 'required|numeric|min:0',
+            'stock_out' => 'required|numeric|min:0',
+            'adjustments' => 'nullable|numeric',
+            'receive_from_central' => 'nullable|numeric|min:0',
+            'transfer_to_kitchen' => 'nullable|numeric|min:0',
+            'return_to_central' => 'nullable|numeric|min:0',
+            'local_purchase_in' => 'nullable|numeric|min:0'
         ];
     }
 
@@ -745,12 +766,13 @@ class MonthlyKitchenStockBalance extends Model
         return [
             'item_id.required' => 'Item wajib dipilih',
             'branch_id.required' => 'Branch wajib dipilih',
+            'warehouse_id.required' => 'Warehouse wajib dipilih',
             'year.required' => 'Tahun wajib diisi',
             'month.required' => 'Bulan wajib diisi',
             'opening_stock.required' => 'Opening stock wajib diisi',
             'closing_stock.required' => 'Closing stock wajib diisi',
-            'transfer_in.required' => 'Transfer in wajib diisi',
-            'usage_out.required' => 'Usage out wajib diisi'
+            'stock_in.required' => 'Stock in wajib diisi',
+            'stock_out.required' => 'Stock out wajib diisi'
         ];
     }
 }
