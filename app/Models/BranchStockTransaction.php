@@ -82,7 +82,7 @@ class BranchStockTransaction extends Model
      */
     public function branch()
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(Branch::class, 'branch_id');
     }
 
     /**
@@ -90,7 +90,7 @@ class BranchStockTransaction extends Model
      */
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 
     /**
@@ -754,4 +754,4 @@ class BranchStockTransaction extends Model
             'transaction_date.required' => 'Tanggal transaksi wajib diisi'
         ];
     }
-}   
+}

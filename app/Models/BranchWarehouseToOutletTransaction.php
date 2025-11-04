@@ -14,7 +14,7 @@ class BranchWarehouseToOutletTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'branch_warehouse_id',
+        'warehouse_id',
         'branch_id',
         'item_id',
         'user_id',
@@ -173,7 +173,7 @@ class BranchWarehouseToOutletTransaction extends Model
      */
     public function scopeFromBranchWarehouse($query, $warehouseId)
     {
-        return $query->where('branch_warehouse_id', $warehouseId);
+        return $query->where('warehouse_id', $warehouseId);
     }
 
     /**
@@ -327,7 +327,7 @@ class BranchWarehouseToOutletTransaction extends Model
 
             // Validate branch is served by this warehouse
             $branch = Branch::find($branchId);
-            if (!$branch || $branch->branch_warehouse_id !== $branchWarehouseId) {
+            if (!$branch || $branch->warehouse_id !== $branchWarehouseId) {
                 throw new \Exception("Branch tidak dilayani oleh warehouse ini");
             }
 
@@ -336,7 +336,7 @@ class BranchWarehouseToOutletTransaction extends Model
 
             // Create transaction
             $transaction = static::create([
-                'branch_warehouse_id' => $branchWarehouseId,
+                'warehouse_id' => $branchWarehouseId,
                 'branch_id' => $branchId,
                 'item_id' => $itemId,
                 'user_id' => $options['user_id'] ?? auth()->id(),
@@ -427,7 +427,7 @@ class BranchWarehouseToOutletTransaction extends Model
             $referenceNo = static::generateReferenceNo('RET');
 
             $transaction = static::create([
-                'branch_warehouse_id' => $branchWarehouseId,
+                'warehouse_id' => $branchWarehouseId,
                 'branch_id' => $branchId,
                 'item_id' => $itemId,
                 'user_id' => $options['user_id'] ?? auth()->id(),
@@ -528,7 +528,7 @@ class BranchWarehouseToOutletTransaction extends Model
         $options['notes'] = $options['notes'] ?? "Distribution from central transaction {$centralToBranchTransaction->reference_no}";
 
         return static::createOutletDistribution(
-            $centralToBranchTransaction->branch_warehouse_id,
+            $centralToBranchTransaction->warehouse_id,
             $branchId,
             $centralToBranchTransaction->item_id,
             $distributionQuantity,
@@ -644,7 +644,7 @@ class BranchWarehouseToOutletTransaction extends Model
             if ($this->isStockOut() && in_array($this->status, [self::STATUS_PENDING, self::STATUS_PREPARED])) {
                 $warehouseBalance = BranchWarehouseMonthlyBalance::getOrCreateBalance(
                     $this->item_id,
-                    $this->branch_warehouse_id,
+                    $this->warehouse_id,
                     $this->transaction_date->year,
                     $this->transaction_date->month
                 );
@@ -673,7 +673,7 @@ class BranchWarehouseToOutletTransaction extends Model
             if ($this->isStockOut()) {
                 $warehouseBalance = BranchWarehouseMonthlyBalance::getOrCreateBalance(
                     $this->item_id,
-                    $this->branch_warehouse_id,
+                    $this->warehouse_id,
                     $this->transaction_date->year,
                     $this->transaction_date->month
                 );
@@ -780,8 +780,8 @@ class BranchWarehouseToOutletTransaction extends Model
         $query = static::whereBetween('transaction_date', [$startDate, $endDate]);
 
         // Apply filters
-        if (isset($filters['branch_warehouse_id'])) {
-            $query->where('branch_warehouse_id', $filters['branch_warehouse_id']);
+        if (isset($filters['warehouse_id'])) {
+            $query->where('warehouse_id', $filters['warehouse_id']);
         }
         
         if (isset($filters['branch_id'])) {
@@ -840,7 +840,7 @@ class BranchWarehouseToOutletTransaction extends Model
                         ($group->count() / $transactions->count()) * 100 : 0
                 ];
             }),
-            'by_warehouse' => $transactions->groupBy('branch_warehouse_id')->map(function($group) {
+            'by_warehouse' => $transactions->groupBy('warehouse_id')->map(function($group) {
                 $warehouse = $group->first()->branchWarehouse;
                 return [
                     'warehouse' => $warehouse,
@@ -898,7 +898,7 @@ class BranchWarehouseToOutletTransaction extends Model
         }
         
         if ($branchWarehouseId) {
-            $query->where('branch_warehouse_id', $branchWarehouseId);
+            $query->where('warehouse_id', $branchWarehouseId);
         }
 
         return $query->selectRaw('
@@ -1141,7 +1141,7 @@ class BranchWarehouseToOutletTransaction extends Model
     public static function validationRules()
     {
         return [
-            'branch_warehouse_id' => 'required|exists:branch_warehouses,id',
+            'warehouse_id' => 'required|exists:branch_warehouses,id',
             'branch_id' => 'required|exists:branches,id',
             'item_id' => 'required|exists:items,id',
             'user_id' => 'required|exists:users,id',
@@ -1163,7 +1163,7 @@ class BranchWarehouseToOutletTransaction extends Model
     public static function validationMessages()
     {
         return [
-            'branch_warehouse_id.required' => 'Branch warehouse wajib dipilih',
+            'warehouse_id.required' => 'Branch warehouse wajib dipilih',
             'branch_id.required' => 'Branch outlet wajib dipilih',
             'item_id.required' => 'Item wajib dipilih',
             'quantity.required' => 'Quantity wajib diisi',
