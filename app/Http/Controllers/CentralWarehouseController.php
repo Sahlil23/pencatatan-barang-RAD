@@ -6,6 +6,8 @@ namespace App\Http\Controllers;
 use App\Models\CentralStockBalance;
 use App\Models\CentralStockTransaction;
 use App\Models\CentralToBranchWarehouseTransaction;
+use App\Models\BranchStockTransaction;
+use App\Models\BranchWarehouseMonthlyBalance;
 use App\Models\Item;
 use App\Models\Warehouse;
 use App\Models\BranchWarehouse;
@@ -288,11 +290,12 @@ class CentralWarehouseController extends Controller
 
     /**
      * Process distribusi stock ke cabang
+     * ✅ FIXED: Gunakan avg_unit_cost bukan unit_cost
      */
     public function storeDistribution(Request $request, $balanceId)
     {
         $validator = Validator::make($request->all(), [
-            'branch_warehouse_id' => 'required|exists:warehouses,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
             'quantity' => 'required|numeric|min:0.001',
             'notes' => 'nullable|string|max:500'
         ]);
@@ -305,32 +308,35 @@ class CentralWarehouseController extends Controller
         try {
             $balance = CentralStockBalance::findOrFail($balanceId);
             
-            // ✅ Get branch warehouse with validation
-            $branchWarehouse = Warehouse::where('id', $request->branch_warehouse_id)
+            $branchWarehouse = Warehouse::where('id', $request->warehouse_id)
                                   ->where('warehouse_type', 'branch')
                                   ->where('status', 'ACTIVE')
                                   ->firstOrFail();
         
-            // Validate stock availability
             if ($request->quantity > $balance->closing_stock) {
                 throw new \Exception('Distribution quantity exceeds available stock');
             }
 
-            // ✅ FIXED: Create distribution transaction with only existing columns
-            $transaction = CentralToBranchWarehouseTransaction::create([
+            $referenceNo = $this->generateReferenceNo('DIST');
+
+            // ============================================
+            // 1. Create Central To Branch Transaction
+            // ============================================
+            $distributionTransaction = CentralToBranchWarehouseTransaction::create([
                 'central_warehouse_id' => $balance->warehouse_id,
-                'branch_warehouse_id' => $request->branch_warehouse_id,
+                'warehouse_id' => $request->warehouse_id,
                 'item_id' => $balance->item_id,
                 'user_id' => auth()->id(),
                 'transaction_type' => 'DISTRIBUTION',
                 'quantity' => $request->quantity,
-                'reference_no' => $this->generateReferenceNo('DIST'),
+                'reference_no' => $referenceNo,
                 'notes' => $request->notes,
                 'transaction_date' => now()
-                // ❌ Removed: 'unit_cost', 'total_cost', 'status'
             ]);
 
-            // Create central stock out transaction
+            // ============================================
+            // 2. Create Central Stock Transaction (OUT)
+            // ============================================
             $centralTransaction = CentralStockTransaction::create([
                 'item_id' => $balance->item_id,
                 'warehouse_id' => $balance->warehouse_id,
@@ -339,7 +345,7 @@ class CentralWarehouseController extends Controller
                 'quantity' => -$request->quantity,
                 'unit_cost' => $balance->item->unit_cost ?? 0,
                 'total_cost' => $request->quantity * ($balance->item->unit_cost ?? 0),
-                'reference_no' => $transaction->reference_no,
+                'reference_no' => $referenceNo,
                 'notes' => 'Distribution to ' . $branchWarehouse->warehouse_name . ': ' . $request->notes,
                 'transaction_date' => now()
             ]);
@@ -347,23 +353,65 @@ class CentralWarehouseController extends Controller
             // Update central balance
             $balance->updateFromTransaction($centralTransaction);
 
+            // ============================================
+            // 3. Create Branch Stock Transaction (IN)
+            // ============================================
+            $branchStockTransaction = BranchStockTransaction::create([
+                'branch_id' => $branchWarehouse->branch_id,
+                'warehouse_id' => $request->warehouse_id,
+                'item_id' => $balance->item_id,
+                'transaction_type' => 'IN',
+                'quantity' => $request->quantity,
+                'reference_no' => $referenceNo,
+                'notes' => 'Barang dari Central Warehouse: ' . $request->notes,
+                'transaction_date' => now(),
+                'user_id' => auth()->id(),
+                'central_transaction_id' => $centralTransaction->id
+            ]);
+
+            // ============================================
+            // 4. ✅ FIXED: Update Branch Warehouse Monthly Balance
+            // ============================================
+            $branchBalance = BranchWarehouseMonthlyBalance::firstOrCreate(
+                [
+                    'warehouse_id' => $request->warehouse_id,
+                    'item_id' => $balance->item_id,
+                    'month' => now()->month,
+                    'year' => now()->year
+                ],
+                [
+                    'opening_stock' => $request->quantity,
+                    'closing_stock' => $request->quantity,
+                    'stock_in' => $request->quantity,
+                    'stock_out' => 0,
+                    'adjustments' => 0,
+                    'is_closed' => false
+                ]
+            );
+            $branchBalance->save();
+
             DB::commit();
 
-            Log::info('Stock distribution created', [
-                'reference_no' => $transaction->reference_no,
+            Log::info('Stock distribution completed successfully', [
+                'reference_no' => $referenceNo,
                 'central_warehouse_id' => $balance->warehouse_id,
-                'branch_warehouse_id' => $request->branch_warehouse_id,
+                'warehouse_id' => $request->warehouse_id,
+                'branch_id' => $branchWarehouse->branch_id,
                 'branch_warehouse_name' => $branchWarehouse->warehouse_name,
                 'item_id' => $balance->item_id,
-                'quantity' => $request->quantity
+                'quantity' => $request->quantity,
+                'central_transaction_id' => $centralTransaction->id,
+                'branch_transaction_id' => $branchStockTransaction->id,
+                'branch_balance_id' => $branchBalance->id
             ]);
 
             return redirect()->route('central-warehouse.index')
-                           ->with('success', 'Stock distributed successfully to ' . $branchWarehouse->warehouse_name . '. Reference: ' . $transaction->reference_no);
+                           ->with('success', 'Stock distributed successfully to ' . $branchWarehouse->warehouse_name . '. Reference: ' . $referenceNo);
 
         } catch (\Exception $e) {
             DB::rollback();
             Log::error('Stock distribution error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return back()->with('error', 'Error distributing stock: ' . $e->getMessage())->withInput();
         }
     }

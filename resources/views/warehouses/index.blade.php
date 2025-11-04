@@ -119,6 +119,7 @@
           <option value="">Semua Tipe</option>
           <option value="central" {{ request('type') == 'central' ? 'selected' : '' }}>Central Warehouse</option>
           <option value="branch" {{ request('type') == 'branch' ? 'selected' : '' }}>Branch Warehouse</option>
+          <option value="outlet" {{ request('type') == 'outlet' ? 'selected' : '' }}>Outlet Warehouse</option>
         </select>
       </div>
       
@@ -196,10 +197,10 @@
             <i class="bx bx-user me-1"></i>
             PIC
           </th>
-          <th class="text-center">
+          <!-- <th class="text-center">
             <i class="bx bx-cube me-1"></i>
             Kapasitas
-          </th>
+          </th> -->
           <th class="text-center">
             <i class="bx bx-signal-3 me-1"></i>
             Status
@@ -237,11 +238,17 @@
           </td>
           
           <!-- Type -->
-          <td class="text-center">
-            <span class="badge bg-{{ $warehouse->warehouse_type === 'central' ? 'primary' : 'info' }}">
-              {{ $warehouse->warehouse_type === 'central' ? 'Central' : 'Branch' }}
-            </span>
-          </td>
+            <td class="text-center">
+            @php
+              $typeConfig = [
+              'central' => ['class' => 'primary', 'text' => 'Central'],
+              'branch' => ['class' => 'info', 'text' => 'Branch'],
+              'outlet' => ['class' => 'success', 'text' => 'Outlet']
+              ];
+              $config = $typeConfig[$warehouse->warehouse_type] ?? ['class' => 'secondary', 'text' => ucfirst($warehouse->warehouse_type)];
+            @endphp
+            <span class="badge bg-{{ $config['class'] }}">{{ $config['text'] }}</span>
+            </td>
           
           <!-- Location -->
           <td>
@@ -272,7 +279,7 @@
           </td>
           
           <!-- Capacity -->
-          <td class="text-center">
+          <!-- <td class="text-center">
             @if($warehouse->capacity_m2 || $warehouse->capacity_volume)
               <div>
                 @if($warehouse->capacity_m2)
@@ -285,7 +292,7 @@
             @else
               <span class="text-muted">-</span>
             @endif
-          </td>
+          </td> -->
           
           <!-- Status -->
           <td class="text-center">

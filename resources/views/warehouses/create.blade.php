@@ -66,33 +66,38 @@
         <div class="card-body">
           <div class="row">
             <!-- Warehouse Type -->
-            <div class="col-md-6 mb-3">
-              <label class="form-label" for="warehouse_type">
-                Tipe Warehouse <span class="text-danger">*</span>
-              </label>
-              <select class="form-select @error('warehouse_type') is-invalid @enderror" 
-                      id="warehouse_type" name="warehouse_type" required>
-                <option value="">Pilih tipe warehouse...</option>
-                <option value="central" {{ old('warehouse_type') == 'central' ? 'selected' : '' }}>
-                  Central Warehouse
-                </option>
-                <option value="branch" {{ old('warehouse_type') == 'branch' ? 'selected' : '' }}>
-                  Branch Warehouse
-                </option>
-              </select>
-              @error('warehouse_type')
-                <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
-              <div class="form-text">
-                <i class="bx bx-info-circle me-1"></i>
-                Central untuk distribusi utama, Branch untuk cabang tertentu
+              <div class="col-md-6 mb-3">
+                <label class="form-label" for="warehouse_type">
+                  Tipe Warehouse <span class="text-danger">*</span>
+                </label>
+                <select class="form-select @error('warehouse_type') is-invalid @enderror" 
+                        id="warehouse_type" name="warehouse_type" required>
+                  <option value="">Pilih tipe warehouse...</option>
+                  <option value="central" {{ old('warehouse_type') == 'central' ? 'selected' : '' }}>
+                    Central Warehouse
+                  </option>
+                  <option value="branch" {{ old('warehouse_type') == 'branch' ? 'selected' : '' }}>
+                    Branch Warehouse
+                  </option>
+                  <option value="outlet" {{ old('warehouse_type') == 'outlet' ? 'selected' : '' }}>
+                    Outlet Warehouse
+                  </option>
+                </select>
+                @error('warehouse_type')
+                  <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+                <div class="form-text">
+                  <i class="bx bx-info-circle me-1"></i>
+                  <strong>Central:</strong> Distribusi utama | 
+                  <strong>Branch:</strong> Per cabang | 
+                  <strong>Outlet:</strong> Per outlet/toko
+                </div>
               </div>
-            </div>
 
             <!-- Branch (Conditional) -->
             <div class="col-md-6 mb-3" id="branch_container" style="display: none;">
               <label class="form-label" for="branch_id">
-                Cabang <span class="text-danger">*</span>
+                Cabang <span class="text-danger" id="branch_required">*</span>
               </label>
               <select class="form-select @error('branch_id') is-invalid @enderror" 
                       id="branch_id" name="branch_id">
@@ -110,7 +115,7 @@
               @enderror
               <div class="form-text">
                 <i class="bx bx-info-circle me-1"></i>
-                Pilih cabang untuk branch warehouse
+                <span id="branch_help_text">Pilih cabang untuk warehouse ini</span>
               </div>
             </div>
 
@@ -548,6 +553,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const warehouseType = document.getElementById('warehouse_type');
   const branchContainer = document.getElementById('branch_container');
   const branchSelect = document.getElementById('branch_id');
+  const branchRequired = document.getElementById('branch_required');
+  const branchHelpText = document.getElementById('branch_help_text');
   const warehouseName = document.getElementById('warehouse_name');
   const warehouseCode = document.getElementById('warehouse_code');
   const address = document.getElementById('address');
@@ -556,8 +563,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const managerName = document.getElementById('manager_name');
   const phone = document.getElementById('phone');
   const email = document.getElementById('email');
-  const coverageArea = document.getElementById('coverage_area');
-  const capacity = document.getElementById('capacity');
   const status = document.getElementById('status');
   
   // Preview elements
@@ -570,23 +575,31 @@ document.addEventListener('DOMContentLoaded', function() {
   const previewBranch = document.getElementById('preview-branch');
   const previewArea = document.getElementById('preview-area');
   const previewVolume = document.getElementById('preview-volume');
-  const previewPic = document.getElementById('preview-pic');
   
   // Validation elements
   const submitBtn = document.getElementById('submit-btn');
   const validationProgress = document.getElementById('validation-progress');
   const validationText = document.getElementById('validation-text');
   
-  // Show/hide branch field based on warehouse type
+  // ✅ Show/hide branch field based on warehouse type
   warehouseType.addEventListener('change', function() {
-    if (this.value === 'branch') {
+    if (this.value === 'branch' || this.value === 'outlet') {
       branchContainer.style.display = 'block';
       branchSelect.required = true;
+      branchRequired.style.display = 'inline';
       document.getElementById('val-branch-item').style.display = 'block';
+      
+      // ✅ Update help text based on type
+      if (this.value === 'outlet') {
+        branchHelpText.textContent = 'Pilih cabang induk untuk outlet ini';
+      } else {
+        branchHelpText.textContent = 'Pilih cabang untuk warehouse ini';
+      }
     } else {
       branchContainer.style.display = 'none';
       branchSelect.required = false;
       branchSelect.value = '';
+      branchRequired.style.display = 'none';
       document.getElementById('val-branch-item').style.display = 'none';
     }
     updatePreview();
@@ -594,7 +607,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   
   // Real-time preview updates
-  [warehouseType, branchSelect, warehouseName, warehouseCode, address, capacityM2, capacityVolume, managerName, phone, email, coverageArea, status].forEach(element => {
+  [warehouseType, branchSelect, warehouseName, warehouseCode, address, capacityM2, capacityVolume, managerName, phone, email, status].forEach(element => {
     element.addEventListener('input', updatePreview);
     element.addEventListener('change', updatePreview);
   });
@@ -605,21 +618,26 @@ document.addEventListener('DOMContentLoaded', function() {
     element.addEventListener('change', validateForm);
   });
   
-  // Update preview untuk field yang berubah
+  // ✅ Update preview function with outlet support
   function updatePreview() {
-    // Update icon and type
+    // Update icon and type based on warehouse type
     if (warehouseType.value === 'central') {
-      previewIcon.innerHTML = '<i class="bx bx-store" style="font-size: 24px;"></i>';
+      previewIcon.innerHTML = '<i class="bx bx-buildings" style="font-size: 24px;"></i>';
       previewIcon.className = 'avatar-initial rounded bg-label-primary';
       previewType.textContent = 'Central';
       previewType.className = 'badge bg-primary';
     } else if (warehouseType.value === 'branch') {
-      previewIcon.innerHTML = '<i class="bx bx-home" style="font-size: 24px;"></i>';
+      previewIcon.innerHTML = '<i class="bx bx-building" style="font-size: 24px;"></i>';
       previewIcon.className = 'avatar-initial rounded bg-label-info';
       previewType.textContent = 'Branch';
       previewType.className = 'badge bg-info';
+    } else if (warehouseType.value === 'outlet') {  // ✅ ADD outlet
+      previewIcon.innerHTML = '<i class="bx bx-store" style="font-size: 24px;"></i>';
+      previewIcon.className = 'avatar-initial rounded bg-label-success';
+      previewType.textContent = 'Outlet';
+      previewType.className = 'badge bg-success';
     } else {
-      previewIcon.innerHTML = '<i class="bx bx-buildings" style="font-size: 24px;"></i>';
+      previewIcon.innerHTML = '<i class="bx bx-package" style="font-size: 24px;"></i>';
       previewIcon.className = 'avatar-initial rounded bg-label-secondary';
       previewType.textContent = '-';
       previewType.className = 'badge bg-label-secondary';
@@ -628,12 +646,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update name
     previewName.textContent = warehouseName.value || 'Nama Warehouse';
     
-    // Update code
+    // ✅ Update code preview with outlet support
     if (warehouseCode.value) {
       previewCode.textContent = warehouseCode.value;
     } else if (warehouseType.value) {
       if (warehouseType.value === 'central') {
-        previewCode.textContent = 'WH-CTR-XXX (auto)';
+        previewCode.textContent = 'WH-CENTRAL-XXX (auto)';
+      } else if (warehouseType.value === 'outlet') {  // ✅ ADD
+        previewCode.textContent = 'WH-OUT-XXX (auto)';
       } else {
         previewCode.textContent = 'WH-BR-XXX (auto)';
       }
@@ -642,14 +662,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Update status
-    const statusText = status.value ? status.options[status.selectedIndex].text : 'Active';
-    previewStatus.textContent = statusText;
-    previewStatus.className = `badge bg-${status.value === 'active' ? 'success' : status.value === 'inactive' ? 'warning' : 'danger'}`;
+    const statusValue = status.value || 'ACTIVE';
+    const statusColors = {
+      'ACTIVE': 'success',
+      'INACTIVE': 'warning',
+      'MAINTENANCE': 'danger'
+    };
+    previewStatus.textContent = statusValue;
+    previewStatus.className = `badge bg-${statusColors[statusValue] || 'secondary'}`;
     
-    // Update branch
-    if (warehouseType.value === 'branch' && branchSelect.value) {
+    // ✅ Update branch (for both branch and outlet)
+    if ((warehouseType.value === 'branch' || warehouseType.value === 'outlet') && branchSelect.value) {
       previewBranchContainer.style.display = 'block';
-      previewBranch.textContent = branchSelect.options[branchSelect.selectedIndex].text;
+      const branchText = branchSelect.options[branchSelect.selectedIndex].text;
+      previewBranch.innerHTML = `<span class="badge bg-label-primary"><i class="bx bx-building me-1"></i>${branchText}</span>`;
     } else {
       previewBranchContainer.style.display = 'none';
     }
@@ -658,19 +684,15 @@ document.addEventListener('DOMContentLoaded', function() {
     previewArea.textContent = capacityM2.value ? `${capacityM2.value} m²` : '-';
     previewVolume.textContent = capacityVolume.value ? `${capacityVolume.value} m³` : '-';
     
-    // Update manager (instead of PIC)
-    const managerName = document.getElementById('manager_name');
-    const phone = document.getElementById('phone');
-    const email = document.getElementById('email');
-    
+    // Update manager info
     let managerInfo = '-';
     if (managerName.value) {
-        managerInfo = managerName.value;
-        if (phone.value) {
-            managerInfo += ' (' + phone.value + ')';
-        }
+      managerInfo = managerName.value;
+      if (phone.value) {
+        managerInfo += ' (' + phone.value + ')';
+      }
     }
-    document.getElementById('preview-manager').textContent = managerInfo;
+    document.getElementById('preview-pic').textContent = managerInfo;
     
     // Update email
     document.getElementById('preview-email').textContent = email.value || '-';
@@ -704,8 +726,8 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('val-address').className = 'bx bx-x text-danger me-2';
     }
     
-    // Validate branch (if branch type)
-    if (warehouseType.value === 'branch') {
+    // ✅ Validate branch (if branch OR outlet type)
+    if (warehouseType.value === 'branch' || warehouseType.value === 'outlet') {
       total = 4;
       if (branchSelect.value) {
         document.getElementById('val-branch').className = 'bx bx-check text-success me-2';
@@ -744,11 +766,19 @@ function resetForm() {
     document.getElementById('preview-name').textContent = 'Nama Warehouse';
     document.getElementById('preview-code').textContent = 'Kode akan di-generate';
     document.getElementById('preview-type').textContent = '-';
-    document.getElementById('preview-status').textContent = 'Active';
+    document.getElementById('preview-type').className = 'badge bg-label-secondary';
+    document.getElementById('preview-status').textContent = 'ACTIVE';
+    document.getElementById('preview-status').className = 'badge bg-success';
     document.getElementById('preview-area').textContent = '-';
     document.getElementById('preview-volume').textContent = '-';
     document.getElementById('preview-pic').textContent = '-';
+    document.getElementById('preview-email').textContent = '-';
     document.getElementById('preview-branch-container').style.display = 'none';
+    
+    // Reset icon
+    const previewIcon = document.getElementById('preview-icon');
+    previewIcon.innerHTML = '<i class="bx bx-package" style="font-size: 24px;"></i>';
+    previewIcon.className = 'avatar-initial rounded bg-label-secondary';
     
     // Reset validation
     validateForm();
@@ -760,15 +790,6 @@ document.getElementById('createWarehouseForm').addEventListener('submit', functi
   const submitBtn = document.getElementById('submit-btn');
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan...';
-});
-
-// Auto-generate warehouse code preview
-document.getElementById('warehouse_type').addEventListener('change', function() {
-  const codeInput = document.getElementById('warehouse_code');
-  if (!codeInput.value) {
-    // Auto preview code generation
-    updatePreview();
-  }
 });
 </script>
 @endpush

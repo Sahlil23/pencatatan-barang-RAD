@@ -56,8 +56,8 @@
           <!-- Branch Warehouse Selection -->
         <div class="mb-3">
         <label class="form-label">Destination Branch Warehouse <span class="text-danger">*</span></label>
-        <select class="form-select @error('branch_warehouse_id') is-invalid @enderror" 
-                name="branch_warehouse_id" required onchange="updateBranchInfo()">
+        <select class="form-select @error('warehouse_id') is-invalid @enderror" 
+                name="warehouse_id" required onchange="updateBranchInfo()">
             <option value="">Select Branch Warehouse</option>
             @if(isset($branchWarehouses) && $branchWarehouses->count() > 0)
             @foreach($branchWarehouses as $warehouse)
@@ -65,7 +65,7 @@
                     data-branch="{{ $warehouse->branch ? $warehouse->branch->branch_name : 'N/A' }}"
                     data-address="{{ $warehouse->address }}"
                     data-warehouse-name="{{ $warehouse->warehouse_name }}"
-                    {{ old('branch_warehouse_id') == $warehouse->id ? 'selected' : '' }}>
+                    {{ old('warehouse_id') == $warehouse->id ? 'selected' : '' }}>
                 {{ $warehouse->warehouse_name }} 
                 @if($warehouse->branch)
                 - {{ $warehouse->branch->branch_name }} ({{ $warehouse->branch->city }})
@@ -76,7 +76,7 @@
             <option value="" disabled>No branch warehouses available</option>
             @endif
         </select>
-        @error('branch_warehouse_id')
+        @error('warehouse_id')
             <div class="form-text text-danger">{{ $message }}</div>
         @else
             <div class="form-text">
@@ -325,7 +325,7 @@ const availableStock = {{ $balance->closing_stock }};
 const unitCost = {{ $balance->item->unit_cost ?? 0 }};
 
 function updateBranchInfo() {
-    const select = document.querySelector('select[name="branch_warehouse_id"]');
+    const select = document.querySelector('select[name="warehouse_id"]');
     const option = select.selectedOptions[0];
     const infoCard = document.getElementById('branchInfoCard');
     
@@ -404,7 +404,7 @@ function resetForm() {
 // Form validation
 document.querySelector('form').addEventListener('submit', function(e) {
     const quantity = parseFloat(document.getElementById('quantity').value) || 0;
-    const branchWarehouse = document.querySelector('select[name="branch_warehouse_id"]').value;
+    const branchWarehouse = document.querySelector('select[name="warehouse_id"]').value;
     
     if (!branchWarehouse) {
         e.preventDefault();
@@ -425,7 +425,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     }
     
     // Confirmation
-    const warehouseName = document.querySelector('select[name="branch_warehouse_id"] option:checked').text;
+    const warehouseName = document.querySelector('select[name="warehouse_id"] option:checked').text;
     const message = `Are you sure you want to distribute ${quantity.toLocaleString()} units to ${warehouseName}?`;
     
     if (!confirm(message)) {
@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Real-time calculation
     document.getElementById('quantity').addEventListener('input', calculateDistribution);
-    document.querySelector('select[name="branch_warehouse_id"]').addEventListener('change', updateBranchInfo);
+    document.querySelector('select[name="warehouse_id"]').addEventListener('change', updateBranchInfo);
 });
 </script>
 @endpush

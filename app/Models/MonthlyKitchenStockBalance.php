@@ -13,27 +13,34 @@ class MonthlyKitchenStockBalance extends Model
     use HasFactory;
 
     protected $fillable = [
-        'item_id',
         'branch_id',
+        'item_id',
         'year',
         'month',
         'opening_stock',
         'closing_stock',
         'transfer_in',
-        'usage_out',
+        'received_from_branch_warehouse',      // ✅ NEW FIELD
+        'received_from_outlet_warehouse',      // ✅ NEW FIELD
+        'usage',
+        'waste',
+        'transfer_out',
         'adjustments',
         'is_closed',
-        'closed_at'
+        'closed_at',
+        'closed_by',
     ];
 
     protected $casts = [
-        'opening_stock' => 'decimal:2',
-        'closing_stock' => 'decimal:2',
-        'transfer_in' => 'decimal:2',
-        'usage_out' => 'decimal:2',
-        'adjustments' => 'decimal:2',
-        'year' => 'integer',
-        'month' => 'integer',
+        'opening_stock' => 'decimal:3',
+        'closing_stock' => 'decimal:3',
+        'transfer_in' => 'decimal:3',
+        'received_from_branch_warehouse' => 'decimal:3',   // ✅ NEW
+        'received_from_outlet_warehouse' => 'decimal:3',   // ✅ NEW
+        'usage' => 'decimal:3',
+        'waste' => 'decimal:3',
+        'transfer_out' => 'decimal:3',
+        'adjustments' => 'decimal:3',
         'is_closed' => 'boolean',
         'closed_at' => 'datetime',
     ];
@@ -361,12 +368,116 @@ class MonthlyKitchenStockBalance extends Model
     }
     
     /**
+     * Update movement (IN/OUT) pada balance
+     * UPDATED: Add support for outlet warehouse source
+     *
+     * @param string $type - Type: transfer_in, usage, waste, etc.
+     * @param float $quantity - Quantity (bisa + atau -)
+     * @param string|null $source - Source: 'branch_warehouse' | 'outlet_warehouse' | null
+     * @return bool
+     */
+    public function updateMovement($type, $quantity, $source = null)
+    {
+        try {
+            DB::beginTransaction();
+
+            switch ($type) {
+                case 'transfer_in':
+                    $this->transfer_in += $quantity;
+                    $this->closing_stock += $quantity;
+                    break;
+
+                case 'received_from_branch_warehouse':
+                    // ✅ NEW: Detailed tracking from branch warehouse
+                    $this->received_from_branch_warehouse += $quantity;
+                    $this->closing_stock += $quantity;
+                    break;
+
+                case 'received_from_outlet_warehouse':
+                    // ✅ NEW: Detailed tracking from outlet warehouse
+                    $this->received_from_outlet_warehouse += $quantity;
+                    $this->closing_stock += $quantity;
+                    break;
+
+                case 'usage':
+                    $this->usage += $quantity;
+                    $this->closing_stock -= $quantity;
+                    break;
+
+                case 'waste':
+                    $this->waste += $quantity;
+                    $this->closing_stock -= $quantity;
+                    break;
+
+                case 'transfer_out':
+                    $this->transfer_out += $quantity;
+                    $this->closing_stock -= $quantity;
+                    break;
+
+                case 'adjustment':
+                case 'adjustments':
+                    $this->adjustments += $quantity;
+                    $this->closing_stock += $quantity; // bisa + atau - tergantung $quantity
+                    break;
+
+                default:
+                    throw new \Exception("Invalid movement type: $type");
+            }
+
+            $this->save();
+
+            DB::commit();
+
+            Log::info('Kitchen balance updated', [
+                'balance_id' => $this->id,
+                'type' => $type,
+                'quantity' => $quantity,
+                'source' => $source,
+                'new_closing_stock' => $this->closing_stock,
+            ]);
+
+            return true;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Update kitchen balance error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Hitung ulang closing stock berdasarkan formula
      */
     public function recalculateClosingStock()
     {
-        $newClosingStock = $this->opening_stock + $this->transfer_in - $this->usage_out + $this->adjustments;
-        $this->update(['closing_stock' => $newClosingStock]);
+        try {
+            $calculatedClosing = $this->opening_stock
+                               + $this->transfer_in
+                               + $this->received_from_branch_warehouse   // ✅ ADD
+                               + $this->received_from_outlet_warehouse   // ✅ ADD
+                               - $this->usage
+                               - $this->waste
+                               - $this->transfer_out
+                               + $this->adjustments;
+
+            if ($calculatedClosing != $this->closing_stock) {
+                $oldClosing = $this->closing_stock;
+                $this->closing_stock = $calculatedClosing;
+                $this->save();
+
+                Log::info('Kitchen closing stock recalculated', [
+                    'balance_id' => $this->id,
+                    'old_closing' => $oldClosing,
+                    'new_closing' => $calculatedClosing,
+                ]);
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Recalculate kitchen closing stock error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -441,42 +552,6 @@ class MonthlyKitchenStockBalance extends Model
         }
 
         return $this;
-    }
-
-    /**
-     * Update stock movement (TRANSFER_IN/USAGE/ADJUSTMENT)
-     */
-    public function updateMovement($type, $quantity)
-    {
-        // Cek apakah bulan ini sudah ditutup
-        if ($this->is_closed) {
-            throw new \Exception("Tidak dapat melakukan transaksi pada bulan yang sudah ditutup ({$this->formatted_period})");
-        }
-
-        switch (strtoupper($type)) {
-            case 'IN':
-            case 'TRANSFER_IN':
-                $this->increment('transfer_in', $quantity);
-                $this->increment('closing_stock', $quantity);
-                break;
-                
-            case 'OUT':
-            case 'USAGE':
-                $this->increment('usage_out', $quantity);
-                $this->decrement('closing_stock', $quantity);
-                break;
-                
-            case 'ADJUSTMENT':
-                // Adjustment bisa positif atau negatif
-                if ($quantity >= 0) {
-                    $this->increment('adjustments', $quantity);
-                    $this->increment('closing_stock', $quantity);
-                } else {
-                    $this->increment('adjustments', $quantity); // quantity already negative
-                    $this->increment('closing_stock', $quantity); // will decrease
-                }
-                break;
-        }
     }
 
     /**
@@ -719,6 +794,124 @@ class MonthlyKitchenStockBalance extends Model
             'Tersedia' => 'success',
             default => 'secondary'
         };
+    }
+
+    /**
+     * Get total stock IN
+     * UPDATED: Include new fields
+     */
+    public function getTotalStockInAttribute()
+    {
+        return $this->transfer_in 
+             + $this->received_from_branch_warehouse    // ✅ ADD
+             + $this->received_from_outlet_warehouse    // ✅ ADD
+             + ($this->adjustments > 0 ? $this->adjustments : 0);
+    }
+
+    /**
+     * Get stock source breakdown
+     * NEW METHOD!
+     * 
+     * @return array
+     */
+    public function getStockSourceBreakdownAttribute()
+    {
+        return [
+            'branch_warehouse' => [
+                'quantity' => $this->received_from_branch_warehouse,
+                'percentage' => $this->getTotalStockIn() > 0 
+                    ? round(($this->received_from_branch_warehouse / $this->getTotalStockIn()) * 100, 2)
+                    : 0,
+                'label' => 'Branch Warehouse',
+            ],
+            'outlet_warehouse' => [
+                'quantity' => $this->received_from_outlet_warehouse,
+                'percentage' => $this->getTotalStockIn() > 0 
+                    ? round(($this->received_from_outlet_warehouse / $this->getTotalStockIn()) * 100, 2)
+                    : 0,
+                'label' => 'Outlet Warehouse',
+            ],
+            'transfer' => [
+                'quantity' => $this->transfer_in,
+                'percentage' => $this->getTotalStockIn() > 0 
+                    ? round(($this->transfer_in / $this->getTotalStockIn()) * 100, 2)
+                    : 0,
+                'label' => 'Transfer',
+            ],
+        ];
+    }
+
+    /**
+     * Get primary stock source
+     * NEW METHOD!
+     * 
+     * @return string
+     */
+    public function getPrimaryStockSourceAttribute()
+    {
+        $breakdown = $this->stock_source_breakdown;
+        
+        $max = 0;
+        $primary = 'none';
+        
+        foreach ($breakdown as $source => $data) {
+            if ($data['quantity'] > $max) {
+                $max = $data['quantity'];
+                $primary = $source;
+            }
+        }
+        
+        return $primary;
+    }
+
+    /**
+     * Check if received from outlet warehouse
+     * NEW METHOD!
+     * 
+     * @return bool
+     */
+    public function hasOutletWarehouseSource()
+    {
+        return $this->received_from_outlet_warehouse > 0;
+    }
+
+    /**
+     * Check if received from branch warehouse
+     * NEW METHOD!
+     * 
+     * @return bool
+     */
+    public function hasBranchWarehouseSource()
+    {
+        return $this->received_from_branch_warehouse > 0;
+    }
+
+    /**
+     * Get stock flow summary
+     * NEW METHOD!
+     * 
+     * @return array
+     */
+    public function getStockFlowSummaryAttribute()
+    {
+        return [
+            'opening' => $this->opening_stock,
+            'in' => [
+                'total' => $this->total_stock_in,
+                'branch_warehouse' => $this->received_from_branch_warehouse,
+                'outlet_warehouse' => $this->received_from_outlet_warehouse,
+                'transfer' => $this->transfer_in,
+                'adjustment' => $this->adjustments > 0 ? $this->adjustments : 0,
+            ],
+            'out' => [
+                'total' => $this->total_stock_out,
+                'usage' => $this->usage,
+                'waste' => $this->waste,
+                'transfer' => $this->transfer_out,
+                'adjustment' => $this->adjustments < 0 ? abs($this->adjustments) : 0,
+            ],
+            'closing' => $this->closing_stock,
+        ];
     }
 
     // ========================================

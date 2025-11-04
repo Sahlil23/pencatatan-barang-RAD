@@ -429,7 +429,7 @@ class DistributionOrder extends Model
                     'transaction_type' => 'RECEIVE_FROM_CENTRAL',
                     'quantity' => $receivedQty,
                     'reference_no' => $this->do_number,
-                    'notes' => "Received from central warehouse",
+                    'notes' => "Barang dari Central Warehouse: " . $detail->item->item_name,
                     'transaction_date' => now()
                 ]);
             }

@@ -128,7 +128,7 @@ class Item extends Model
     public function getBranchStock($branchWarehouseId)
     {
         $balance = $this->branchWarehouseBalances()
-            ->where('branch_warehouse_id', $branchWarehouseId)
+            ->where('warehouse_id', $branchWarehouseId)
             ->where('year', now()->year)
             ->where('month', now()->month)
             ->first();

@@ -15,6 +15,8 @@ use App\Http\Controllers\BackupController;
 use App\Http\Controllers\KitchenStockController;
 use App\Http\Controllers\CentralWarehouseController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\BranchWarehouseController;
+use App\Http\Controllers\OutletWarehouseController;
 
 // Auth Routes (Public - Guest Only)
 Route::middleware('guest')->group(function () {
@@ -153,6 +155,72 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/list', [WarehouseController::class, 'getWarehouses'])->name('api.list');
     });
 
+
+        // Branch Warehouse - View Stock
+    Route::get('/branch-warehouse', [BranchWarehouseController::class, 'index'])->name('branch-warehouse.index');
+    Route::get('/branch-warehouse/{id}', [BranchWarehouseController::class, 'show'])->name('branch-warehouse.show');
+    Route::get('/branch-warehouse/{id}/current-stock', [BranchWarehouseController::class, 'getCurrentStock'])->name('branch-warehouse.current-stock');
+
+    // Branch Warehouse - Management Stock
+    Route::get('/branch-warehouse/{id}/receive-stock', [BranchWarehouseController::class, 'showReceiveStockForm'])->name('branch-warehouse.receive-form');
+    Route::post('/branch-warehouse/{id}/receive-stock', [BranchWarehouseController::class, 'storeReceiveStock'])->name('branch-warehouse.receive');
+
+    Route::get('/branch-warehouse/{id}/adjust-stock', [BranchWarehouseController::class, 'showAdjustmentForm'])->name('branch-warehouse.adjust-form');
+    Route::post('/branch-warehouse/{id}/adjust-stock', [BranchWarehouseController::class, 'storeAdjustment'])->name('branch-warehouse.adjust');
+
+    // Branch Warehouse - Distribution
+    Route::get('/branch-warehouse/{id}/distribute', [BranchWarehouseController::class, 'showDistributionForm'])->name('branch-warehouse.distribute-form');
+    Route::post('/branch-warehouse/{id}/distribute', [BranchWarehouseController::class, 'storeDistribution'])->name('branch-warehouse.distribute');
+    Route::get('/branch-warehouse/{id}/distributions', [BranchWarehouseController::class, 'distributionHistory'])->name('branch-warehouse.distributions');
+
+    // Branch Warehouse - Reports
+    Route::get('/branch-warehouse/{id}/transaction-summary', [BranchWarehouseController::class, 'getTransactionSummary'])->name('branch-warehouse.transaction-summary');
+    Route::get('/branch-warehouse/{id}/export-report', [BranchWarehouseController::class, 'exportStockReport'])->name('branch-warehouse.export-report');
+
+
+    Route::prefix('outlet-warehouse')->name('outlet-warehouse.')->middleware(['auth'])->group(function () {   
+        // ============================================================
+        // DASHBOARD
+        // ============================================================
+        Route::get('/', [OutletWarehouseController::class, 'index'])->name('index');
+        
+        // ============================================================
+        // STOCK MANAGEMENT
+        // ============================================================
+        Route::prefix('stock')->name('stock.')->group(function () {
+            Route::get('/', [OutletWarehouseController::class, 'show'])->name('index'); // ✅ FIXED: name('stock') → name('index')
+            Route::get('/{warehouse}/{item}', [OutletWarehouseController::class, 'stockShow'])->name('show');
+            
+            // Receive
+            Route::get('/{warehouse}/receive/create', [OutletWarehouseController::class, 'receiveCreate'])->name('receive.create');
+            Route::post('/{warehouse}/receive', [OutletWarehouseController::class, 'receiveStore'])->name('receive.store');
+            
+            // Adjustment
+            Route::get('/{warehouse}/adjustment/create', [OutletWarehouseController::class, 'adjustmentCreate'])->name('adjustment.create');
+            Route::post('/{warehouse}/adjustment', [OutletWarehouseController::class, 'adjustmentStore'])->name('adjustment.store');
+            
+            // Transactions
+            Route::get('/{warehouse}/transactions', [OutletWarehouseController::class, 'transactions'])->name('transactions');
+            Route::get('/{warehouse}/transactions/{transaction}', [OutletWarehouseController::class, 'transactionDetail'])->name('transaction.detail');
+        });
+        
+        // ============================================================
+        // DISTRIBUTION TO KITCHEN
+        // ============================================================
+        Route::prefix('distribution')->name('distribution.')->group(function () {
+            Route::get('/', [OutletWarehouseController::class, 'distributionIndex'])->name('index');
+            Route::get('/create', [OutletWarehouseController::class, 'distributionCreate'])->name('create');
+            Route::post('/', [OutletWarehouseController::class, 'distributionStore'])->name('store');
+            Route::get('/{distribution}', [OutletWarehouseController::class, 'distributionShow'])->name('show');
+            Route::post('/{distribution}/update-status', [OutletWarehouseController::class, 'distributionUpdateStatus'])->name('update-status');
+        });
+        
+        // ============================================================
+        // AJAX
+        // ============================================================
+        Route::get('/ajax/stock/{warehouse}', [OutletWarehouseController::class, 'getAvailableStock'])->name('ajax.stock');
+        Route::get('/ajax/stock/{warehouse}/{item}', [OutletWarehouseController::class, 'getItemStockInfo'])->name('ajax.stock-info');
+    });
 });
 
 Route::middleware(['auth'])->group(function () {

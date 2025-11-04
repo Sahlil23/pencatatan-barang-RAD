@@ -11,15 +11,26 @@ class KitchenStockTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'item_id',
         'branch_id',
+        'item_id',
         'user_id',
+        'branch_warehouse_transaction_id',
+        'outlet_warehouse_transaction_id',  // ✅ NEW FIELD
         'transaction_type',
         'quantity',
-        'warehouse_transaction_id',
-        'branch_warehouse_transaction_id',
+        'unit_cost',
+        'total_cost',
+        'balance_before',
+        'balance_after',
+        'reference_no',
+        'batch_no',
         'notes',
-        'transaction_date'
+        'transaction_date',
+        'year',
+        'month',
+        'status',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
@@ -66,6 +77,22 @@ class KitchenStockTransaction extends Model
     const TYPE_USAGE = 'USAGE';
     const TYPE_ADJUSTMENT = 'ADJUSTMENT';
 
+    // ============================================================
+    // CONSTANTS - Transaction Types (ADD NEW TYPE)
+    // ============================================================
+
+    const TYPE_RECEIVE_FROM_BRANCH_WAREHOUSE = 'RECEIVE_FROM_BRANCH_WAREHOUSE';
+    const TYPE_RECEIVE_FROM_OUTLET_WAREHOUSE = 'RECEIVE_FROM_OUTLET_WAREHOUSE';  // ✅ NEW
+    // const TYPE_USAGE = 'USAGE';
+    const TYPE_WASTE = 'WASTE';
+    // const TYPE_ADJUSTMENT_IN = 'ADJUSTMENT_IN';
+    // const TYPE_ADJUSTMENT_OUT = 'ADJUSTMENT_OUT';
+    // const TYPE_RETURN_TO_WAREHOUSE = 'RETURN_TO_WAREHOUSE';
+    // const TYPE_TRANSFER_IN = 'TRANSFER_IN';
+    // const TYPE_TRANSFER_OUT = 'TRANSFER_OUT';
+    // const TYPE_OPENING_BALANCE = 'OPENING_BALANCE';
+    // const TYPE_CLOSING_BALANCE = 'CLOSING_BALANCE';
+
     // ========================================
     // RELATIONSHIPS
     // ========================================
@@ -103,11 +130,19 @@ class KitchenStockTransaction extends Model
     }
 
     /**
-     * Related branch warehouse transaction
+     * Parent transaction dari branch warehouse (existing)
      */
     public function branchWarehouseTransaction()
     {
-        return $this->belongsTo(BranchStockTransaction::class, 'branch_warehouse_transaction_id');
+        return $this->belongsTo(BranchWarehouseToOutletTransaction::class, 'branch_warehouse_transaction_id');
+    }
+
+    /**
+     * Parent transaction dari outlet warehouse (NEW!)
+     */
+    public function outletWarehouseTransaction()
+    {
+        return $this->belongsTo(OutletWarehouseToKitchenTransaction::class, 'outlet_warehouse_transaction_id');
     }
 
     /**
@@ -371,7 +406,12 @@ class KitchenStockTransaction extends Model
      */
     public function isStockIn()
     {
-        return in_array($this->transaction_type, self::getStockInTypes());
+        return in_array($this->transaction_type, [
+            self::TYPE_RECEIVE_FROM_BRANCH_WAREHOUSE,
+            self::TYPE_RECEIVE_FROM_OUTLET_WAREHOUSE,  // ✅ ADD
+            self::TYPE_TRANSFER_IN,
+            self::TYPE_ADJUSTMENT_IN,
+        ]);
     }
 
     /**
@@ -601,6 +641,83 @@ class KitchenStockTransaction extends Model
         return $transaction;
     }
 
+    /**
+     * Create RECEIVE FROM OUTLET WAREHOUSE transaction
+     * NEW METHOD!
+     *
+     * @param array $data
+     * @return KitchenStockTransaction|null
+     */
+    public static function createReceiveFromOutletWarehouse($data)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Validate required data
+            if (!isset($data['branch_id'], $data['item_id'], $data['quantity'])) {
+                throw new \Exception('Missing required data for receive from outlet warehouse transaction');
+            }
+
+            // Generate reference number
+            $referenceNo = self::generateReferenceNo('RCV-OUT', $data['branch_id']);
+
+            // Get current balance
+            $year = $data['year'] ?? date('Y');
+            $month = $data['month'] ?? date('m');
+            
+            $balance = MonthlyKitchenStockBalance::getOrCreateBalance(
+                $data['item_id'],
+                $data['branch_id'],
+                $year,
+                $month
+            );
+
+            $balanceBefore = $balance->closing_stock;
+            $balanceAfter = $balanceBefore + $data['quantity'];
+
+            // Create transaction
+            $transaction = self::create([
+                'branch_id' => $data['branch_id'],
+                'item_id' => $data['item_id'],
+                'user_id' => $data['user_id'] ?? auth()->id(),
+                'outlet_warehouse_transaction_id' => $data['outlet_warehouse_transaction_id'] ?? null,
+                'transaction_type' => self::TYPE_RECEIVE_FROM_OUTLET_WAREHOUSE,
+                'quantity' => $data['quantity'],
+                'unit_cost' => $data['unit_cost'] ?? null,
+                'total_cost' => isset($data['unit_cost']) ? ($data['quantity'] * $data['unit_cost']) : null,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_no' => $referenceNo,
+                'batch_no' => $data['batch_no'] ?? null,
+                'notes' => $data['notes'] ?? 'Terima dari outlet warehouse',
+                'transaction_date' => $data['transaction_date'] ?? now(),
+                'year' => $year,
+                'month' => $month,
+                'status' => $data['status'] ?? self::STATUS_COMPLETED,
+            ]);
+
+            // Update monthly balance
+            $balance->updateMovement('received_from_outlet_warehouse', $data['quantity']);
+
+            DB::commit();
+
+            Log::info('Kitchen stock transaction created - RECEIVE FROM OUTLET WAREHOUSE', [
+                'transaction_id' => $transaction->id,
+                'reference_no' => $referenceNo,
+                'branch_id' => $data['branch_id'],
+                'item_id' => $data['item_id'],
+                'quantity' => $data['quantity'],
+            ]);
+
+            return $transaction;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Create kitchen receive from outlet warehouse transaction error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
     // ========================================
     // ANALYTICS METHODS
     // ========================================
@@ -787,6 +904,82 @@ class KitchenStockTransaction extends Model
     {
         $unitCost = $this->item ? $this->item->unit_cost : 0;
         return $this->quantity * $unitCost;
+    }
+
+    /**
+     * Get transaction type label
+     * UPDATED: Add new outlet warehouse type
+     */
+    public function getTransactionTypeLabelAttribute()
+    {
+        return match($this->transaction_type) {
+            self::TYPE_RECEIVE_FROM_BRANCH_WAREHOUSE => 'Terima dari Branch Warehouse',
+            self::TYPE_RECEIVE_FROM_OUTLET_WAREHOUSE => 'Terima dari Outlet Warehouse',  // ✅ NEW
+            self::TYPE_USAGE => 'Pemakaian',
+            self::TYPE_WASTE => 'Waste/Rusak',
+            self::TYPE_ADJUSTMENT_IN => 'Penyesuaian (+)',
+            self::TYPE_ADJUSTMENT_OUT => 'Penyesuaian (-)',
+            self::TYPE_RETURN_TO_WAREHOUSE => 'Retur ke Warehouse',
+            self::TYPE_TRANSFER_IN => 'Transfer Masuk',
+            self::TYPE_TRANSFER_OUT => 'Transfer Keluar',
+            self::TYPE_OPENING_BALANCE => 'Saldo Awal',
+            self::TYPE_CLOSING_BALANCE => 'Saldo Akhir',
+            default => 'Unknown',
+        };
+    }
+
+    /**
+     * Get stock source (where stock came from)
+     * NEW METHOD!
+     */
+    public function getStockSourceAttribute()
+    {
+        if ($this->branch_warehouse_transaction_id) {
+            return [
+                'type' => 'branch_warehouse',
+                'label' => 'Branch Warehouse',
+                'transaction' => $this->branchWarehouseTransaction,
+            ];
+        } elseif ($this->outlet_warehouse_transaction_id) {
+            return [
+                'type' => 'outlet_warehouse',
+                'label' => 'Outlet Warehouse',
+                'transaction' => $this->outletWarehouseTransaction,
+            ];
+        }
+
+        return [
+            'type' => 'direct',
+            'label' => 'Direct Entry',
+            'transaction' => null,
+        ];
+    }
+
+    /**
+     * Get source warehouse info
+     * NEW METHOD!
+     */
+    public function getSourceWarehouseInfoAttribute()
+    {
+        if ($this->branch_warehouse_transaction_id && $this->branchWarehouseTransaction) {
+            $warehouse = $this->branchWarehouseTransaction->warehouse;
+            return [
+                'type' => 'branch',
+                'warehouse_code' => $warehouse->warehouse_code ?? '-',
+                'warehouse_name' => $warehouse->warehouse_name ?? '-',
+                'transaction_ref' => $this->branchWarehouseTransaction->reference_no,
+            ];
+        } elseif ($this->outlet_warehouse_transaction_id && $this->outletWarehouseTransaction) {
+            $warehouse = $this->outletWarehouseTransaction->outletWarehouse;
+            return [
+                'type' => 'outlet',
+                'warehouse_code' => $warehouse->warehouse_code ?? '-',
+                'warehouse_name' => $warehouse->warehouse_name ?? '-',
+                'transaction_ref' => $this->outletWarehouseTransaction->reference_no,
+            ];
+        }
+
+        return null;
     }
 
     // ========================================

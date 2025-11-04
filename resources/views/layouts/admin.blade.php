@@ -155,6 +155,19 @@
                 </li>
               </ul>
             </li>
+
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Branch Warehouse</span></li>
+            <li class="menu-item {{ request()->routeIs('branch-warehouse.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="BranchWarehouse">Branch Warehouse</div>
+              </a>
+              <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('branch-warehouse.index') ? 'active' : '' }}">
+                  <a href="{{ route('branch-warehouse.index') }}" class="menu-link"><div data-i18n="Read">Branch Warehouse</div></a>
+                </li>
+              </ul>
+            </li>
             <!-- Recipe -->
             <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Resep</span>

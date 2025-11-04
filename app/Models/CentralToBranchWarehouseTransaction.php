@@ -15,7 +15,7 @@ class CentralToBranchWarehouseTransaction extends Model
 
     protected $fillable = [
         'central_warehouse_id',
-        'branch_warehouse_id',
+        'warehouse_id',
         'item_id',
         'user_id',
         'transaction_type',
@@ -165,7 +165,7 @@ class CentralToBranchWarehouseTransaction extends Model
      */
     public function scopeToBranchWarehouse($query, $warehouseId)
     {
-        return $query->where('branch_warehouse_id', $warehouseId);
+        return $query->where('warehouse_id', $warehouseId);
     }
 
     /**
@@ -280,7 +280,7 @@ class CentralToBranchWarehouseTransaction extends Model
             // ✅ FIXED: Create transaction with only existing columns
             $transaction = static::create([
                 'central_warehouse_id' => $centralWarehouseId,
-                'branch_warehouse_id' => $branchWarehouseId,
+                'warehouse_id' => $branchWarehouseId,
                 'item_id' => $itemId,
                 'user_id' => $options['user_id'] ?? auth()->id(),
                 'transaction_type' => 'DISTRIBUTION',
@@ -373,7 +373,7 @@ class CentralToBranchWarehouseTransaction extends Model
 
             $transaction = static::create([
                 'central_warehouse_id' => $centralWarehouseId,
-                'branch_warehouse_id' => $branchWarehouseId,
+                'warehouse_id' => $branchWarehouseId,
                 'item_id' => $itemId,
                 'user_id' => $options['user_id'] ?? auth()->id(),
                 'transaction_type' => self::TYPE_RETURN_IN,
@@ -508,7 +508,7 @@ class CentralToBranchWarehouseTransaction extends Model
                 // Remove stock from branch warehouse
                 $branchBalance = BranchWarehouseMonthlyBalance::getOrCreateBalance(
                     $this->item_id, 
-                    $this->branch_warehouse_id,
+                    $this->warehouse_id,
                     $this->transaction_date->year,
                     $this->transaction_date->month
                 );
@@ -585,8 +585,8 @@ class CentralToBranchWarehouseTransaction extends Model
             $query->where('central_warehouse_id', $filters['central_warehouse_id']);
         }
         
-        if (isset($filters['branch_warehouse_id'])) {
-            $query->where('branch_warehouse_id', $filters['branch_warehouse_id']);
+        if (isset($filters['warehouse_id'])) {
+            $query->where('warehouse_id', $filters['warehouse_id']);
         }
         
         if (isset($filters['transaction_type'])) {
@@ -606,7 +606,7 @@ class CentralToBranchWarehouseTransaction extends Model
                 'total_quantity' => $transactions->sum('quantity'),
                 'total_value' => $transactions->sum('total_cost'),
                 'unique_items' => $transactions->pluck('item_id')->unique()->count(),
-                'unique_warehouses' => $transactions->pluck('branch_warehouse_id')->unique()->count()
+                'unique_warehouses' => $transactions->pluck('warehouse_id')->unique()->count()
             ],
             'by_type' => $transactions->groupBy('transaction_type')->map(function($group) {
                 return [
@@ -622,7 +622,7 @@ class CentralToBranchWarehouseTransaction extends Model
                     'percentage' => 0 // Will be calculated
                 ];
             }),
-            'by_warehouse' => $transactions->groupBy('branch_warehouse_id')->map(function($group) {
+            'by_warehouse' => $transactions->groupBy('warehouse_id')->map(function($group) {
                 $warehouse = $group->first()->branchWarehouse;
                 return [
                     'warehouse' => $warehouse,
@@ -747,7 +747,7 @@ class CentralToBranchWarehouseTransaction extends Model
             'total_emergency_supplies' => $emergencySupplies->count(),
             'total_quantity' => $emergencySupplies->sum('quantity'),
             'total_value' => $emergencySupplies->sum('total_cost'),
-            'by_warehouse' => $emergencySupplies->groupBy('branch_warehouse_id')->map(function($group) {
+            'by_warehouse' => $emergencySupplies->groupBy('warehouse_id')->map(function($group) {
                 return [
                     'warehouse' => $group->first()->branchWarehouse,
                     'count' => $group->count(),
@@ -897,7 +897,7 @@ class CentralToBranchWarehouseTransaction extends Model
     {
         return [
             'central_warehouse_id' => 'required|exists:warehouses,id',
-            'branch_warehouse_id' => 'required|exists:warehouses,id', // ✅ Changed from branch_warehouses
+            'warehouse_id' => 'required|exists:warehouses,id', // ✅ Changed from branch_warehouses
             'item_id' => 'required|exists:items,id',
             'user_id' => 'required|exists:users,id',
             'transaction_type' => 'required|in:TRANSFER_OUT,DISTRIBUTION,ADJUSTMENT_OUT',
@@ -912,7 +912,7 @@ class CentralToBranchWarehouseTransaction extends Model
     {
         return [
             'central_warehouse_id.required' => 'Central warehouse wajib dipilih',
-            'branch_warehouse_id.required' => 'Branch warehouse wajib dipilih',
+            'warehouse_id.required' => 'Branch warehouse wajib dipilih',
             'item_id.required' => 'Item wajib dipilih',
             'quantity.required' => 'Quantity wajib diisi',
             'quantity.min' => 'Quantity harus lebih dari 0',
