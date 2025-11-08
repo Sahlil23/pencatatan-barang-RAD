@@ -29,7 +29,7 @@ class ItemController extends Controller
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
                     $q->where('item_name', 'LIKE', "%{$search}%")
-                      ->orWhere('item_code', 'LIKE', "%{$search}%");
+                      ->orWhere('sku', 'LIKE', "%{$search}%");
                 });
             }
 
@@ -129,7 +129,7 @@ class ItemController extends Controller
         DB::beginTransaction();
         try {
             // Auto-generate item code if not provided
-            $itemCode = $request->item_code;
+            $itemCode = $request->sku;
             if (!$itemCode) {
                 $categoryCode = Category::find($request->category_id)->category_code ?? 'ITM';
                 $itemCode = $this->generateItemCode($categoryCode);
@@ -137,7 +137,7 @@ class ItemController extends Controller
 
             // Prepare data
             $data = $request->all();
-            $data['item_code'] = $itemCode;
+            $data['sku'] = $itemCode;
             $data['status'] = $data['status'] ?? 'ACTIVE';
 
             // Create item (only master data)
@@ -147,7 +147,7 @@ class ItemController extends Controller
 
             Log::info('Item created successfully', [
                 'item_id' => $item->id,
-                'item_code' => $item->item_code,
+                'sku' => $item->sku,
                 'item_name' => $item->item_name
             ]);
 
@@ -205,7 +205,7 @@ class ItemController extends Controller
 
             Log::info('Item updated successfully', [
                 'item_id' => $item->id,
-                'item_code' => $item->item_code,
+                'sku' => $item->sku,
                 'changes' => $item->getChanges()
             ]);
 
@@ -245,7 +245,7 @@ class ItemController extends Controller
             // Store info for log
             $itemInfo = [
                 'id' => $item->id,
-                'code' => $item->item_code,
+                'code' => $item->sku,
                 'name' => $item->item_name,
                 'category' => $item->category->category_name ?? 'Unknown'
             ];
@@ -277,7 +277,7 @@ class ItemController extends Controller
     public function changeStatus(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:ACTIVE,INACTIVE',
+            'status' => 'required|in:ACTIVE,INACTIVE',  
             'reason' => 'nullable|string|max:500'
         ]);
 
@@ -298,7 +298,7 @@ class ItemController extends Controller
 
             Log::info('Item status changed', [
                 'item_id' => $item->id,
-                'item_code' => $item->item_code,
+                'sku' => $item->sku,
                 'old_status' => $oldStatus,
                 'new_status' => $request->status,
                 'reason' => $request->reason
@@ -390,7 +390,7 @@ class ItemController extends Controller
             
             // Create duplicate with new code
             $duplicateItem = $originalItem->replicate();
-            $duplicateItem->item_code = $newItemCode;
+            $duplicateItem->sku = $newItemCode;
             $duplicateItem->item_name = $originalItem->item_name . ' (Copy)';
             $duplicateItem->status = 'INACTIVE'; // Set as inactive by default
             $duplicateItem->save();
@@ -399,9 +399,9 @@ class ItemController extends Controller
 
             Log::info('Item duplicated successfully', [
                 'original_id' => $originalItem->id,
-                'original_code' => $originalItem->item_code,
+                'original_code' => $originalItem->sku,
                 'duplicate_id' => $duplicateItem->id,
-                'duplicate_code' => $duplicateItem->item_code
+                'duplicate_code' => $duplicateItem->sku
             ]);
 
             return redirect()->route('items.edit', $duplicateItem->id)
@@ -431,7 +431,7 @@ class ItemController extends Controller
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
                     $q->where('item_name', 'LIKE', "%{$search}%")
-                      ->orWhere('item_code', 'LIKE', "%{$search}%");
+                      ->orWhere('sku', 'LIKE', "%{$search}%");
                 });
             }
             if ($request->filled('category_id')) {
@@ -463,7 +463,7 @@ class ItemController extends Controller
                 // Data
                 foreach ($items as $item) {
                     fputcsv($file, [
-                        $item->item_code,
+                        $item->sku,
                         $item->item_name,
                         $item->category ? $item->category->category_name : '-',
                         $item->unit,
@@ -502,12 +502,12 @@ class ItemController extends Controller
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
                     $q->where('item_name', 'LIKE', "%{$search}%")
-                      ->orWhere('item_code', 'LIKE', "%{$search}%");
+                      ->orWhere('sku', 'LIKE', "%{$search}%");
                 });
             }
 
             $items = $query->with('category')
-                          ->get(['id', 'item_code', 'item_name', 'category_id', 'unit', 'low_stock_threshold', 'unit_cost']);
+                          ->get(['id', 'sku', 'item_name', 'category_id', 'unit', 'low_stock_threshold', 'unit_cost']);
 
             return response()->json([
                 'success' => true,
@@ -560,7 +560,7 @@ class ItemController extends Controller
 
                     // Create item
                     Item::create([
-                        'item_code' => $row[0],
+                        'sku' => $row[0],
                         'item_name' => $row[1],
                         'category_id' => $category->id,
                         'unit' => $row[3] ?? 'pcs',
@@ -607,12 +607,12 @@ class ItemController extends Controller
     private function generateItemCode($categoryCode)
     {
         $prefix = strtoupper(substr($categoryCode, 0, 3));
-        $lastItem = Item::where('item_code', 'LIKE', $prefix . '%')
-                       ->orderBy('item_code', 'desc')
+        $lastItem = Item::where('sku', 'LIKE', $prefix . '%')
+                       ->orderBy('sku', 'desc')
                        ->first();
 
         if ($lastItem) {
-            $lastNumber = intval(substr($lastItem->item_code, -3));
+            $lastNumber = intval(substr($lastItem->sku, -3));
             $newNumber = $lastNumber + 1;
         } else {
             $newNumber = 1;

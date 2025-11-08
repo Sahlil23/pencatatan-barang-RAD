@@ -373,7 +373,7 @@
             @if($transaction->user)
             <div class="d-flex align-items-center justify-content-center">
               <div class="text-start">
-                <span class="fw-semibold">{{ $transaction->user->name }}</span>
+                <span class="fw-semibold">{{ $transaction->user->full_name }}</span>
                 <br><small class="text-muted">{{ $transaction->user->role ?? 'User' }}</small>
               </div>
             </div>

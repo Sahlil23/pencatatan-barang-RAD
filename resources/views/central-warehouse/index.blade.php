@@ -87,7 +87,7 @@
 </div>
 
 <!-- Central Warehouse System Info -->
-<div class="alert alert-info alert-dismissible mb-4" role="alert">
+<!-- <div class="alert alert-info alert-dismissible mb-4" role="alert">
   <h6 class="alert-heading mb-2">
     <i class="bx bx-info-circle me-2"></i>
     Central Warehouse Management System
@@ -98,10 +98,10 @@
     <strong>Status:</strong> Real-time inventory tracking
   </p>
   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
+</div> -->
 
 <!-- Quick Actions -->
-<div class="row mb-4">
+<!-- <div class="row mb-4">
   <div class="col-12">
     <div class="card">
       <div class="card-header">
@@ -152,7 +152,7 @@
       </div>
     </div>
   </div>
-</div>
+</div> -->
 
 <!-- Filters and Search -->
 <div class="card mb-4">
@@ -245,10 +245,10 @@
             <i class="bx bx-category me-1"></i>
             Category
           </th>
-          <th class="text-center">
+          <!-- <th class="text-center">
             <i class="bx bx-trending-up me-1"></i>
             Opening Stock
-          </th>
+          </th> -->
           <th class="text-center">
             <i class="bx bx-box me-1"></i>
             Current Stock
@@ -272,7 +272,7 @@
         <tr>
           <!-- SKU -->
           <td>
-            <span class="badge bg-label-secondary">{{ $balance->item->item_code ?? 'N/A' }}</span>
+            <span class="badge bg-label-secondary">{{ $balance->item->sku ?? 'N/A' }}</span>
           </td>
           
           <!-- Item -->
@@ -310,14 +310,14 @@
           </td>
           
           <!-- Opening Stock -->
-          <td class="text-center">
+          <!-- <td class="text-center">
             <div class="d-flex flex-column align-items-center">
               <span class="fw-bold text-info">
                 {{ number_format($balance->opening_stock, 0) }}
               </span>
               <small class="text-muted">Opening</small>
             </div>
-          </td>
+          </td> -->
           
           <!-- Current Stock -->
           <td class="text-center">
@@ -430,24 +430,7 @@
 @endsection
 
 @push('scripts')
-<script>
-// Quick action functions
-function showBulkAdjustment() {
-    alert('Bulk adjustment feature coming soon!');
-}
 
-function showBulkDistribution() {
-    alert('Bulk distribution feature coming soon!');
-}
-
-function showStockReport() {
-    alert('Stock report feature coming soon!');
-}
-
-function exportStock() {
-    alert('Export feature coming soon!');
-}
-</script>
 @endpush
 
 @push('styles')

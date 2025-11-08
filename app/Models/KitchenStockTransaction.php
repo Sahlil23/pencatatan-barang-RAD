@@ -5,6 +5,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\DB;        // ✅ ADD THIS
+use Illuminate\Support\Facades\Log;  
 
 class KitchenStockTransaction extends Model
 {
@@ -15,7 +17,7 @@ class KitchenStockTransaction extends Model
         'item_id',
         'user_id',
         'branch_warehouse_transaction_id',
-        'outlet_warehouse_transaction_id',  // ✅ NEW FIELD
+        'outlet_warehouse_transaction_id',  
         'transaction_type',
         'quantity',
         'unit_cost',

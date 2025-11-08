@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\Rule;
 
 class Warehouse extends Model
 {
@@ -20,12 +21,14 @@ class Warehouse extends Model
         'address',
         'phone',
         'capacity',
-        'status', // ✅ Changed from is_active to status
+        'status',
         'notes',
+        'settings',
     ];
 
     protected $casts = [
         'capacity' => 'decimal:2',
+        'settings' => 'array',
     ];
 
     // ============================================================
@@ -147,6 +150,68 @@ class Warehouse extends Model
             ->get();
     }
 
+    public function getPerformanceMetrics(): array
+    {
+        $summary = $this->getCurrentMonthStockSummary();
+
+        return [
+            'total_items' => $summary['total_items'],
+            'total_stock_value' => $summary['total_stock_value'],
+            'low_stock_items' => $summary['low_stock_items'],
+            'out_of_stock_items' => $summary['out_of_stock_items'],
+            'total_received' => $summary['total_received'],
+            'total_distributed' => $summary['total_distributed'],
+            'capacity_utilization' => $this->capacity
+                ? round((float) $summary['total_stock_value'] / max(1, (float) $this->capacity) * 100, 2)
+                : null,
+        ];
+    }
+
+    public function isCentral(): bool
+    {
+        return $this->warehouse_type === 'main';
+    }
+
+    public function centralStockTransactions()
+    {
+        return $this->stockTransactions();
+    }
+
+    public function branchStockTransactions()
+    {
+        return $this->stockTransactions();
+    }
+
+    public function centralStockBalances()
+    {
+        return $this->monthlyBalances();
+    }
+
+    public function branchStockBalances()
+    {
+        return $this->monthlyBalances();
+    }
+
+    public static function generateWarehouseCode(string $type, ?string $branchCode = null): string
+    {
+        $prefix = match ($type) {
+            'main' => 'MAIN',
+            'branch' => strtoupper($branchCode ?: 'BR'),
+            'outlet' => 'OUT',
+            default => 'WH',
+        };
+
+        $lastCode = static::withTrashed()
+            ->where('warehouse_code', 'like', "{$prefix}-%")
+            ->max('warehouse_code');
+
+        $next = $lastCode
+            ? (int) substr($lastCode, strrpos($lastCode, '-') + 1) + 1
+            : 1;
+
+        return sprintf('%s-%04d', $prefix, $next);
+    }
+
     // ============================================================
     // ATTRIBUTES
     // ============================================================
@@ -182,5 +247,42 @@ class Warehouse extends Model
     public function getIsActiveAttribute()
     {
         return $this->status === 'ACTIVE';
+    }
+
+    /**
+     * Validation rules for warehouse
+     */
+    public static function validationRules(?int $id = null): array
+    {
+        $uniqueCode = Rule::unique('warehouses', 'warehouse_code')->ignore($id);
+
+        return [
+            'warehouse_name' => ['required', 'string', 'max:255'],
+            'warehouse_code' => ['nullable', 'string', 'max:50', $uniqueCode],
+            'warehouse_type' => ['required', Rule::in(['main', 'branch', 'outlet'])],
+            'branch_id' => ['nullable', 'exists:branches,id'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'capacity' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['required', Rule::in(['ACTIVE', 'INACTIVE', 'CLOSED'])],
+            'notes' => ['nullable', 'string'],
+            'settings' => ['nullable', 'array'],
+        ];
+    }
+
+    /**
+     * Validation messages for warehouse
+     */
+    public static function validationMessages(): array
+    {
+        return [
+            'warehouse_name.required' => 'Warehouse name is required.',
+            'warehouse_code.unique' => 'Warehouse code must be unique.',
+            'warehouse_type.required' => 'Warehouse type is required.',
+            'warehouse_type.in' => 'Warehouse type is invalid.',
+            'status.required' => 'Warehouse status is required.',
+            'status.in' => 'Warehouse status is invalid.',
+        ];
     }
 }

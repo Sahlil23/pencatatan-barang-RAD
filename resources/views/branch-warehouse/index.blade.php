@@ -202,14 +202,14 @@
             <i class="bx bx-box me-1"></i>
             Stock
           </th>
-          <th class="text-right">
+          <!-- <th class="text-right">
             <i class="bx bx-money me-1"></i>
             Value
           </th>
           <th class="text-center">
             <i class="bx bx-signal-3 me-1"></i>
             Status
-          </th>
+          </th> -->
           <th class="text-center">
             <i class="bx bx-cog me-1"></i>
             Aksi
@@ -270,117 +270,44 @@
           </td>
           
           <!-- Total Value -->
-          <td class="text-right">
+          <!-- <td class="text-right">
             <div>
               <strong>Rp {{ number_format($warehouseStats[$warehouse->id]['total_value'] ?? 0, 0, ',', '.') }}</strong>
             </div>
-          </td>
+          </td> -->
           
           <!-- Status -->
-          <td class="text-center">
-            @php
-              $statusConfig = [
-                'ACTIVE' => ['class' => 'success', 'text' => 'Active'],
-                'INACTIVE' => ['class' => 'warning', 'text' => 'Inactive'],
-                'MAINTENANCE' => ['class' => 'danger', 'text' => 'Maintenance'],
-                'active' => ['class' => 'success', 'text' => 'Active'],
-                'inactive' => ['class' => 'warning', 'text' => 'Inactive'],
-                'maintenance' => ['class' => 'danger', 'text' => 'Maintenance']
-              ];
-              $config = $statusConfig[$warehouse->status] ?? ['class' => 'secondary', 'text' => ucfirst($warehouse->status)];
-            @endphp
-            <span class="badge bg-{{ $config['class'] }}">{{ $config['text'] }}</span>
-          </td>
+            <!-- <td class="text-center">
+              @php
+                $statusConfig = [
+                  'ACTIVE' => ['class' => 'success', 'text' => 'Active'],
+                  'INACTIVE' => ['class' => 'warning', 'text' => 'Inactive'],
+                  'MAINTENANCE' => ['class' => 'danger', 'text' => 'Maintenance'],
+                  'active' => ['class' => 'success', 'text' => 'Active'],
+                  'inactive' => ['class' => 'warning', 'text' => 'Inactive'],
+                  'maintenance' => ['class' => 'danger', 'text' => 'Maintenance']
+                ];
+                $config = $statusConfig[$warehouse->status] ?? ['class' => 'secondary', 'text' => ucfirst($warehouse->status)];
+              @endphp
+              <span class="badge bg-{{ $config['class'] }}">{{ $config['text'] }}</span>
+            </td> -->
           
           <!-- Actions -->
           <td class="text-center">
-            <div class="dropdown">
-              <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
-                <i class="bx bx-dots-vertical-rounded"></i>
-              </button>
-              <div class="dropdown-menu">
-                <a class="dropdown-item" href="{{ route('branch-warehouse.show', $warehouse->id) }}">
-                  <i class="bx bx-show me-1"></i> 
-                  Lihat Detail
-                </a>
-                
-                <a class="dropdown-item" href="{{ route('branch-warehouse.receive-form', $warehouse->id) }}">
-                  <i class="bx bx-import me-1"></i> 
-                  Terima Stock
-                </a>
-                
-                <a class="dropdown-item" href="{{ route('branch-warehouse.adjust-form', $warehouse->id) }}">
-                  <i class="bx bx-cog me-1"></i> 
-                  Adjustment
-                </a>
-                
-                <a class="dropdown-item" href="{{ route('branch-warehouse.distribute-form', $warehouse->id) }}">
-                  <i class="bx bx-export me-1"></i> 
-                  Distribusi
-                </a>
-                
-                <div class="dropdown-divider"></div>
-                
-                <a class="dropdown-item" href="{{ route('branch-warehouse.distributions', $warehouse->id) }}">
-                  <i class="bx bx-history me-1"></i> 
-                  Riwayat Distribusi
-                </a>
-                
-                <a class="dropdown-item" href="{{ route('branch-warehouse.transaction-summary', $warehouse->id) }}">
-                  <i class="bx bx-chart me-1"></i> 
-                  Ringkasan Transaksi
-                </a>
-                
-                <a class="dropdown-item" href="{{ route('branch-warehouse.export-report', $warehouse->id) }}">
-                  <i class="bx bx-download me-1"></i> 
-                  Export Report
-                </a>
-                
-                <div class="dropdown-divider"></div>
-                
-                <a class="dropdown-item" href="{{ route('warehouses.edit', $warehouse->id) }}">
-                  <i class="bx bx-edit-alt me-1"></i> 
-                  Edit Warehouse
-                </a>
-                
-                @if($warehouse->status !== 'ACTIVE' && $warehouse->status !== 'active')
-                <form action="{{ route('warehouses.change-status', $warehouse->id) }}" method="POST" class="d-inline">
-                  @csrf
-                  <input type="hidden" name="status" value="active">
-                  <button type="submit" class="dropdown-item text-success"
-                          onclick="return confirm('Aktifkan warehouse {{ $warehouse->warehouse_name }}?')">
-                    <i class="bx bx-check me-1"></i> 
-                    Aktifkan
-                  </button>
-                </form>
-                @endif
-                
-                @if($warehouse->status === 'ACTIVE' || $warehouse->status === 'active')
-                <form action="{{ route('warehouses.change-status', $warehouse->id) }}" method="POST" class="d-inline">
-                  @csrf
-                  <input type="hidden" name="status" value="maintenance">
-                  <button type="submit" class="dropdown-item text-warning"
-                          onclick="return confirm('Set warehouse {{ $warehouse->warehouse_name }} ke maintenance?')">
-                    <i class="bx bx-wrench me-1"></i> 
-                    Maintenance
-                  </button>
-                </form>
-                @endif
-                
-                <div class="dropdown-divider"></div>
-                
-                <form action="{{ route('warehouses.destroy', $warehouse->id) }}" method="POST" class="d-inline">
-                  @csrf
-                  @method('DELETE')
-                  <button type="submit" class="dropdown-item text-danger" 
-                          onclick="return confirm('Apakah Anda yakin ingin menghapus warehouse {{ $warehouse->warehouse_name }}?')">
-                    <i class="bx bx-trash me-1"></i> 
-                    Hapus
-                  </button>
-                </form>
-              </div>
+            <div class="btn-group" role="group">
+              <a href="{{ route('branch-warehouse.show', $warehouse->id) }}" class="btn btn-sm btn-info" title="View Details">
+                <i class="bx bx-show"></i>
+              </a>
+              <a href="{{ route('branch-warehouse.adjust-form', $warehouse->id) }}" class="btn btn-sm btn-primary" title="Adjust Stock">
+                <i class="bx bx-edit-alt"></i>
+              </a>
+              <a href="{{ route('branch-warehouse.distribute-form', $warehouse->id) }}" class="btn btn-sm btn-success" title="Distribute">
+                <i class="bx bx-share"></i>
+              </a>
             </div>
           </td>
+
+                
         </tr>
         @empty
         <tr>

@@ -36,23 +36,23 @@
           
           <!-- Item Code -->
           <div class="mb-3">
-            <label class="form-label" for="item_code">Kode Item <span class="text-danger">*</span></label>
+            <label class="form-label" for="sku">Kode Item <span class="text-danger">*</span></label>
             <div class="input-group input-group-merge">
               <span class="input-group-text"><i class="bx bx-barcode"></i></span>
               <input
                 type="text"
-                class="form-control @error('item_code') is-invalid @enderror"
-                id="item_code"
-                name="item_code"
+                class="form-control @error('sku') is-invalid @enderror"
+                id="sku"
+                name="sku"
                 placeholder="Contoh: CHK001 (kosongkan untuk auto-generate)"
-                value="{{ old('item_code') }}"
+                value="{{ old('sku') }}"
                 style="text-transform: uppercase;"
               />
               <button type="button" class="btn btn-outline-secondary" onclick="generateItemCode()">
                 <i class="bx bx-refresh"></i>
               </button>
             </div>
-            @error('item_code')
+            @error('sku')
               <div class="form-text text-danger">{{ $message }}</div>
             @else
               <div class="form-text">Kode item harus unik. Kosongkan untuk auto-generate berdasarkan kategori.</div>
@@ -323,7 +323,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // Elements
-  const itemCodeInput = document.getElementById('item_code');
+  const itemCodeInput = document.getElementById('sku');
   const itemNameInput = document.getElementById('item_name');
   const categorySelect = document.getElementById('category_id');
   const unitSelect = document.getElementById('unit');

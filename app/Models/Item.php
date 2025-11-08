@@ -11,7 +11,7 @@ class Item extends Model
     use HasFactory;
 
     protected $fillable = [
-        'item_code',
+        'sku',
         'item_name', 
         'category_id',
         'unit',
@@ -523,7 +523,7 @@ class Item extends Model
 
     public function setItemCodeAttribute($value)
     {
-        $this->attributes['item_code'] = strtoupper($value);
+        $this->attributes['sku'] = strtoupper($value);
     }
 
     public function setItemNameAttribute($value)
@@ -538,7 +538,7 @@ class Item extends Model
     public static function validationRules($id = null)
     {
         return [
-            'item_code' => 'required|string|max:50|unique:items,item_code,' . $id,
+            'sku' => 'required|string|max:50|unique:items,sku,' . $id,
             'item_name' => 'required|string|max:100',
             'category_id' => 'required|exists:categories,id',
             'unit' => 'required|string|max:20',
@@ -551,8 +551,8 @@ class Item extends Model
     public static function validationMessages()
     {
         return [
-            'item_code.required' => 'Item code is required',
-            'item_code.unique' => 'Item code already exists',
+            'sku.required' => 'Item code is required',
+            'sku.unique' => 'Item code already exists',
             'item_name.required' => 'Item name is required',
             'category_id.required' => 'Category is required',
             'category_id.exists' => 'Selected category does not exist',

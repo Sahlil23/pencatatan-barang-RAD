@@ -159,7 +159,7 @@
           </div>
           <div class="flex-grow-1">
             <h6 class="mb-0">{{ $balance->item->item_name }}</h6>
-            <small class="text-muted">{{ $balance->item->item_code }}</small>
+            <small class="text-muted">{{ $balance->item->sku }}</small>
           </div>
         </div>
 
@@ -444,13 +444,8 @@
               <!-- User -->
               <td>
                 <div class="d-flex align-items-center">
-                  <div class="avatar avatar-xs flex-shrink-0 me-2">
-                    <span class="avatar-initial rounded-circle bg-label-secondary">
-                      <i class="bx bx-user"></i>
-                    </span>
-                  </div>
                   <div>
-                    <strong>{{ $transaction->user->name ?? 'Unknown' }}</strong>
+                    <strong>{{ $transaction->user->full_name ?? 'Unknown' }}</strong>
                     @if($transaction->supplier)
                       <br><small class="text-muted">
                         <i class="bx bx-store me-1"></i>{{ $transaction->supplier->supplier_name }}

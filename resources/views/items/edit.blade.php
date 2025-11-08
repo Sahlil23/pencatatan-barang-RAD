@@ -37,21 +37,21 @@
           
           <!-- Item Code -->
           <div class="mb-3">
-            <label class="form-label" for="item_code">Kode Item <span class="text-danger">*</span></label>
+            <label class="form-label" for="sku">Kode Item <span class="text-danger">*</span></label>
             <div class="input-group input-group-merge">
               <span class="input-group-text"><i class="bx bx-barcode"></i></span>
               <input
                 type="text"
-                class="form-control @error('item_code') is-invalid @enderror"
-                id="item_code"
-                name="item_code"
+                class="form-control @error('sku') is-invalid @enderror"
+                id="sku"
+                name="sku"
                 placeholder="Contoh: CHK001"
-                value="{{ old('item_code', $item->item_code) }}"
+                value="{{ old('sku', $item->sku) }}"
                 required
                 style="text-transform: uppercase;"
               />
             </div>
-            @error('item_code')
+            @error('sku')
               <div class="form-text text-danger">{{ $message }}</div>
             @else
               <div class="form-text">Kode item harus unik dan maksimal 50 karakter</div>
@@ -107,15 +107,19 @@
             <div class="input-group input-group-merge">
               <span class="input-group-text"><i class="bx bx-cube"></i></span>
               <select class="form-select @error('unit') is-invalid @enderror" id="unit" name="unit" required>
-                <option value="">Pilih Unit</option>
-                <option value="pcs" {{ old('unit', $item->unit) == 'pcs' ? 'selected' : '' }}>Pieces (pcs)</option>
-                <option value="kg" {{ old('unit', $item->unit) == 'kg' ? 'selected' : '' }}>Kilogram (kg)</option>
-                <option value="gram" {{ old('unit', $item->unit) == 'gram' ? 'selected' : '' }}>Gram (gram)</option>
-                <option value="liter" {{ old('unit', $item->unit) == 'liter' ? 'selected' : '' }}>Liter (liter)</option>
-                <option value="ml" {{ old('unit', $item->unit) == 'ml' ? 'selected' : '' }}>Mililiter (ml)</option>
-                <option value="box" {{ old('unit', $item->unit) == 'box' ? 'selected' : '' }}>Box (box)</option>
-                <option value="pack" {{ old('unit', $item->unit) == 'pack' ? 'selected' : '' }}>Pack (pack)</option>
-                <option value="dozen" {{ old('unit', $item->unit) == 'dozen' ? 'selected' : '' }}>Dozen (dozen)</option>
+              <option value="">Pilih Unit</option>
+              <option value="pcs" {{ old('unit', $item->unit) == 'pcs' ? 'selected' : '' }}>Pieces (pcs)</option>
+              <option value="kg" {{ old('unit', $item->unit) == 'kg' ? 'selected' : '' }}>Kilogram (kg)</option>
+              <option value="gram" {{ old('unit', $item->unit) == 'gram' ? 'selected' : '' }}>Gram (gram)</option>
+              <option value="liter" {{ old('unit', $item->unit) == 'liter' ? 'selected' : '' }}>Liter (liter)</option>
+              <option value="ml" {{ old('unit', $item->unit) == 'ml' ? 'selected' : '' }}>Mililiter (ml)</option>
+              <option value="box" {{ old('unit', $item->unit) == 'box' ? 'selected' : '' }}>Box (box)</option>
+              <option value="pack" {{ old('unit', $item->unit) == 'pack' ? 'selected' : '' }}>Pack (pack)</option>
+              <option value="dozen" {{ old('unit', $item->unit) == 'dozen' ? 'selected' : '' }}>Dozen (dozen)</option>
+              <!-- Fallback option if current unit is not in predefined list -->
+              @if($item->unit && !in_array($item->unit, ['pcs', 'kg', 'gram', 'liter', 'ml', 'box', 'pack', 'dozen']))
+              <option value="{{ $item->unit }}" selected>{{ ucfirst($item->unit) }}</option>
+              @endif
               </select>
             </div>
             @error('unit')
@@ -287,7 +291,7 @@
         <!-- Item Statistics -->
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="text-muted">Kode Item:</span>
-          <span class="badge bg-primary">{{ $item->item_code }}</span>
+          <span class="badge bg-primary">{{ $item->sku }}</span>
         </div>
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="text-muted">Kategori:</span>
@@ -323,7 +327,7 @@
             <div class="flex-grow-1">
               <h6 class="mb-0" id="preview-name">{{ $item->item_name }}</h6>
               <small class="text-muted">
-                <span id="preview-code">{{ $item->item_code }}</span> • 
+                <span id="preview-code">{{ $item->sku }}</span> • 
                 <span id="preview-unit">{{ $item->unit }}</span>
               </small>
             </div>
@@ -370,7 +374,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // Elements
-  const itemCodeInput = document.getElementById('item_code');
+  const itemCodeInput = document.getElementById('sku');
   const itemNameInput = document.getElementById('item_name');
   const categorySelect = document.getElementById('category_id');
   const unitSelect = document.getElementById('unit');
@@ -392,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Update preview
   function updatePreview() {
     const name = itemNameInput.value || "{{ $item->item_name }}";
-    const code = itemCodeInput.value || "{{ $item->item_code }}";
+    const code = itemCodeInput.value || "{{ $item->sku }}";
     const unit = unitSelect.value || "{{ $item->unit }}";
     const threshold = thresholdInput.value || "{{ $item->low_stock_threshold }}";
     const cost = unitCostInput.value || 0;

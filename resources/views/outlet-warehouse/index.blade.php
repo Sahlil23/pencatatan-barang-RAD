@@ -36,19 +36,16 @@
 
       <div class="col-lg-8 col-md-6 d-flex gap-2 justify-content-lg-end">
         @if($selectedWarehouse)
-          {{-- ✅ FIX: outlet-warehouse.show → outlet-warehouse.stock.index --}}
-          <a href="{{ route('outlet-warehouse.stock.index', ['warehouse_id' => $selectedWarehouse->id]) }}" class="btn btn-outline-secondary">
+          <a href="{{ route('outlet-warehouse.show', $selectedWarehouse->id) }}" class="btn btn-outline-secondary">
             <i class="bx bx-show me-1"></i> Lihat Stock
           </a>
-          {{-- ✅ FIX: outlet-warehouse.receive.create → outlet-warehouse.stock.receive.create --}}
-          <a href="{{ route('outlet-warehouse.stock.receive.create', $selectedWarehouse->id) }}" class="btn btn-outline-info">
+          <a href="{{ route('outlet-warehouse.receive.create', $selectedWarehouse->id) }}" class="btn btn-outline-info">
             <i class="bx bx-import me-1"></i> Terima Stock
           </a>
-          {{-- ✅ FIX: outlet-warehouse.adjustment.create → outlet-warehouse.stock.adjustment.create --}}
-          <a href="{{ route('outlet-warehouse.stock.adjustment.create', $selectedWarehouse->id) }}" class="btn btn-outline-warning">
+          <a href="{{ route('outlet-warehouse.adjustment.create', $selectedWarehouse->id) }}" class="btn btn-outline-warning">
             <i class="bx bx-cog me-1"></i> Adjustment
           </a>
-          <a href="{{ route('outlet-warehouse.distribution.create', ['warehouse_id' => $selectedWarehouse->id]) }}" class="btn btn-primary">
+          <a href="{{ route('outlet-warehouse.distribute.create', $selectedWarehouse->id) }}" class="btn btn-primary">
             <i class="bx bx-export me-1"></i> Kirim ke Kitchen
           </a>
         @endif
@@ -176,15 +173,14 @@
   <!-- Lists -->
   <div class="row">
     <!-- Low Stock -->
-    <div class="col-lg-6 mb-4">
+    <div class="mb-4">
       <div class="card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">
             <i class="bx bx-down-arrow-circle text-warning me-2"></i>
             Low Stock (Top 10)
           </h5>
-          {{-- ✅ FIX: outlet-warehouse.show → outlet-warehouse.stock.index --}}
-          <a href="{{ route('outlet-warehouse.stock.index', ['warehouse_id' => $selectedWarehouse->id, 'stock_status' => 'low_stock']) }}" class="btn btn-sm btn-outline-secondary">
+          <a href="{{ route('outlet-warehouse.show', $selectedWarehouse->id) }}" class="btn btn-sm btn-outline-secondary">
             Lihat Semua
           </a>
         </div>
@@ -195,7 +191,7 @@
                 <th>Item</th>
                 <th class="text-end">Stock</th>
                 <th class="text-end">Min</th>
-                <th class="text-center">Aksi</th>
+                <!-- <th class="text-center">Aksi</th> -->
               </tr>
             </thead>
             <tbody>
@@ -210,28 +206,29 @@
                       </div>
                       <div>
                         <strong>{{ $ls->item->item_name ?? '-' }}</strong>
-                        <br><small class="text-muted">{{ $ls->item->item_code ?? '-' }}</small>
+                        <br><small class="text-muted">{{ $ls->item->sku ?? '-' }}</small>
                       </div>
                     </div>
                   </td>
                   <td class="text-end">
-                    <span class="text-danger fw-semibold">{{ number_format($ls->closing_stock ?? 0, 3) }}</span>
-                    <small class="text-muted">{{ $ls->item->unit ?? '' }}</small>
+                    <span class="text-danger fw-semibold">
+                      {{ rtrim(rtrim(number_format($ls->closing_stock ?? 0, 3, '.', ','), '0'), '.') }}
+                    </span>
+                    <small class="text-muted">{{ $ls->item->unit_measurement ?? '' }}</small>
                   </td>
                   <td class="text-end">
-                    {{-- ✅ FIX: minimum_stock → low_stock_threshold --}}
-                    {{ number_format($ls->item->low_stock_threshold ?? 0, 3) }}
+                    {{ rtrim(rtrim(number_format($ls->item->low_stock_threshold ?? 0, 3, '.', ','), '0'), '.') }}
                   </td>
-                  <td class="text-center">
+                  <!-- <td class="text-center">
                     <div class="btn-group btn-group-sm">
-                      <a href="{{ route('outlet-warehouse.stock.show', [$selectedWarehouse->id, $ls->item_id]) }}" class="btn btn-outline-secondary">
+                      <a href="{{ route('outlet-warehouse.show', $selectedWarehouse->id) }}" class="btn btn-outline-secondary" title="Lihat Detail">
                         <i class="bx bx-show"></i>
                       </a>
-                      <a href="{{ route('outlet-warehouse.distribution.create', ['warehouse_id' => $selectedWarehouse->id, 'item_id' => $ls->item_id]) }}" class="btn btn-outline-primary">
+                      <a href="{{ route('outlet-warehouse.distribute.create', $selectedWarehouse->id) }}?item_id={{ $ls->item_id }}" class="btn btn-outline-primary" title="Distribusi">
                         <i class="bx bx-export"></i>
                       </a>
                     </div>
-                  </td>
+                  </td> -->
                 </tr>
               @empty
                 <tr>
@@ -245,14 +242,14 @@
     </div>
 
     <!-- Pending Distributions -->
-    <div class="col-lg-6 mb-4">
+    <!-- <div class="col-lg-6 mb-4">
       <div class="card h-100">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">
             <i class="bx bx-timer text-info me-2"></i>
             Pending Distribusi ke Kitchen
           </h5>
-          <a href="{{ route('outlet-warehouse.distribution.index', ['warehouse_id' => $selectedWarehouse->id, 'status' => 'PENDING']) }}" class="btn btn-sm btn-outline-secondary">
+          <a href="{{ route('outlet-warehouse.transactions', $selectedWarehouse->id) }}?type=DISTRIBUTE_TO_KITCHEN&status=PENDING" class="btn btn-sm btn-outline-secondary">
             Lihat Semua
           </a>
         </div>
@@ -272,19 +269,18 @@
               @forelse ($pendingDistributions as $dist)
                 <tr>
                   <td>
-                    {{ \Carbon\Carbon::parse($dist->transaction_date)->format('d M Y') }}
                     <div class="text-muted small">{{ $dist->reference_no ?? '' }}</div>
                   </td>
                   <td>
-                    <span class="badge bg-label-primary">{{ $dist->branch->branch_name ?? '-' }}</span>
+                    <span class="badge bg-label-primary">{{ $dist->kitchen->kitchen_name ?? '-' }}</span>
                   </td>
                   <td>
                     <div><strong>{{ $dist->item->item_name ?? '-' }}</strong></div>
-                    <small class="text-muted">{{ $dist->item->item_code ?? '-' }}</small>
+                    <small class="text-muted">{{ $dist->item->sku ?? '-' }}</small>
                   </td>
                   <td class="text-end">
-                    {{ number_format($dist->quantity ?? 0, 3) }}
-                    <small class="text-muted">{{ $dist->item->unit ?? '' }}</small>
+                    {{ rtrim(rtrim(number_format($dist->quantity ?? 0, 3, '.', ','), '0'), '.') }}
+                    <small class="text-muted">{{ $dist->item->unit_measurement ?? '' }}</small>
                   </td>
                   <td class="text-center">
                     @php
@@ -301,7 +297,7 @@
                     <span class="badge bg-{{ $s[0] }}">{{ $s[1] }}</span>
                   </td>
                   <td class="text-center">
-                    <a href="{{ route('outlet-warehouse.distribution.show', $dist->id) }}" class="btn btn-sm btn-outline-secondary">
+                    <a href="{{ route('outlet-warehouse.transactions', $selectedWarehouse->id) }}" class="btn btn-sm btn-outline-secondary" title="Lihat Detail">
                       <i class="bx bx-show"></i>
                     </a>
                   </td>
@@ -315,7 +311,7 @@
           </table>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- Recent Transactions -->
     <div class="col-12">
@@ -326,8 +322,7 @@
             Transaksi Terbaru
           </h5>
           <div class="d-flex gap-2">
-            {{-- ✅ FIX: outlet-warehouse.transactions → outlet-warehouse.stock.transactions --}}
-            <a href="{{ route('outlet-warehouse.stock.transactions', $selectedWarehouse->id) }}" class="btn btn-sm btn-outline-secondary">
+            <a href="{{ route('outlet-warehouse.transactions', $selectedWarehouse->id) }}" class="btn btn-sm btn-outline-secondary">
               Lihat Semua
             </a>
           </div>
@@ -355,17 +350,17 @@
                   </td>
                   <td>
                     <strong>{{ $trx->item->item_name ?? '-' }}</strong>
-                    <div class="text-muted small">{{ $trx->item->item_code ?? '-' }}</div>
+                    <div class="text-muted small">{{ $trx->item->sku ?? '-' }}</div>
                   </td>
                   <td class="text-end">
                     @php $q = $trx->quantity ?? 0; @endphp
                     <span class="{{ $q >= 0 ? 'text-success' : 'text-danger' }} fw-semibold">
-                      {{ number_format($q, 3) }}
+                      {{ rtrim(rtrim(number_format($q, 3, '.', ','), '0'), '.') }}
                     </span>
-                    <small class="text-muted">{{ $trx->item->unit ?? '' }}</small>
+                    <small class="text-muted">{{ $trx->item->unit_measurement ?? '' }}</small>
                   </td>
                   <td>
-                    <span class="badge bg-label-info">{{ $trx->user->name ?? '-' }}</span>
+                    <span class="badge bg-label-info">{{ $trx->user->full_name ?? '-' }}</span>
                   </td>
                 </tr>
               @empty
@@ -383,7 +378,7 @@
             Bulan ini: <strong>{{ $distributionStats['this_month'] ?? 0 }}</strong>
           </div>
           <div>
-            <a href="{{ route('outlet-warehouse.distribution.index', ['warehouse_id' => $selectedWarehouse->id]) }}" class="btn btn-sm btn-outline-primary">
+            <a href="{{ route('outlet-warehouse.transactions', $selectedWarehouse->id) }}?type=DISTRIBUTE_TO_KITCHEN" class="btn btn-sm btn-outline-primary">
               Riwayat Distribusi
             </a>
           </div>
@@ -415,9 +410,14 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Auto-hide alerts
-    document.querySelectorAll('.alert').forEach(function(alert) {
+    document.querySelectorAll('.alert-dismissible').forEach(function(alert) {
       setTimeout(function() {
-        try { new bootstrap.Alert(alert).close(); } catch(e) {}
+        try { 
+          const bsAlert = new bootstrap.Alert(alert);
+          bsAlert.close();
+        } catch(e) {
+          console.log('Alert already closed');
+        }
       }, 5000);
     });
   });

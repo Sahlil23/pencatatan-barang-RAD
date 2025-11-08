@@ -115,7 +115,7 @@
       <div class="card-body">
         <div class="card-title d-flex align-items-start justify-content-between">
           <div class="avatar flex-shrink-0">
-            <img src="{{ asset('assets/img/icons/unicons/box.png') }}" alt="total items" class="rounded" />
+              <img src="{{ asset('assets/img/icons/unicons/chart-success.png') }}" alt="" class="rounded" />
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Total Items</span>
@@ -187,7 +187,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
           <i class="bx bx-package me-2"></i>
-          Current Stock
+          Stok saat ini
           <span class="badge bg-label-primary">{{ $stockBalance->count() }} items</span>
         </h5>
         <div class="d-flex gap-2">
@@ -442,8 +442,8 @@
 
               <!-- Item -->
               <td>
-                <strong>{{ $transaction->item->item_code ?? '-' }}</strong>
-                <br><small class="text-muted">{{ $transaction->item->item_name ?? '-' }}</small>
+                <strong>{{ $transaction->item->item_name ?? '-' }}</strong>
+                <br><small class="text-muted">{{ $transaction->item->sku ?? '-' }}</small>
               </td>
 
               <!-- Quantity -->
@@ -463,12 +463,7 @@
               <!-- User -->
               <td>
                 <div class="d-flex align-items-center">
-                  <div class="avatar avatar-xs flex-shrink-0 me-2">
-                    <span class="avatar-initial rounded-circle bg-label-secondary">
-                      <i class="bx bx-user"></i>
-                    </span>
-                  </div>
-                  <small>{{ $transaction->user->name ?? 'Unknown' }}</small>
+                  <small>{{ $transaction->user->full_name ?? 'Unknown' }}</small>
                 </div>
               </td>
 

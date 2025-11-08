@@ -172,7 +172,7 @@
                     <div>
                       <strong>{{ $stock->item->item_name ?? '-' }}</strong>
                       <div class="text-muted small">
-                        {{ $stock->item->item_code ?? '-' }}
+                        {{ $stock->item->sku ?? '-' }}
                         @if($stock->item->category)
                           • {{ $stock->item->category->category_name }}
                         @endif

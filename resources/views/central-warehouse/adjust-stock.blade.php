@@ -42,7 +42,7 @@
             <div class="row">
               <div class="col-md-6">
                 <strong>Item:</strong> {{ $balance->item->item_name }}<br>
-                <strong>SKU:</strong> {{ $balance->item->item_code }}<br>
+                <strong>SKU:</strong> {{ $balance->item->sku }}<br>
                 <strong>Unit:</strong> {{ $balance->item->unit }}
               </div>
               <div class="col-md-6">
@@ -201,7 +201,7 @@
           </div>
           <div>
             <h6 class="mb-0">{{ $balance->item->item_name }}</h6>
-            <small class="text-muted">{{ $balance->item->item_code }}</small>
+            <small class="text-muted">{{ $balance->item->sku }}</small>
           </div>
         </div>
 

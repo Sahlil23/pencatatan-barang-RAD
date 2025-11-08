@@ -10,20 +10,40 @@ use App\Models\BranchStockTransaction;
 use App\Models\BranchWarehouseMonthlyBalance;
 use App\Models\Item;
 use App\Models\Warehouse;
-use App\Models\BranchWarehouse;
 use App\Models\Category;
 use App\Models\Supplier;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
 class CentralWarehouseController extends Controller
 {
+    /**
+     * Constructor - Apply middleware
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('set.branch.context');
+        
+        // View access untuk read operations
+        $this->middleware('check.warehouse.access:view')->only([
+            'index', 
+            'show', 
+            'transactions'
+        ]);
+        
+        // Write access untuk write operations
+        $this->middleware('check.warehouse.access:write')->except([
+            'index', 
+            'show', 
+            'transactions'
+        ]);
+    }
+
     // ========================================
-    // 📊 DASHBOARD - NO AJAX
+    // 📊 DASHBOARD
     // ========================================
 
     /**
@@ -32,54 +52,90 @@ class CentralWarehouseController extends Controller
     public function index(Request $request)
     {
         try {
-            // Basic stats
-            $totalItems = CentralStockBalance::currentMonth()->count();
-            $totalStock = CentralStockBalance::currentMonth()->sum('closing_stock');
-            $lowStockItems = CentralStockBalance::currentMonth()->lowStock()->count();
+            // Get current warehouse
+            $warehouseId = $this->getWarehouseId($request);
             
-            // Get warehouses
-            $warehouses = Warehouse::where('warehouse_type', 'CENTRAL')->get();
-            $items = Item::with('category')->get();
+            // Get central warehouses (accessible only)
+            $warehouses = $this->getAccessibleWarehouses();
+            
+            // Filter only central type
+            $centralWarehouses = $warehouses->where('warehouse_type', 'central');
+
+            // If user has specific warehouse, use it; otherwise use first central warehouse
+            if (!$warehouseId && $centralWarehouses->isNotEmpty()) {
+                $warehouseId = $centralWarehouses->first()->id;
+            }
+
+            // Validate access
+            if ($warehouseId) {
+                $this->validateWarehouseAccess($warehouseId);
+            }
+
+            // Get warehouse display data
+            $warehouseData = $warehouseId ? $this->getWarehouseDisplayData($warehouseId) : [];
 
             // Build query untuk stock balances
             $query = CentralStockBalance::currentMonth()
-                                       ->with(['item.category', 'warehouse'])
-                                       ->orderBy('id', 'desc');
+                ->with(['item.category', 'warehouse'])
+                ->orderBy('id', 'desc');
 
-            // Apply filters
-            if ($request->filled('warehouse_id')) {
-                $query->where('warehouse_id', $request->warehouse_id);
+            // Apply warehouse filter
+            if ($warehouseId) {
+                $query->where('warehouse_id', $warehouseId);
+            } else {
+                // Filter by accessible warehouses
+                $query = $this->applyWarehouseFilter($query, 'warehouse_id');
             }
 
+            // Apply category filter
             if ($request->filled('category_id')) {
                 $query->whereHas('item', function($q) use ($request) {
                     $q->where('category_id', $request->category_id);
                 });
             }
 
+            // Apply search filter
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->whereHas('item', function($q) use ($search) {
                     $q->where('item_name', 'LIKE', "%{$search}%")
-                      ->orWhere('item_code', 'LIKE', "%{$search}%");
+                      ->orWhere('sku', 'LIKE', "%{$search}%");
                 });
             }
 
-            // Paginate results
-            $stockBalances = $query->paginate(25)->appends($request->query());
+            // Calculate stats based on filtered query
+            $statsQuery = clone $query;
+            $totalItems = (clone $statsQuery)->count();
+            $totalStock = (clone $statsQuery)->sum('closing_stock');
+            $lowStockItems = (clone $statsQuery)->lowStock()->count();
 
-            return view('central-warehouse.index', compact(
-                'totalItems',
-                'totalStock', 
-                'lowStockItems',
-                'warehouses',
-                'items',
-                'stockBalances'
-            ));
+            // Get paginated results
+            $perPage = $this->getPerPage($request, 25);
+            $stockBalances = $query->paginate($perPage)->appends($request->query());
+
+            // Get master data
+            $items = Item::with('category')->get();
+            $categories = Category::all();
+
+            // Get common view data
+            $commonData = $this->getCommonViewData($request);
+
+            return view('central-warehouse.index', array_merge($commonData, [
+                'totalItems' => $totalItems,
+                'totalStock' => $totalStock,
+                'lowStockItems' => $lowStockItems,
+                'warehouses' => $centralWarehouses,
+                'items' => $items,
+                'categories' => $categories,
+                'stockBalances' => $stockBalances,
+                'currentWarehouseId' => $warehouseId,
+                'isReadOnly' => $warehouseId ? ($warehouseData['isReadOnly'] ?? false) : false,
+                'canWrite' => $warehouseId ? ($warehouseData['canWrite'] ?? false) : false,
+            ]));
 
         } catch (\Exception $e) {
             Log::error('Central Warehouse Index Error: ' . $e->getMessage());
-            return back()->with('error', 'Error loading dashboard: ' . $e->getMessage());
+            return $this->errorResponse('Error loading dashboard: ' . $e->getMessage());
         }
     }
 
@@ -90,13 +146,29 @@ class CentralWarehouseController extends Controller
     /**
      * Form untuk terima stock dari supplier
      */
-    public function receiveStock()
+    public function receiveStock(Request $request)
     {
-        $warehouses = Warehouse::where('warehouse_type', 'CENTRAL')->get();
-        $items = Item::with('category')->get();
-        $suppliers = Supplier::all();
+        // Check permission
+        $this->authorize('create', CentralStockTransaction::class);
 
-        return view('central-warehouse.receive-stock', compact('warehouses', 'items', 'suppliers'));
+        // Get writable warehouses
+        $warehouses = $this->getAccessibleWarehouses(true)
+            ->where('warehouse_type', 'central');
+
+        if ($warehouses->isEmpty()) {
+            return $this->errorResponse('You do not have access to any central warehouse.');
+        }
+
+        $items = Item::with('category')->where('is_active', true)->get();
+        $suppliers = Supplier::where('status', 'ACTIVE')->get();
+
+        $commonData = $this->getCommonViewData($request);
+
+        return view('central-warehouse.receive-stock', array_merge($commonData, [
+            'warehouses' => $warehouses,
+            'items' => $items,
+            'suppliers' => $suppliers
+        ]));
     }
 
     /**
@@ -104,7 +176,10 @@ class CentralWarehouseController extends Controller
      */
     public function storeReceipt(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        // Validate access
+        $this->validateWarehouseAccess($request->warehouse_id, true);
+
+        $validated = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'supplier_id' => 'required|exists:suppliers,id',
             'transaction_date' => 'required|date',
@@ -115,58 +190,53 @@ class CentralWarehouseController extends Controller
             'notes' => 'nullable|string|max:500'
         ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
+        return $this->executeTransaction(
+            function () use ($validated) {
+                $referenceNo = $this->generateReferenceNo('RCP');
+                $transactions = [];
 
-        DB::beginTransaction();
-        try {
-            $referenceNo = $this->generateReferenceNo('RCP');
-            $transactions = [];
+                foreach ($validated['items'] as $itemData) {
+                    // Create transaction
+                    $transaction = CentralStockTransaction::create([
+                        'item_id' => $itemData['item_id'],
+                        'warehouse_id' => $validated['warehouse_id'],
+                        'user_id' => $this->currentUser()->id,
+                        'supplier_id' => $validated['supplier_id'],
+                        'transaction_type' => 'PURCHASE',
+                        'quantity' => $itemData['quantity'],
+                        'unit_cost' => $itemData['unit_cost'],
+                        'total_cost' => $itemData['quantity'] * $itemData['unit_cost'],
+                        'reference_no' => $referenceNo,
+                        'notes' => $validated['notes'] ?? null,
+                        'transaction_date' => $validated['transaction_date']
+                    ]);
 
-            foreach ($request->items as $itemData) {
-                // Create transaction
-                $transaction = CentralStockTransaction::create([
-                    'item_id' => $itemData['item_id'],
-                    'warehouse_id' => $request->warehouse_id,
-                    'user_id' => auth()->id(),
-                    'supplier_id' => $request->supplier_id,
-                    'transaction_type' => 'PURCHASE',
-                    'quantity' => $itemData['quantity'],
-                    'unit_cost' => $itemData['unit_cost'],
-                    'total_cost' => $itemData['quantity'] * $itemData['unit_cost'],
+                    // Update balance
+                    $balance = CentralStockBalance::getOrCreateBalance(
+                        $itemData['item_id'],
+                        $validated['warehouse_id']
+                    );
+                    $balance->updateFromTransaction($transaction);
+
+                    $transactions[] = $transaction;
+                }
+
+                // Log activity
+                $this->logActivity('stock_receipt', 'CentralStockTransaction', null, [
                     'reference_no' => $referenceNo,
-                    'notes' => $request->notes,
-                    'transaction_date' => $request->transaction_date
+                    'warehouse_id' => $validated['warehouse_id'],
+                    'supplier_id' => $validated['supplier_id'],
+                    'total_items' => count($transactions)
                 ]);
 
-                // Update balance
-                $balance = CentralStockBalance::getOrCreateBalance(
-                    $itemData['item_id'],
-                    $request->warehouse_id
-                );
-                $balance->updateFromTransaction($transaction);
-
-                $transactions[] = $transaction;
-            }
-
-            DB::commit();
-
-            Log::info('Stock receipt created', [
-                'reference_no' => $referenceNo,
-                'warehouse_id' => $request->warehouse_id,
-                'supplier_id' => $request->supplier_id,
-                'total_items' => count($transactions)
-            ]);
-
-            return redirect()->route('central-warehouse.index')
-                           ->with('success', 'Stock received successfully. Reference: ' . $referenceNo);
-
-        } catch (\Exception $e) {
-            DB::rollback();
-            Log::error('Stock receipt error: ' . $e->getMessage());
-            return back()->with('error', 'Error receiving stock: ' . $e->getMessage())->withInput();
-        }
+                return [
+                    'reference_no' => $referenceNo,
+                    'total_items' => count($transactions)
+                ];
+            },
+            'Stock received successfully. Reference: ' . ($referenceNo ?? ''),
+            'Failed to receive stock'
+        );
     }
 
     // ========================================
@@ -176,11 +246,21 @@ class CentralWarehouseController extends Controller
     /**
      * Form untuk adjustment stock
      */
-    public function adjustStock($balanceId)
+    public function adjustStock(Request $request, $balanceId)
     {
         $balance = CentralStockBalance::with(['item', 'warehouse'])->findOrFail($balanceId);
         
-        return view('central-warehouse.adjust-stock', compact('balance'));
+        // Validate access
+        $this->validateWarehouseAccess($balance->warehouse_id, true);
+        
+        // Check policy
+        $this->authorize('manageStock', $balance->warehouse);
+
+        $commonData = $this->getCommonViewData($request);
+        
+        return view('central-warehouse.adjust-stock', array_merge($commonData, [
+            'balance' => $balance
+        ]));
     }
 
     /**
@@ -188,63 +268,60 @@ class CentralWarehouseController extends Controller
      */
     public function storeAdjustment(Request $request, $balanceId)
     {
-        $validator = Validator::make($request->all(), [
+        $balance = CentralStockBalance::findOrFail($balanceId);
+        
+        // Validate access
+        $this->validateWarehouseAccess($balance->warehouse_id, true);
+
+        $validated = $request->validate([
             'adjustment_type' => 'required|in:ADD,REDUCE',
             'quantity' => 'required|numeric|min:0.001',
             'reason' => 'required|string|max:500',
             'unit_cost' => 'nullable|numeric|min:0'
         ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+        // Additional validation
+        if ($validated['adjustment_type'] === 'REDUCE' && $validated['quantity'] > $balance->closing_stock) {
+            return $this->errorResponse('Adjustment quantity exceeds available stock (' . $balance->closing_stock . ')');
         }
 
-        DB::beginTransaction();
-        try {
-            $balance = CentralStockBalance::findOrFail($balanceId);
-            
-            // Validate reduction doesn't exceed available stock
-            if ($request->adjustment_type === 'REDUCE' && $request->quantity > $balance->closing_stock) {
-                throw new \Exception('Adjustment quantity exceeds available stock');
-            }
+        return $this->executeTransaction(
+            function () use ($validated, $balance) {
+                $adjustmentQuantity = $validated['adjustment_type'] === 'ADD' ? 
+                                     $validated['quantity'] : -$validated['quantity'];
 
-            $adjustmentQuantity = $request->adjustment_type === 'ADD' ? 
-                                 $request->quantity : -$request->quantity;
+                $referenceNo = $this->generateReferenceNo('ADJ');
 
-            // Create adjustment transaction
-            $transaction = CentralStockTransaction::create([
-                'item_id' => $balance->item_id,
-                'warehouse_id' => $balance->warehouse_id,
-                'user_id' => auth()->id(),
-                'transaction_type' => 'ADJUSTMENT',
-                'quantity' => $adjustmentQuantity,
-                'unit_cost' => $request->unit_cost ?? 0,
-                'total_cost' => abs($adjustmentQuantity) * ($request->unit_cost ?? 0),
-                'reference_no' => $this->generateReferenceNo('ADJ'),
-                'notes' => $request->reason,
-                'transaction_date' => now()
-            ]);
+                // Create adjustment transaction
+                $transaction = CentralStockTransaction::create([
+                    'item_id' => $balance->item_id,
+                    'warehouse_id' => $balance->warehouse_id,
+                    'user_id' => $this->currentUser()->id,
+                    'transaction_type' => 'ADJUSTMENT',
+                    'quantity' => $adjustmentQuantity,
+                    'unit_cost' => $validated['unit_cost'] ?? 0,
+                    'total_cost' => abs($adjustmentQuantity) * ($validated['unit_cost'] ?? 0),
+                    'reference_no' => $referenceNo,
+                    'notes' => $validated['reason'],
+                    'transaction_date' => now()
+                ]);
 
-            // Update balance
-            $balance->updateFromTransaction($transaction);
+                // Update balance
+                $balance->updateFromTransaction($transaction);
 
-            DB::commit();
+                // Log activity
+                $this->logActivity('stock_adjustment', 'CentralStockTransaction', $transaction->id, [
+                    'balance_id' => $balance->id,
+                    'adjustment_type' => $validated['adjustment_type'],
+                    'quantity' => $validated['quantity'],
+                    'reference_no' => $referenceNo
+                ]);
 
-            Log::info('Stock adjustment completed', [
-                'balance_id' => $balanceId,
-                'adjustment_type' => $request->adjustment_type,
-                'quantity' => $request->quantity,
-                'reference_no' => $transaction->reference_no
-            ]);
-
-            return redirect()->route('central-warehouse.index')
-                           ->with('success', 'Stock adjusted successfully. Reference: ' . $transaction->reference_no);
-
-        } catch (\Exception $e) {
-            DB::rollback();
-            Log::error('Stock adjustment error: ' . $e->getMessage());
-            return back()->with('error', 'Error adjusting stock: ' . $e->getMessage())->withInput();
-        }
+                return ['reference_no' => $referenceNo];
+            },
+            'Stock adjusted successfully. Reference: ' . ($referenceNo ?? ''),
+            'Failed to adjust stock'
+        );
     }
 
     // ========================================
@@ -254,23 +331,37 @@ class CentralWarehouseController extends Controller
     /**
      * Form untuk distribusi ke cabang
      */
-    public function distributeStock($balanceId)
+    public function distributeStock(Request $request, $balanceId)
     {
         try {
             $balance = CentralStockBalance::with(['item', 'warehouse'])->findOrFail($balanceId);
             
-            // ✅ FIXED: Use Warehouse model with correct filter and relations
-            $branchWarehouses = Warehouse::where('warehouse_type', 'branch')
-                                    ->where('status', 'ACTIVE')
-                                    ->with(['branch' => function($query) {
-                                        $query->select('id', 'branch_name', 'branch_code', 'city');
-                                    }])
-                                    ->orderBy('warehouse_name')
-                                    ->get(['id', 'warehouse_name', 'warehouse_code', 'address', 'branch_id']);
+            // Validate access
+            $this->validateWarehouseAccess($balance->warehouse_id, true);
             
-            // Debug log
-            \Log::info('Branch warehouses loaded for distribution', [
+            // Check policy
+            $this->authorize('manageStock', $balance->warehouse);
+
+            // Get accessible branch warehouses
+            // Super admin & central users can see all branches
+            // Others filtered by their access
+            $branchWarehouses = Warehouse::where('warehouse_type', 'branch')
+                ->where('status', 'ACTIVE')
+                ->with(['branch' => function($query) {
+                    $query->select('id', 'branch_name', 'branch_code', 'city');
+                }])
+                ->orderBy('warehouse_name')
+                ->get(['id', 'warehouse_name', 'warehouse_code', 'address', 'branch_id']);
+
+            // Filter by accessible branches if not super admin
+            if (!$this->isSuperAdmin() && !$this->isCentralUser()) {
+                $accessibleBranchIds = $this->getAccessibleBranches()->pluck('id');
+                $branchWarehouses = $branchWarehouses->whereIn('branch_id', $accessibleBranchIds);
+            }
+
+            Log::info('Branch warehouses loaded for distribution', [
                 'count' => $branchWarehouses->count(),
+                'user_role' => $this->currentUser()->role,
                 'warehouses' => $branchWarehouses->map(function($w) {
                     return [
                         'id' => $w->id,
@@ -279,141 +370,140 @@ class CentralWarehouseController extends Controller
                     ];
                 })->toArray()
             ]);
+
+            $commonData = $this->getCommonViewData($request);
             
-            return view('central-warehouse.distribute-stock', compact('balance', 'branchWarehouses'));
+            return view('central-warehouse.distribute-stock', array_merge($commonData, [
+                'balance' => $balance,
+                'branchWarehouses' => $branchWarehouses
+            ]));
 
         } catch (\Exception $e) {
             Log::error('Distribute stock form error: ' . $e->getMessage());
-            return back()->with('error', 'Error loading distribution form: ' . $e->getMessage());
+            return $this->errorResponse('Error loading distribution form: ' . $e->getMessage());
         }
     }
 
     /**
      * Process distribusi stock ke cabang
-     * ✅ FIXED: Gunakan avg_unit_cost bukan unit_cost
      */
     public function storeDistribution(Request $request, $balanceId)
     {
-        $validator = Validator::make($request->all(), [
+        $balance = CentralStockBalance::findOrFail($balanceId);
+        
+        // Validate access
+        $this->validateWarehouseAccess($balance->warehouse_id, true);
+
+        $validated = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'quantity' => 'required|numeric|min:0.001',
             'notes' => 'nullable|string|max:500'
         ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+        // Additional validation
+        if ($validated['quantity'] > $balance->closing_stock) {
+            return $this->errorResponse('Distribution quantity (' . $validated['quantity'] . ') exceeds available stock (' . $balance->closing_stock . ')');
         }
 
-        DB::beginTransaction();
-        try {
-            $balance = CentralStockBalance::findOrFail($balanceId);
-            
-            $branchWarehouse = Warehouse::where('id', $request->warehouse_id)
-                                  ->where('warehouse_type', 'branch')
-                                  ->where('status', 'ACTIVE')
-                                  ->firstOrFail();
-        
-            if ($request->quantity > $balance->closing_stock) {
-                throw new \Exception('Distribution quantity exceeds available stock');
-            }
+        // Validate branch warehouse
+        $branchWarehouse = Warehouse::where('id', $validated['warehouse_id'])
+            ->where('warehouse_type', 'branch')
+            ->where('status', 'ACTIVE')
+            ->firstOrFail();
 
-            $referenceNo = $this->generateReferenceNo('DIST');
+        return $this->executeTransaction(
+            function () use ($validated, $balance, $branchWarehouse) {
+                $referenceNo = $this->generateReferenceNo('DIST');
 
-            // ============================================
-            // 1. Create Central To Branch Transaction
-            // ============================================
-            $distributionTransaction = CentralToBranchWarehouseTransaction::create([
-                'central_warehouse_id' => $balance->warehouse_id,
-                'warehouse_id' => $request->warehouse_id,
-                'item_id' => $balance->item_id,
-                'user_id' => auth()->id(),
-                'transaction_type' => 'DISTRIBUTION',
-                'quantity' => $request->quantity,
-                'reference_no' => $referenceNo,
-                'notes' => $request->notes,
-                'transaction_date' => now()
-            ]);
-
-            // ============================================
-            // 2. Create Central Stock Transaction (OUT)
-            // ============================================
-            $centralTransaction = CentralStockTransaction::create([
-                'item_id' => $balance->item_id,
-                'warehouse_id' => $balance->warehouse_id,
-                'user_id' => auth()->id(),
-                'transaction_type' => 'DISTRIBUTE_OUT',
-                'quantity' => -$request->quantity,
-                'unit_cost' => $balance->item->unit_cost ?? 0,
-                'total_cost' => $request->quantity * ($balance->item->unit_cost ?? 0),
-                'reference_no' => $referenceNo,
-                'notes' => 'Distribution to ' . $branchWarehouse->warehouse_name . ': ' . $request->notes,
-                'transaction_date' => now()
-            ]);
-
-            // Update central balance
-            $balance->updateFromTransaction($centralTransaction);
-
-            // ============================================
-            // 3. Create Branch Stock Transaction (IN)
-            // ============================================
-            $branchStockTransaction = BranchStockTransaction::create([
-                'branch_id' => $branchWarehouse->branch_id,
-                'warehouse_id' => $request->warehouse_id,
-                'item_id' => $balance->item_id,
-                'transaction_type' => 'IN',
-                'quantity' => $request->quantity,
-                'reference_no' => $referenceNo,
-                'notes' => 'Barang dari Central Warehouse: ' . $request->notes,
-                'transaction_date' => now(),
-                'user_id' => auth()->id(),
-                'central_transaction_id' => $centralTransaction->id
-            ]);
-
-            // ============================================
-            // 4. ✅ FIXED: Update Branch Warehouse Monthly Balance
-            // ============================================
-            $branchBalance = BranchWarehouseMonthlyBalance::firstOrCreate(
-                [
-                    'warehouse_id' => $request->warehouse_id,
+                // 1. Create Central To Branch Transaction
+                $distributionTransaction = CentralToBranchWarehouseTransaction::create([
+                    'central_warehouse_id' => $balance->warehouse_id,
+                    'warehouse_id' => $validated['warehouse_id'],
                     'item_id' => $balance->item_id,
-                    'month' => now()->month,
-                    'year' => now()->year
-                ],
-                [
-                    'opening_stock' => $request->quantity,
-                    'closing_stock' => $request->quantity,
-                    'stock_in' => $request->quantity,
-                    'stock_out' => 0,
-                    'adjustments' => 0,
-                    'is_closed' => false
-                ]
-            );
-            $branchBalance->save();
+                    'user_id' => $this->currentUser()->id,
+                    'transaction_type' => 'DISTRIBUTION',
+                    'quantity' => $validated['quantity'],
+                    'reference_no' => $referenceNo,
+                    'notes' => $validated['notes'],
+                    'transaction_date' => now()
+                ]);
 
-            DB::commit();
+                // 2. Create Central Stock Transaction (OUT)
+                $centralTransaction = CentralStockTransaction::create([
+                    'item_id' => $balance->item_id,
+                    'warehouse_id' => $balance->warehouse_id,
+                    'user_id' => $this->currentUser()->id,
+                    'transaction_type' => 'DISTRIBUTE_OUT',
+                    'quantity' => -$validated['quantity'],
+                    'unit_cost' => $balance->item->unit_cost ?? 0,
+                    'total_cost' => $validated['quantity'] * ($balance->item->unit_cost ?? 0),
+                    'reference_no' => $referenceNo,
+                    'notes' => 'Distribution to ' . $branchWarehouse->warehouse_name . ': ' . $validated['notes'],
+                    'transaction_date' => now()
+                ]);
 
-            Log::info('Stock distribution completed successfully', [
-                'reference_no' => $referenceNo,
-                'central_warehouse_id' => $balance->warehouse_id,
-                'warehouse_id' => $request->warehouse_id,
-                'branch_id' => $branchWarehouse->branch_id,
-                'branch_warehouse_name' => $branchWarehouse->warehouse_name,
-                'item_id' => $balance->item_id,
-                'quantity' => $request->quantity,
-                'central_transaction_id' => $centralTransaction->id,
-                'branch_transaction_id' => $branchStockTransaction->id,
-                'branch_balance_id' => $branchBalance->id
-            ]);
+                // Update central balance
+                $balance->updateFromTransaction($centralTransaction);
 
-            return redirect()->route('central-warehouse.index')
-                           ->with('success', 'Stock distributed successfully to ' . $branchWarehouse->warehouse_name . '. Reference: ' . $referenceNo);
+                // 3. Create Branch Stock Transaction (IN)
+                $branchStockTransaction = BranchStockTransaction::create([
+                    'branch_id' => $branchWarehouse->branch_id,
+                    'warehouse_id' => $validated['warehouse_id'],
+                    'item_id' => $balance->item_id,
+                    'transaction_type' => 'IN',
+                    'quantity' => $validated['quantity'],
+                    'reference_no' => $referenceNo,
+                    'notes' => 'Received from Central Warehouse: ' . $validated['notes'],
+                    'transaction_date' => now(),
+                    'user_id' => $this->currentUser()->id,
+                    'central_transaction_id' => $centralTransaction->id
+                ]);
 
-        } catch (\Exception $e) {
-            DB::rollback();
-            Log::error('Stock distribution error: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            return back()->with('error', 'Error distributing stock: ' . $e->getMessage())->withInput();
-        }
+                // 4. Update Branch Warehouse Monthly Balance
+                $branchBalance = BranchWarehouseMonthlyBalance::firstOrCreate(
+                    [
+                        'warehouse_id' => $validated['warehouse_id'],
+                        'item_id' => $balance->item_id,
+                        'month' => now()->month,
+                        'year' => now()->year
+                    ],
+                    [
+                        'opening_stock' => 0,
+                        'closing_stock' => 0,
+                        'stock_in' => 0,
+                        'stock_out' => 0,
+                        'adjustments' => 0,
+                        'is_closed' => false
+                    ]
+                );
+
+                // Update branch balance
+                $branchBalance->stock_in += $validated['quantity'];
+                $branchBalance->closing_stock += $validated['quantity'];
+                $branchBalance->save();
+
+                // Log activity
+                $this->logActivity('stock_distribution', 'CentralToBranchWarehouseTransaction', $distributionTransaction->id, [
+                    'reference_no' => $referenceNo,
+                    'central_warehouse_id' => $balance->warehouse_id,
+                    'warehouse_id' => $validated['warehouse_id'],
+                    'branch_id' => $branchWarehouse->branch_id,
+                    'branch_warehouse_name' => $branchWarehouse->warehouse_name,
+                    'item_id' => $balance->item_id,
+                    'quantity' => $validated['quantity'],
+                    'central_transaction_id' => $centralTransaction->id,
+                    'branch_transaction_id' => $branchStockTransaction->id,
+                    'branch_balance_id' => $branchBalance->id
+                ]);
+
+                return [
+                    'reference_no' => $referenceNo,
+                    'warehouse_name' => $branchWarehouse->warehouse_name
+                ];
+            },
+            'Stock distributed successfully to ' . $branchWarehouse->warehouse_name . '. Reference: ' . ($referenceNo ?? ''),
+            'Failed to distribute stock'
+        );
     }
 
     // ========================================
@@ -423,21 +513,136 @@ class CentralWarehouseController extends Controller
     /**
      * View detail stock balance
      */
-    public function show($balanceId)
+    public function show(Request $request, $balanceId)
     {
         $balance = CentralStockBalance::with(['item.category', 'warehouse'])->findOrFail($balanceId);
         
-        // Get recent transactions
-        $transactions = CentralStockTransaction::where('item_id', $balance->item_id)
-                                              ->where('warehouse_id', $balance->warehouse_id)
-                                              ->whereYear('transaction_date', $balance->year)
-                                              ->whereMonth('transaction_date', $balance->month)
-                                              ->with(['user', 'supplier'])
-                                              ->orderBy('transaction_date', 'desc')
-                                              ->limit(20)
-                                              ->get();
+        // Validate access
+        $this->validateWarehouseAccess($balance->warehouse_id);
 
-        return view('central-warehouse.show', compact('balance', 'transactions'));
+        // Check policy
+        $this->authorize('view', $balance->warehouse);
+
+        // Get warehouse display data
+        $warehouseData = $this->getWarehouseDisplayData($balance->warehouse_id);
+        
+        // Get recent transactions
+        $transactionsQuery = CentralStockTransaction::where('item_id', $balance->item_id)
+            ->where('warehouse_id', $balance->warehouse_id)
+            ->whereYear('transaction_date', $balance->year)
+            ->whereMonth('transaction_date', $balance->month)
+            ->with(['user', 'supplier'])
+            ->orderBy('transaction_date', 'desc');
+
+        // Apply date range if provided
+        $transactionsQuery = $this->applyDateRangeFilter($transactionsQuery, $request, 'transaction_date', 30);
+
+        $transactions = $transactionsQuery->paginate(20);
+
+        $commonData = $this->getCommonViewData($request);
+
+        return view('central-warehouse.show', array_merge($commonData, [
+            'balance' => $balance,
+            'transactions' => $transactions,
+            'isReadOnly' => $warehouseData['isReadOnly'],
+            'canWrite' => $warehouseData['canWrite']
+        ]));
+    }
+
+    // ========================================
+    // 📋 TRANSACTIONS LIST
+    // ========================================
+
+    /**
+     * Daftar transaksi stok central
+     */
+    public function transactions(Request $request)
+    {
+        try {
+            $transactionTypes = [
+                'PURCHASE' => 'Pembelian',
+                'PURCHASE_RETURN' => 'Return Pembelian',
+                'DISTRIBUTE_OUT' => 'Distribusi Keluar',
+                'BRANCH_RETURN' => 'Return Cabang',
+                'ADJUSTMENT' => 'Penyesuaian',
+                'WASTE' => 'Barang Rusak',
+            ];
+
+            // Get accessible central warehouses
+            $warehouses = $this->getAccessibleWarehouses()
+                ->where('warehouse_type', 'central')
+                ->where('status', 'ACTIVE');
+
+            // Build query
+            $query = CentralStockTransaction::with([
+                'item.category',
+                'warehouse',
+                'user',
+                'supplier'
+            ])->orderBy('transaction_date', 'desc');
+
+            // Apply warehouse filter (accessible only)
+            if (!$this->isSuperAdmin()) {
+                $query = $this->applyWarehouseFilter($query, 'warehouse_id');
+            }
+
+            // Apply specific warehouse filter from request
+            if ($request->filled('warehouse_id')) {
+                $this->validateWarehouseAccess($request->warehouse_id);
+                $query->where('warehouse_id', $request->warehouse_id);
+            }
+
+            // Apply transaction type filter
+            if ($request->filled('transaction_type')) {
+                $query->where('transaction_type', $request->transaction_type);
+            }
+
+            // Apply date range filter
+            $query = $this->applyDateRangeFilter($query, $request, 'transaction_date', 30);
+
+            // Apply search filter
+            $query = $this->applySearchFilter($query, $request, [
+                'reference_no',
+                'notes'
+            ]);
+
+            // Additional search for item
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->orWhereHas('item', function($itemQuery) use ($search) {
+                    $itemQuery->where('item_name', 'like', "%{$search}%")
+                             ->orWhere('sku', 'like', "%{$search}%");
+                });
+            }
+
+            // Calculate summary before pagination
+            $summaryQuery = clone $query;
+            $summary = [
+                'total_transactions' => (clone $summaryQuery)->count(),
+                'total_quantity_in' => (clone $summaryQuery)->where('quantity', '>', 0)->sum('quantity'),
+                'total_quantity_out' => abs((clone $summaryQuery)->where('quantity', '<', 0)->sum('quantity')),
+                'total_value' => (clone $summaryQuery)->sum('total_cost'),
+            ];
+
+            // Get paginated transactions
+            $perPage = $this->getPerPage($request, 25);
+            $transactions = $query->paginate($perPage)->appends($request->query());
+
+            // Get common view data
+            $commonData = $this->getCommonViewData($request);
+
+            return view('central-warehouse.transactions', array_merge($commonData, [
+                'transactions' => $transactions,
+                'transactionTypes' => $transactionTypes,
+                'warehouses' => $warehouses,
+                'summary' => $summary
+            ]));
+
+        } catch (\Exception $e) {
+            Log::error('Central warehouse transactions error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return $this->errorResponse('Failed to load transactions: ' . $e->getMessage());
+        }
     }
 
     // ========================================

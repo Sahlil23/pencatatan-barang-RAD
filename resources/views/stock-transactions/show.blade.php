@@ -47,7 +47,7 @@
                 @if($transaction->user)
                 <span class="text-muted">
                   <i class="bx bx-user me-1"></i>
-                  {{ $transaction->user->name }}
+                  {{ $transaction->user->fullname }}
                 </span>
                 @endif
               </div>
@@ -315,7 +315,7 @@
           <div class="list-group-item px-0 py-2 border-0">
             <div class="d-flex justify-content-between">
               <span class="text-muted">Oleh User:</span>
-              <span class="fw-semibold">{{ $transaction->user->name }}</span>
+              <span class="fw-semibold">{{ $transaction->user->full_name }}</span>
             </div>
           </div>
           @endif

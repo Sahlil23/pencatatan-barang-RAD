@@ -131,7 +131,6 @@
             <small class="text-muted d-block">Capacity</small>
             <h6 class="mb-0">
               @if($warehouse->capacity_m2 || $warehouse->capacity_volume)
-                {{ $warehouse->capacity_info }}
               @else
                 <span class="text-muted">-</span>
               @endif
@@ -161,11 +160,11 @@
       <div class="card-body">
         <div class="card-title d-flex align-items-start justify-content-between">
           <div class="avatar flex-shrink-0">
-            <img src="{{ asset('assets/img/icons/unicons/box.png') }}" alt="total items" class="rounded" />
+            <img src="{{ asset('assets/img/icons/unicons/paypal.png') }}" alt="" class="rounded" />
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Total Items</span>
-        <h3 class="card-title mb-2">{{ $metrics['total_items_in_stock'] ?? 0 }}</h3>
+        <h3 class="card-title mb-2">{{ $metrics['total_items'] ?? 0 }}</h3>
         <small class="text-primary fw-semibold">
           <i class="bx bx-package me-1"></i>Item Types
         </small>
@@ -182,7 +181,7 @@
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Stock Value</span>
-        <h3 class="card-title text-success mb-2">Rp {{ number_format($metrics['current_stock_value'] ?? 0, 0, ',', '.') }}</h3>
+        <h3 class="card-title text-success mb-2">Rp {{ number_format($metrics['total_stock_value'] ?? 0, 0, ',', '.') }}</h3>
         <small class="text-success fw-semibold">
           <i class="bx bx-money me-1"></i>Total Inventory
         </small>
@@ -216,7 +215,7 @@
           </div>
         </div>
         <span class="fw-semibold d-block mb-1">Low Stock Items</span>
-        <h3 class="card-title text-warning mb-2">{{ $metrics['low_stock_items_count'] ?? 0 }}</h3>
+        <h3 class="card-title text-warning mb-2">{{ $metrics['low_stock_items'] ?? 0 }}</h3>
         <small class="text-warning fw-semibold">
           <i class="bx bx-error-circle me-1"></i>Need Attention
         </small>
@@ -235,8 +234,8 @@
           <i class="bx bx-bar-chart me-2"></i>
           Warehouse Utilization
         </h5>
-        <span class="badge bg-label-{{ $warehouse->utilization_status['color'] }}">
-          {{ $warehouse->utilization_status['text'] }}
+        <span class="badge bg-label-{{ $warehouse->status }}">
+          {{ $warehouse->status }}
         </span>
       </div>
       <div class="card-body">
@@ -246,7 +245,7 @@
               <small class="text-muted">Capacity Usage</small>
             </div>
             @php
-              $percentage = $metrics['utilization_percentage'] ?? 0;
+              $percentage = (float) ($metrics['capacity'] ?? 0);
               $color = 'success';
               if ($percentage >= 90) $color = 'danger';
               elseif ($percentage >= 70) $color = 'warning';
@@ -267,9 +266,9 @@
               <small class="text-muted">Capacity Info</small>
             </div>
             <div>
-              <strong>Used:</strong> {{ number_format($metrics['current_stock_volume'], 2) }} m³
+              <strong>Used:</strong> {{ number_format($percentage, 1) }}%
               <br>
-              <strong>Total:</strong> {{ number_format($warehouse->capacity_volume, 2) }} m³
+              <strong>Capacity:</strong> {{ $warehouse->capacity_info ?? '-' }}
             </div>
           </div>
         </div>
@@ -328,13 +327,13 @@
                     <td class="text-muted">
                       <i class="bx bx-category me-2"></i>Type
                     </td>
-                    <td>{!! $warehouse->type_badge !!}</td>
+                    <td>{!! $warehouse->warehouse_type !!}</td>
                   </tr>
                   <tr>
                     <td class="text-muted">
                       <i class="bx bx-check-circle me-2"></i>Status
                     </td>
-                    <td>{!! $warehouse->status_badge !!}</td>
+                    <td>{!! $warehouse->status !!}</td>
                   </tr>
                   @if($warehouse->branch)
                   <tr>
@@ -366,7 +365,7 @@
                     <td class="text-muted">
                       <i class="bx bx-user me-2"></i>Manager
                     </td>
-                    <td>{{ $warehouse->manager_display }}</td>
+                    <td>{{ $warehouse->manager_name }}</td>
                   </tr>
                   @if($warehouse->email)
                   <tr>
@@ -382,7 +381,7 @@
                     <td class="text-muted">
                       <i class="bx bx-cube me-2"></i>Capacity
                     </td>
-                    <td>{{ $warehouse->capacity_info }}</td>
+                    <td>{{ $warehouse->capacity_volume }}</td>
                   </tr>
                   <tr>
                     <td class="text-muted">

@@ -129,14 +129,14 @@
                      id="warehouse_code" 
                      name="warehouse_code" 
                      value="{{ old('warehouse_code') }}"
-                     placeholder="Otomatis jika kosong">
+                     placeholder="WH-CTR-001 / WH-BR-001g">
               @error('warehouse_code')
                 <div class="invalid-feedback">{{ $message }}</div>
               @enderror
-              <div class="form-text">
+              <!-- <div class="form-text">
                 <i class="bx bx-info-circle me-1"></i>
                 Kosongkan untuk generate otomatis (WH-CTR-001 / WH-BR-001)
-              </div>
+              </div> -->
             </div>
 
             <!-- Warehouse Name -->

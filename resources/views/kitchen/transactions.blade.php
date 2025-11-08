@@ -244,11 +244,11 @@
                                             <div class="d-flex align-items-center">
                                                 <div class="avatar avatar-xs flex-shrink-0 me-2">
                                                     <span class="avatar-initial rounded-circle bg-label-info">
-                                                        {{ strtoupper(substr($transaction->user->name ?? 'System', 0, 1)) }}
+                                                        {{ strtoupper(substr($transaction->user->full_name ?? 'System', 0, 1)) }}
                                                     </span>
                                                 </div>
                                                 <div>
-                                                    <small class="fw-semibold">{{ $transaction->user->name ?? 'System' }}</small>
+                                                    <small class="fw-semibold">{{ $transaction->user->full_name ?? 'System' }}</small>
                                                     <br><small class="text-muted">{{ $transaction->created_at->diffForHumans() }}</small>
                                                 </div>
                                             </div>

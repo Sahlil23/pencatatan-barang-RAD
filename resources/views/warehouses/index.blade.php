@@ -323,7 +323,7 @@
                   Edit
                 </a>
                 <div class="dropdown-divider"></div>
-                @if($warehouse->status !== 'active')
+                @if($warehouse->status !== 'ACTIVE')
                 <form action="{{ route('warehouses.change-status', $warehouse->id) }}" method="POST" class="d-inline">
                   @csrf
                   <input type="hidden" name="status" value="active">
@@ -334,7 +334,7 @@
                   </button>
                 </form>
                 @endif
-                @if($warehouse->status === 'active')
+                @if($warehouse->status === 'ACTIVE')
                 <form action="{{ route('warehouses.change-status', $warehouse->id) }}" method="POST" class="d-inline">
                   @csrf
                   <input type="hidden" name="status" value="maintenance">

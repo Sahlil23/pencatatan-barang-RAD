@@ -166,10 +166,10 @@
             <i class="bx bx-line-chart me-1"></i>
             Threshold
           </th>
-          <th class="text-center">
+          <!-- <th class="text-center">
             <i class="bx bx-dollar me-1"></i>
             Unit Cost
-          </th>
+          </th> -->
           <th class="text-center">
             <i class="bx bx-signal-3 me-1"></i>
             Status
@@ -240,7 +240,7 @@
           </td>
           
           <!-- Unit Cost -->
-          <td class="text-center">
+          <!-- <td class="text-center">
             @if($item->unit_cost)
               <span class="fw-bold text-success">
                 Rp {{ number_format($item->unit_cost, 0) }}
@@ -248,7 +248,7 @@
             @else
               <span class="text-muted">-</span>
             @endif
-          </td>
+          </td> -->
           
           <!-- Status -->
           <td class="text-center">

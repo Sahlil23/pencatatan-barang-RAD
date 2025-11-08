@@ -12,10 +12,27 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
 
+    // ========================================
+    // ROLE CONSTANTS
+    // ========================================
+    const ROLE_SUPER_ADMIN = 'super_admin';
+    const ROLE_CENTRAL_MANAGER = 'central_manager';
+    const ROLE_CENTRAL_STAFF = 'central_staff';
+    const ROLE_BRANCH_MANAGER = 'branch_manager';
+    const ROLE_BRANCH_STAFF = 'branch_staff';
+    const ROLE_OUTLET_MANAGER = 'outlet_manager';
+    const ROLE_OUTLET_STAFF = 'outlet_staff';
+
+    // ========================================
+    // STATUS CONSTANTS
+    // ========================================
+    const STATUS_ACTIVE = 'active';
+    const STATUS_INACTIVE = 'inactive';
+
     /**
      * The attributes that are mass assignable.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $fillable = [
         'username',
@@ -23,18 +40,20 @@ class User extends Authenticatable
         'full_name',
         'role',
         'branch_id',
+        'warehouse_id',
         'warehouse_access',
+        'can_manage_users',
         'email',
         'phone',
         'status',
         'last_login_at',
-        'last_branch_context'
+        'last_branch_context',
     ];
 
     /**
      * The attributes that should be hidden for serialization.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $hidden = [
         'password',
@@ -52,205 +71,176 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
-            'warehouse_access' => 'array'
+            'can_manage_users' => 'boolean',
+            'warehouse_access' => 'array',
         ];
     }
-
-    protected $dates = [
-        'last_login_at',
-        'email_verified_at',
-        'created_at',
-        'updated_at',
-        'deleted_at'
-    ];
-
-    // ========================================
-    // ROLE CONSTANTS - MULTI-BRANCH SYSTEM
-    // ========================================
-
-    /**
-     * Super Admin - Full system access
-     */
-    const ROLE_SUPER_ADMIN = 'super_admin';
-
-    /**
-     * Central Roles - Work at central office/warehouse
-     */
-    const ROLE_CENTRAL_ADMIN = 'central_admin';
-    const ROLE_CENTRAL_MANAGER = 'central_manager';
-    const ROLE_CENTRAL_STAFF = 'central_staff';
-    const ROLE_WAREHOUSE_MANAGER = 'warehouse_manager';
-    const ROLE_WAREHOUSE_STAFF = 'warehouse_staff';
-
-    /**
-     * Branch Roles - Work at specific branch
-     */
-    const ROLE_BRANCH_MANAGER = 'branch_manager';
-    const ROLE_BRANCH_ADMIN = 'branch_admin';
-    const ROLE_BRANCH_STAFF = 'branch_staff';
-    const ROLE_KITCHEN_MANAGER = 'kitchen_manager';
-    const ROLE_KITCHEN_STAFF = 'kitchen_staff';
-
-    /**
-     * Available statuses
-     */
-    const STATUS_ACTIVE = 'active';
-    const STATUS_INACTIVE = 'inactive';
-    const STATUS_SUSPENDED = 'suspended';
 
     // ========================================
     // RELATIONSHIPS
     // ========================================
 
     /**
-     * User belongs to branch (nullable untuk central users)
+     * Get the branch that owns the user.
      */
     public function branch()
     {
-        return $this->belongsTo(Branch::class);
+        return $this->belongsTo(\App\Models\Branch::class);
     }
 
     /**
-     * User dapat akses multiple warehouses
+     * Get the warehouse that owns the user.
      */
-    public function warehouses()
+    public function warehouse()
     {
-        return $this->belongsToMany(Warehouse::class, 'user_warehouse_access')
-                    ->withTimestamps();
-    }
-
-    /**
-     * Stock transactions created by this user
-     */
-    public function stockTransactions()
-    {
-        return $this->hasMany(StockTransaction::class);
-    }
-
-    /**
-     * Central stock transactions
-     */
-    public function centralStockTransactions()
-    {
-        return $this->hasMany(CentralStockTransaction::class);
-    }
-
-    /**
-     * Branch stock transactions
-     */
-    public function branchStockTransactions()
-    {
-        return $this->hasMany(BranchStockTransaction::class);
-    }
-
-    /**
-     * Kitchen stock transactions
-     */
-    public function kitchenStockTransactions()
-    {
-        return $this->hasMany(KitchenStockTransaction::class);
-    }
-
-    /**
-     * Distribution orders requested by this user
-     */
-    public function requestedDistributionOrders()
-    {
-        return $this->hasMany(DistributionOrder::class, 'requested_by');
-    }
-
-    /**
-     * Distribution orders approved by this user
-     */
-    public function approvedDistributionOrders()
-    {
-        return $this->hasMany(DistributionOrder::class, 'approved_by');
-    }
-
-    /**
-     * Distribution orders prepared by this user
-     */
-    public function preparedDistributionOrders()
-    {
-        return $this->hasMany(DistributionOrder::class, 'prepared_by');
-    }
-
-    /**
-     * Stock periods closed by this user
-     */
-    public function closedStockPeriods()
-    {
-        return $this->hasMany(StockPeriod::class, 'closed_by');
+        return $this->belongsTo(\App\Models\Warehouse::class);
     }
 
     // ========================================
-    // ROLE METHODS
+    // ROLE CHECK METHODS
     // ========================================
 
     /**
-     * Get available roles
+     * Check if user is super admin
      */
-    public static function getRoles()
+    public function isSuperAdmin(): bool
     {
-        return [
-            // Super Admin
-            self::ROLE_SUPER_ADMIN => 'Super Administrator',
-            
-            // Central Roles
-            self::ROLE_CENTRAL_ADMIN => 'Central Administrator',
-            self::ROLE_CENTRAL_MANAGER => 'Central Manager',
-            self::ROLE_CENTRAL_STAFF => 'Central Staff',
-            self::ROLE_WAREHOUSE_MANAGER => 'Warehouse Manager',
-            self::ROLE_WAREHOUSE_STAFF => 'Warehouse Staff',
-            
-            // Branch Roles
-            self::ROLE_BRANCH_MANAGER => 'Branch Manager',
-            self::ROLE_BRANCH_ADMIN => 'Branch Administrator',
-            self::ROLE_BRANCH_STAFF => 'Branch Staff',
-            self::ROLE_KITCHEN_MANAGER => 'Kitchen Manager',
-            self::ROLE_KITCHEN_STAFF => 'Kitchen Staff',
-        ];
+        return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
     /**
-     * Get available statuses
+     * Check if user is admin (super admin or has manage users permission)
+     * Used in blade: @if(Auth::user()->isAdmin())
      */
-    public static function getStatuses()
+    public function isAdmin(): bool
     {
-        return [
-            self::STATUS_ACTIVE => 'Aktif',
-            self::STATUS_INACTIVE => 'Tidak Aktif',
-            self::STATUS_SUSPENDED => 'Suspended',
-        ];
+        return $this->isSuperAdmin() || $this->can_manage_users;
     }
 
     /**
-     * Get central roles
+     * Check if user is any type of manager
      */
-    public static function getCentralRoles()
+    public function isManager(): bool
     {
-        return [
+        return in_array($this->role, [
+            self::ROLE_CENTRAL_MANAGER,
+            self::ROLE_BRANCH_MANAGER,
+            self::ROLE_OUTLET_MANAGER,
+        ]);
+    }
+
+    /**
+     * Check if user is central manager
+     */
+    public function isCentralManager(): bool
+    {
+        return $this->role === self::ROLE_CENTRAL_MANAGER;
+    }
+
+    /**
+     * Check if user is branch manager
+     */
+    public function isBranchManager(): bool
+    {
+        return $this->role === self::ROLE_BRANCH_MANAGER;
+    }
+
+    /**
+     * Check if user is outlet manager
+     */
+    public function isOutletManager(): bool
+    {
+        return $this->role === self::ROLE_OUTLET_MANAGER;
+    }
+
+    /**
+     * Check if user is staff (any level)
+     */
+    public function isStaff(): bool
+    {
+        return in_array($this->role, [
+            self::ROLE_CENTRAL_STAFF,
+            self::ROLE_BRANCH_STAFF,
+            self::ROLE_OUTLET_STAFF,
+        ]);
+    }
+
+    /**
+     * Check if user is central staff
+     */
+    public function isCentralStaff(): bool
+    {
+        return $this->role === self::ROLE_CENTRAL_STAFF;
+    }
+
+    /**
+     * Check if user is branch staff
+     */
+    public function isBranchStaff(): bool
+    {
+        return $this->role === self::ROLE_BRANCH_STAFF;
+    }
+
+    /**
+     * Check if user is outlet staff
+     */
+    public function isOutletStaff(): bool
+    {
+        return $this->role === self::ROLE_OUTLET_STAFF;
+    }
+
+    /**
+     * Check if user works at central warehouse
+     */
+    public function isCentralLevel(): bool
+    {
+        return in_array($this->role, [
             self::ROLE_SUPER_ADMIN,
-            self::ROLE_CENTRAL_ADMIN,
             self::ROLE_CENTRAL_MANAGER,
             self::ROLE_CENTRAL_STAFF,
-            self::ROLE_WAREHOUSE_MANAGER,
-            self::ROLE_WAREHOUSE_STAFF
-        ];
+        ]);
     }
 
     /**
-     * Get branch roles
+     * Check if user works at branch warehouse
      */
-    public static function getBranchRoles()
+    public function isBranchLevel(): bool
     {
-        return [
+        return in_array($this->role, [
             self::ROLE_BRANCH_MANAGER,
-            self::ROLE_BRANCH_ADMIN,
             self::ROLE_BRANCH_STAFF,
-            self::ROLE_KITCHEN_MANAGER,
-            self::ROLE_KITCHEN_STAFF
-        ];
+        ]);
+    }
+
+    /**
+     * Check if user works at outlet warehouse
+     */
+    public function isOutletLevel(): bool
+    {
+        return in_array($this->role, [
+            self::ROLE_OUTLET_MANAGER,
+            self::ROLE_OUTLET_STAFF,
+        ]);
+    }
+
+    // ========================================
+    // STATUS CHECK METHODS
+    // ========================================
+
+    /**
+     * Check if user is active
+     */
+    public function isActive(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE;
+    }
+
+    /**
+     * Check if user is inactive
+     */
+    public function isInactive(): bool
+    {
+        return $this->status === self::STATUS_INACTIVE;
     }
 
     // ========================================
@@ -258,274 +248,301 @@ class User extends Authenticatable
     // ========================================
 
     /**
-     * Check if user is super admin
+     * Check if user can manage other users
      */
-    public function isSuperAdmin()
+    public function canManageUsers(): bool
     {
-        return $this->role === self::ROLE_SUPER_ADMIN;
+        return $this->can_manage_users || $this->isSuperAdmin();
     }
 
     /**
-     * Check if user is central user (works at central office/warehouse)
+     * Generic permission check method
+     * Used by policies: $user->canView($model)
      */
-    public function isCentralUser()
+    public function canView($model): bool
     {
-        return in_array($this->role, self::getCentralRoles());
+        // Super admin can view everything
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Check based on model type
+        if ($model instanceof \App\Models\Warehouse) {
+            return $this->canViewWarehouse($model->id);
+        }
+
+        if ($model instanceof \App\Models\Branch) {
+            return $this->canAccessBranch($model->id);
+        }
+
+        if ($model instanceof \App\Models\User) {
+            return $this->canViewUser($model);
+        }
+
+        // Default: allow if user is active
+        return $this->isActive();
     }
 
     /**
-     * Check if user is branch user (works at specific branch)
+     * Generic write permission check method
+     * Used by policies: $user->canWrite($model)
+     * ✅ NEW METHOD
      */
-    public function isBranchUser()
+    public function canWrite($model): bool
     {
-        return in_array($this->role, self::getBranchRoles()) && $this->branch_id !== null;
+        // Super admin can write everything
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Check based on model type
+        if ($model instanceof \App\Models\Warehouse) {
+            return $this->canManageWarehouse($model->id);
+        }
+
+        if ($model instanceof \App\Models\Branch) {
+            return $this->canCreateInBranch($model->id);
+        }
+
+        if ($model instanceof \App\Models\User) {
+            return $this->canEditUser($model);
+        }
+
+        // Default: only managers can write
+        return $this->isManager();
     }
 
     /**
-     * Check if user has admin privileges
+     * Generic create permission check method
+     * Used by policies: $user->canCreate($modelClass)
+     * ✅ NEW METHOD
      */
-    public function isAdmin()
+    public function canCreate(string $modelClass): bool
     {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_CENTRAL_ADMIN,
-            self::ROLE_BRANCH_ADMIN
-        ]);
+        // Super admin can create everything
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Check based on model class
+        if ($modelClass === \App\Models\Warehouse::class) {
+            return $this->isManager(); // Managers can create warehouses
+        }
+
+        if ($modelClass === \App\Models\User::class) {
+            return $this->canManageUsers();
+        }
+
+        if ($modelClass === \App\Models\Item::class) {
+            return $this->isManager() || $this->isStaff();
+        }
+
+        // Default: only managers can create
+        return $this->isManager();
     }
 
     /**
-     * Check if user has manager privileges
+     * Generic delete permission check method
+     * Used by policies: $user->canDelete($model)
+     * ✅ NEW METHOD
      */
-    public function isManager()
+    public function canDelete($model): bool
     {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_CENTRAL_MANAGER,
-            self::ROLE_WAREHOUSE_MANAGER,
-            self::ROLE_BRANCH_MANAGER,
-            self::ROLE_KITCHEN_MANAGER
-        ]);
-    }
+        // Super admin can delete everything
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
 
-    /**
-     * Check if user is staff level
-     */
-    public function isStaff()
-    {
-        return in_array($this->role, [
-            self::ROLE_CENTRAL_STAFF,
-            self::ROLE_WAREHOUSE_STAFF,
-            self::ROLE_BRANCH_STAFF,
-            self::ROLE_KITCHEN_STAFF
-        ]);
-    }
+        // Check based on model type
+        if ($model instanceof \App\Models\Warehouse) {
+            return $this->canManageWarehouse($model->id);
+        }
 
-    /**
-     * Check if user can manage warehouses
-     */
-    public function canManageWarehouses()
-    {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_CENTRAL_ADMIN,
-            self::ROLE_CENTRAL_MANAGER,
-            self::ROLE_WAREHOUSE_MANAGER
-        ]);
-    }
+        if ($model instanceof \App\Models\User) {
+            return $this->canDeleteUser($model);
+        }
 
-    /**
-     * Check if user can manage kitchen
-     */
-    public function canManageKitchen()
-    {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_BRANCH_MANAGER,
-            self::ROLE_BRANCH_ADMIN,
-            self::ROLE_KITCHEN_MANAGER
-        ]);
+        // Default: only managers can delete
+        return $this->isManager();
     }
-
-    /**
-     * Check if user can approve distribution orders
-     */
-    public function canApproveDistribution()
-    {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_CENTRAL_ADMIN,
-            self::ROLE_CENTRAL_MANAGER,
-            self::ROLE_WAREHOUSE_MANAGER
-        ]);
-    }
-
-    /**
-     * Check if user can close stock periods
-     */
-    public function canCloseStockPeriods()
-    {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_CENTRAL_ADMIN,
-            self::ROLE_BRANCH_ADMIN,
-            self::ROLE_BRANCH_MANAGER
-        ]);
-    }
-
-    // ========================================
-    // ACCESS CONTROL METHODS
-    // ========================================
 
     /**
      * Check if user can access specific branch
+     * Alias untuk hasBranchAccess()
+     * ✅ NEW METHOD
      */
-    public function canAccessBranch($branchId)
+    public function canAccessBranch(?int $branchId): bool
     {
-        // Super admin dapat akses semua branch
+        return $this->hasBranchAccess($branchId);
+    }
+
+    /**
+     * Check if user can view another user
+     * ✅ NEW METHOD
+     */
+    public function canViewUser(User $user): bool
+    {
+        // Super admin can view all users
         if ($this->isSuperAdmin()) {
             return true;
         }
 
-        // Central users dapat akses semua branch
-        if ($this->isCentralUser()) {
+        // Can view self
+        if ($this->id === $user->id) {
             return true;
         }
 
-        // Branch users hanya dapat akses branch mereka sendiri
-        if ($this->isBranchUser()) {
-            return $this->branch_id == $branchId;
-        }
+        // Managers can view users in their warehouse/branch
+        if ($this->isManager()) {
+            // Same warehouse
+            if ($this->warehouse_id === $user->warehouse_id) {
+                return true;
+            }
 
-        return false;
-    }
+            // Same branch
+            if ($this->branch_id && $this->branch_id === $user->branch_id) {
+                return true;
+            }
 
-    /**
-     * Check if user can access specific warehouse
-     */
-    public function canAccessWarehouse($warehouseId)
-    {
-        // Super admin dapat akses semua warehouse
-        if ($this->isSuperAdmin()) {
-            return true;
-        }
-
-        // Check warehouse access array
-        $warehouseAccess = $this->warehouse_access ?? [];
-        
-        if (in_array($warehouseId, $warehouseAccess)) {
-            return true;
-        }
-
-        // Check melalui relationship
-        return $this->warehouses()->where('warehouses.id', $warehouseId)->exists();
-    }
-
-    /**
-     * Get accessible warehouses untuk user ini
-     */
-    public function getAccessibleWarehouses()
-    {
-        if ($this->isSuperAdmin()) {
-            return Warehouse::all();
-        }
-
-        if ($this->isCentralUser()) {
-            return Warehouse::central()->get();
-        }
-
-        if ($this->isBranchUser() && $this->branch_id) {
-            return Warehouse::where('branch_id', $this->branch_id)->get();
-        }
-
-        return collect();
-    }
-
-    /**
-     * Get accessible branches untuk user ini
-     */
-    public function getAccessibleBranches()
-    {
-        if ($this->isSuperAdmin() || $this->isCentralUser()) {
-            return Branch::all();
-        }
-
-        if ($this->isBranchUser() && $this->branch_id) {
-            return Branch::where('id', $this->branch_id)->get();
-        }
-
-        return collect();
-    }
-
-    /**
-     * Add warehouse access
-     */
-    public function addWarehouseAccess($warehouseId)
-    {
-        $warehouseAccess = $this->warehouse_access ?? [];
-        
-        if (!in_array($warehouseId, $warehouseAccess)) {
-            $warehouseAccess[] = $warehouseId;
-            $this->warehouse_access = $warehouseAccess;
-            $this->save();
-        }
-
-        return $this;
-    }
-
-    /**
-     * Remove warehouse access
-     */
-    public function removeWarehouseAccess($warehouseId)
-    {
-        $warehouseAccess = $this->warehouse_access ?? [];
-        
-        if (($key = array_search($warehouseId, $warehouseAccess)) !== false) {
-            unset($warehouseAccess[$key]);
-            $this->warehouse_access = array_values($warehouseAccess);
-            $this->save();
-        }
-
-        return $this;
-    }
-
-    // ========================================
-    // CONTEXT METHODS
-    // ========================================
-
-    /**
-     * Get current branch context
-     */
-    public function getCurrentBranchContext()
-    {
-        // Jika ada last_branch_context, gunakan itu
-        if ($this->last_branch_context) {
-            $branch = Branch::find($this->last_branch_context);
-            if ($branch && $this->canAccessBranch($branch->id)) {
-                return $branch;
+            // Central manager can view all
+            if ($this->isCentralManager()) {
+                return true;
             }
         }
 
-        // Jika user adalah branch user, return branch mereka
-        if ($this->isBranchUser() && $this->branch_id) {
-            return $this->branch;
-        }
-
-        // Untuk central user, return branch pertama yang bisa diakses
-        if ($this->isCentralUser()) {
-            return Branch::first();
-        }
-
-        return null;
+        return false;
     }
 
     /**
-     * Set current branch context
+     * Check if user can edit another user
+     * ✅ NEW METHOD
      */
-    public function setCurrentBranchContext($branchId)
+    public function canEditUser(User $user): bool
     {
-        if ($this->canAccessBranch($branchId)) {
-            $this->last_branch_context = $branchId;
-            $this->save();
+        // Super admin can edit all users
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Cannot edit self through user management
+        if ($this->id === $user->id) {
+            return false;
+        }
+
+        // Must have user management permission
+        if (!$this->canManageUsers()) {
+            return false;
+        }
+
+        // Managers can edit users in their warehouse/branch
+        if ($this->isManager()) {
+            // Same warehouse
+            if ($this->warehouse_id === $user->warehouse_id) {
+                return true;
+            }
+
+            // Same branch
+            if ($this->branch_id && $this->branch_id === $user->branch_id) {
+                return true;
+            }
+
+            // Central manager can edit branch/outlet users
+            if ($this->isCentralManager() && !$user->isCentralLevel()) {
+                return true;
+            }
+
+            // Branch manager can edit outlet users in same branch
+            if ($this->isBranchManager() && $user->isOutletLevel() && $this->branch_id === $user->branch_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user can delete another user
+     * ✅ NEW METHOD
+     */
+    public function canDeleteUser(User $user): bool
+    {
+        // Cannot delete self
+        if ($this->id === $user->id) {
+            return false;
+        }
+
+        // Only super admin or managers with user management permission can delete
+        if (!$this->isSuperAdmin() && !$this->canManageUsers()) {
+            return false;
+        }
+
+        // Super admin can delete anyone except self
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Managers can delete users they can edit
+        return $this->canEditUser($user);
+    }
+
+    /**
+     * Check if user has access to specific warehouse
+     */
+    public function hasWarehouseAccess(int $warehouseId): bool
+    {
+        // Super admin has access to all
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Check if it's user's own warehouse
+        if ($this->warehouse_id === $warehouseId) {
+            return true;
+        }
+
+        // Check warehouse_access array (if exists)
+        if (is_array($this->warehouse_access) && in_array($warehouseId, $this->warehouse_access)) {
+            return true;
+        }
+
+        // Central manager can access all warehouses
+        if ($this->isCentralManager()) {
+            return true;
+        }
+
+        // Branch manager can access warehouses in their branch
+        if ($this->isBranchManager() && $this->branch_id) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            if ($warehouse && $warehouse->branch_id === $this->branch_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has access to specific branch
+     */
+    public function hasBranchAccess(?int $branchId): bool
+    {
+        // Super admin has access to all
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Null branch (central warehouse) - only central users
+        if ($branchId === null) {
+            return $this->isCentralLevel();
+        }
+
+        // Check if it's user's own branch
+        if ($this->branch_id === $branchId) {
+            return true;
+        }
+
+        // Central manager can view all branches
+        if ($this->isCentralManager()) {
             return true;
         }
 
@@ -533,142 +550,282 @@ class User extends Authenticatable
     }
 
     /**
-     * Get current warehouse context (main warehouse dari current branch)
+     * Check if user can create in specific branch
+     * ✅ NEW METHOD
      */
-    public function getCurrentWarehouseContext()
+    public function canCreateInBranch(?int $branchId): bool
     {
-        $currentBranch = $this->getCurrentBranchContext();
+        // Super admin can create anywhere
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Central manager can create in any branch
+        if ($this->isCentralManager()) {
+            return true;
+        }
+
+        // Branch/outlet users can only create in their own branch
+        if ($this->branch_id === $branchId) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user can create in specific warehouse
+     * ✅ NEW METHOD
+     */
+    public function canCreateInWarehouse(int $warehouseId): bool
+    {
+        // Super admin can create anywhere
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Only managers can create
+        if (!$this->isManager()) {
+            return false;
+        }
+
+        // Check if it's user's own warehouse
+        if ($this->warehouse_id === $warehouseId) {
+            return true;
+        }
+
+        // Central manager can create in any warehouse
+        if ($this->isCentralManager()) {
+            return true;
+        }
+
+        // Branch manager can create in warehouses in their branch
+        if ($this->isBranchManager() && $this->branch_id) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            if ($warehouse && $warehouse->branch_id === $this->branch_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get accessible warehouse IDs (array of IDs only)
+     */
+    public function getAccessibleWarehouseIds(): array
+    {
+        // Super admin gets all
+        if ($this->isSuperAdmin()) {
+            return \App\Models\Warehouse::pluck('id')->toArray();
+        }
+
+        $warehouseIds = [];
+
+        // Add own warehouse
+        if ($this->warehouse_id) {
+            $warehouseIds[] = $this->warehouse_id;
+        }
+
+        // Add from warehouse_access
+        if (is_array($this->warehouse_access)) {
+            $warehouseIds = array_merge($warehouseIds, $this->warehouse_access);
+        }
+
+        // Central manager gets all warehouses
+        if ($this->isCentralManager()) {
+            $allWarehouses = \App\Models\Warehouse::pluck('id')->toArray();
+            $warehouseIds = array_merge($warehouseIds, $allWarehouses);
+        }
+
+        // Branch manager gets all warehouses in their branch
+        if ($this->isBranchManager() && $this->branch_id) {
+            $branchWarehouses = \App\Models\Warehouse::where('branch_id', $this->branch_id)
+                ->pluck('id')
+                ->toArray();
+            $warehouseIds = array_merge($warehouseIds, $branchWarehouses);
+        }
+
+        return array_unique($warehouseIds);
+    }
+
+    /**
+     * Get accessible warehouses (Collection of Warehouse models)
+     */
+    public function getAccessibleWarehouses()
+    {
+        $warehouseIds = $this->getAccessibleWarehouseIds();
         
-        if ($currentBranch) {
-            return $currentBranch->mainWarehouse();
+        return \App\Models\Warehouse::whereIn('id', $warehouseIds)
+            ->orderBy('warehouse_name')
+            ->get();
+    }
+
+    /**
+     * Get accessible warehouses by type
+     */
+    public function getAccessibleWarehousesByType(string $type)
+    {
+        $warehouseIds = $this->getAccessibleWarehouseIds();
+        
+        return \App\Models\Warehouse::whereIn('id', $warehouseIds)
+            ->where('warehouse_type', $type)
+            ->where('status', 'ACTIVE')
+            ->orderBy('warehouse_name')
+            ->get();
+    }
+
+    /**
+     * Get accessible central warehouses
+     */
+    public function getAccessibleCentralWarehouses()
+    {
+        return $this->getAccessibleWarehousesByType('central');
+    }
+
+    /**
+     * Get accessible branch warehouses
+     */
+    public function getAccessibleBranchWarehouses()
+    {
+        return $this->getAccessibleWarehousesByType('branch');
+    }
+
+    /**
+     * Get accessible outlet warehouses
+     */
+    public function getAccessibleOutletWarehouses()
+    {
+        return $this->getAccessibleWarehousesByType('outlet');
+    }
+
+    /**
+     * Get accessible branch IDs (array of IDs only)
+     */
+    public function getAccessibleBranchIds(): array
+    {
+        // Super admin gets all
+        if ($this->isSuperAdmin()) {
+            return \App\Models\Branch::pluck('id')->toArray();
         }
 
-        // Untuk central users, return central warehouse
-        if ($this->isCentralUser()) {
-            return Warehouse::central()->first();
+        // Central manager gets all
+        if ($this->isCentralManager()) {
+            return \App\Models\Branch::pluck('id')->toArray();
         }
 
-        return null;
-    }
+        // Others only their branch
+        if ($this->branch_id) {
+            return [$this->branch_id];
+        }
 
-    // ========================================
-    // STATUS METHODS
-    // ========================================
-
-    /**
-     * Check if user is active
-     */
-    public function isActive()
-    {
-        return $this->status === self::STATUS_ACTIVE;
+        return [];
     }
 
     /**
-     * Check if user is suspended
+     * Get accessible branches (Collection of Branch models)
      */
-    public function isSuspended()
+    public function getAccessibleBranches()
     {
-        return $this->status === self::STATUS_SUSPENDED;
+        $branchIds = $this->getAccessibleBranchIds();
+        
+        return \App\Models\Branch::whereIn('id', $branchIds)
+            ->where('status', 'active')
+            ->orderBy('branch_name')
+            ->get();
     }
 
     /**
-     * Activate user
+     * Check if user can access specific warehouse type
      */
-    public function activate()
+    public function canAccessWarehouseType(string $type): bool
     {
-        $this->status = self::STATUS_ACTIVE;
-        $this->save();
-        return $this;
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return match($type) {
+            'central' => $this->isCentralLevel(),
+            'branch' => $this->isCentralLevel() || $this->isBranchLevel(),
+            'outlet' => true, // All authenticated users can access outlet
+            default => false
+        };
     }
 
     /**
-     * Deactivate user
+     * Get user's primary warehouse
      */
-    public function deactivate()
+    public function getPrimaryWarehouse()
     {
-        $this->status = self::STATUS_INACTIVE;
-        $this->save();
-        return $this;
+        return $this->warehouse;
     }
 
     /**
-     * Suspend user
+     * Get user's primary branch
      */
-    public function suspend()
+    public function getPrimaryBranch()
     {
-        $this->status = self::STATUS_SUSPENDED;
-        $this->save();
-        return $this;
-    }
-
-    // ========================================
-    // SCOPES
-    // ========================================
-
-    /**
-     * Scope for active users only
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('status', self::STATUS_ACTIVE);
+        return $this->branch;
     }
 
     /**
-     * Scope for super admins
+     * Check if user has multiple warehouse access
      */
-    public function scopeSuperAdmins($query)
+    public function hasMultipleWarehouseAccess(): bool
     {
-        return $query->where('role', self::ROLE_SUPER_ADMIN);
+        return count($this->getAccessibleWarehouseIds()) > 1;
     }
 
     /**
-     * Scope for central users
+     * Check if user can manage specific warehouse
      */
-    public function scopeCentralUsers($query)
+    public function canManageWarehouse(int $warehouseId): bool
     {
-        return $query->whereIn('role', self::getCentralRoles());
+        // Super admin can manage all
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Central manager can manage all warehouses
+        if ($this->isCentralManager()) {
+            return true;
+        }
+
+        // Branch manager can manage warehouses in their branch
+        if ($this->isBranchManager() && $this->branch_id) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            if ($warehouse && $warehouse->branch_id === $this->branch_id) {
+                return true;
+            }
+        }
+
+        // User can manage their own warehouse
+        return $this->warehouse_id === $warehouseId && $this->isManager();
     }
 
     /**
-     * Scope for branch users
+     * Check if user can view specific warehouse (read-only)
      */
-    public function scopeBranchUsers($query)
+    public function canViewWarehouse(int $warehouseId): bool
     {
-        return $query->whereIn('role', self::getBranchRoles());
+        return $this->hasWarehouseAccess($warehouseId);
     }
 
     /**
-     * Scope for specific branch
+     * Get warehouse access level for specific warehouse
+     * Returns: 'full', 'read-only', or 'none'
      */
-    public function scopeForBranch($query, $branchId)
+    public function getWarehouseAccessLevel(int $warehouseId): string
     {
-        return $query->where('branch_id', $branchId);
-    }
+        if (!$this->hasWarehouseAccess($warehouseId)) {
+            return 'none';
+        }
 
-    /**
-     * Scope for users with warehouse access
-     */
-    public function scopeWithWarehouseAccess($query, $warehouseId)
-    {
-        return $query->where(function($q) use ($warehouseId) {
-            $q->whereJsonContains('warehouse_access', $warehouseId)
-              ->orWhereHas('warehouses', function($warehouseQuery) use ($warehouseId) {
-                  $warehouseQuery->where('warehouses.id', $warehouseId);
-              });
-        });
-    }
+        if ($this->canManageWarehouse($warehouseId)) {
+            return 'full';
+        }
 
-    /**
-     * Scope for search users
-     */
-    public function scopeSearch($query, $search)
-    {
-        return $query->where(function($q) use ($search) {
-            $q->where('username', 'like', "%{$search}%")
-              ->orWhere('full_name', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%")
-              ->orWhere('phone', 'like', "%{$search}%");
-        });
+        return 'read-only';
     }
 
     // ========================================
@@ -676,122 +833,320 @@ class User extends Authenticatable
     // ========================================
 
     /**
-     * Get role name
+     * Get user's role display name
      */
-    public function getRoleName()
+    public function getRoleDisplayName(): string
     {
-        return self::getRoles()[$this->role] ?? 'Unknown';
-    }
-
-    /**
-     * Get status name
-     */
-    public function getStatusName()
-    {
-        return self::getStatuses()[$this->status] ?? 'Unknown';
-    }
-
-    /**
-     * Get role badge untuk UI
-     */
-    public function getRoleBadgeAttribute()
-    {
-        $roleColors = [
-            self::ROLE_SUPER_ADMIN => 'danger',
-            self::ROLE_CENTRAL_ADMIN => 'primary',
-            self::ROLE_CENTRAL_MANAGER => 'info',
-            self::ROLE_WAREHOUSE_MANAGER => 'info',
-            self::ROLE_BRANCH_MANAGER => 'success',
-            self::ROLE_KITCHEN_MANAGER => 'warning',
-            'default' => 'secondary',
-        ];
-
-        $color = $roleColors[$this->role] ?? $roleColors['default'];
-        $roleName = $this->getRoleName();
-
-        return "<span class=\"badge bg-{$color}\">{$roleName}</span>";
-    }
-
-    /**
-     * Get status badge untuk UI
-     */
-    public function getStatusBadgeAttribute()
-    {
-        return match($this->status) {
-            self::STATUS_ACTIVE => '<span class="badge bg-success">Aktif</span>',
-            self::STATUS_INACTIVE => '<span class="badge bg-warning">Tidak Aktif</span>',
-            self::STATUS_SUSPENDED => '<span class="badge bg-danger">Suspended</span>',
-            default => '<span class="badge bg-secondary">Unknown</span>'
+        return match($this->role) {
+            self::ROLE_SUPER_ADMIN => 'Super Admin',
+            self::ROLE_CENTRAL_MANAGER => 'Central Manager',
+            self::ROLE_CENTRAL_STAFF => 'Central Staff',
+            self::ROLE_BRANCH_MANAGER => 'Branch Manager',
+            self::ROLE_BRANCH_STAFF => 'Branch Staff',
+            self::ROLE_OUTLET_MANAGER => 'Outlet Manager',
+            self::ROLE_OUTLET_STAFF => 'Outlet Staff',
+            default => ucfirst(str_replace('_', ' ', $this->role))
         };
     }
 
     /**
-     * Get user context display
+     * Get user's status display name
      */
-    public function getContextDisplayAttribute()
+    public function getStatusDisplayName(): string
     {
-        if ($this->isSuperAdmin()) {
-            return 'System Wide';
-        }
-
-        if ($this->isCentralUser()) {
-            return 'Central Office';
-        }
-
-        if ($this->isBranchUser() && $this->branch) {
-            return $this->branch->branch_name;
-        }
-
-        return 'No Context';
+        return match($this->status) {
+            self::STATUS_ACTIVE => 'Active',
+            self::STATUS_INACTIVE => 'Inactive',
+            default => ucfirst($this->status)
+        };
     }
 
     /**
-     * Get warehouse access display
+     * Get user's status badge class
      */
-    public function getWarehouseAccessDisplayAttribute()
+    public function getStatusBadgeClass(): string
     {
+        return match($this->status) {
+            self::STATUS_ACTIVE => 'bg-success',
+            self::STATUS_INACTIVE => 'bg-danger',
+            default => 'bg-secondary'
+        };
+    }
+
+    // ========================================
+    // SCOPES
+    // ========================================
+
+    /**
+     * Scope to filter active users
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE);
+    }
+
+    /**
+     * Scope to filter inactive users
+     */
+    public function scopeInactive($query)
+    {
+        return $query->where('status', self::STATUS_INACTIVE);
+    }
+
+    /**
+     * Scope to filter by role
+     */
+    public function scopeRole($query, string $role)
+    {
+        return $query->where('role', $role);
+    }
+
+    /**
+     * Scope to filter managers
+     */
+    public function scopeManagers($query)
+    {
+        return $query->whereIn('role', [
+            self::ROLE_CENTRAL_MANAGER,
+            self::ROLE_BRANCH_MANAGER,
+            self::ROLE_OUTLET_MANAGER,
+        ]);
+    }
+
+    /**
+     * Scope to filter staff
+     */
+    public function scopeStaff($query)
+    {
+        return $query->whereIn('role', [
+            self::ROLE_CENTRAL_STAFF,
+            self::ROLE_BRANCH_STAFF,
+            self::ROLE_OUTLET_STAFF,
+        ]);
+    }
+
+    /**
+     * Scope to filter by warehouse
+     */
+    public function scopeWarehouse($query, int $warehouseId)
+    {
+        return $query->where('warehouse_id', $warehouseId);
+    }
+
+    /**
+     * Scope to filter by branch
+     */
+    public function scopeBranch($query, ?int $branchId)
+    {
+        return $query->where('branch_id', $branchId);
+    }
+
+    /**
+     * Check if given warehouse is lower level than user's warehouse
+     * Central > Branch > Outlet
+     * ✅ NEW METHOD
+     */
+    public function isLowerLevelWarehouse(int $warehouseId): bool
+    {
+        // Super admin has no lower level concept
         if ($this->isSuperAdmin()) {
-            return 'All Warehouses';
+            return false;
         }
 
-        $warehouses = $this->getAccessibleWarehouses();
-        return $warehouses->pluck('warehouse_name')->implode(', ') ?: 'No Access';
+        // Get user's warehouse
+        $userWarehouse = $this->warehouse;
+        if (!$userWarehouse) {
+            return false;
+        }
+
+        // Get target warehouse
+        $targetWarehouse = \App\Models\Warehouse::find($warehouseId);
+        if (!$targetWarehouse) {
+            return false;
+        }
+
+        // Define hierarchy levels
+        $hierarchyLevels = [
+            'central' => 3,
+            'branch' => 2,
+            'outlet' => 1,
+        ];
+
+        $userLevel = $hierarchyLevels[$userWarehouse->warehouse_type] ?? 0;
+        $targetLevel = $hierarchyLevels[$targetWarehouse->warehouse_type] ?? 0;
+
+        // Target is lower if its level number is less than user's level
+        return $targetLevel < $userLevel;
     }
 
-    // ========================================
-    // VALIDATION
-    // ========================================
-
-    public static function validationRules($id = null)
+    /**
+     * Check if given warehouse is higher level than user's warehouse
+     * ✅ NEW METHOD
+     */
+    public function isHigherLevelWarehouse(int $warehouseId): bool
     {
-        return [
-            'username' => 'required|string|max:50|unique:users,username,' . $id,
-            'password' => $id ? 'nullable|string|min:8' : 'required|string|min:8',
-            'full_name' => 'required|string|max:100',
-            'role' => 'required|in:' . implode(',', array_keys(self::getRoles())),
-            'branch_id' => 'nullable|exists:branches,id',
-            'email' => 'nullable|email|max:100|unique:users,email,' . $id,
-            'phone' => 'nullable|string|max:20',
-            'status' => 'required|in:' . implode(',', array_keys(self::getStatuses())),
-            'warehouse_access' => 'nullable|array',
-            'warehouse_access.*' => 'exists:warehouses,id'
+        // Super admin has no higher level concept
+        if ($this->isSuperAdmin()) {
+            return false;
+        }
+
+        // Get user's warehouse
+        $userWarehouse = $this->warehouse;
+        if (!$userWarehouse) {
+            return false;
+        }
+
+        // Get target warehouse
+        $targetWarehouse = \App\Models\Warehouse::find($warehouseId);
+        if (!$targetWarehouse) {
+            return false;
+        }
+
+        // Define hierarchy levels
+        $hierarchyLevels = [
+            'central' => 3,
+            'branch' => 2,
+            'outlet' => 1,
         ];
+
+        $userLevel = $hierarchyLevels[$userWarehouse->warehouse_type] ?? 0;
+        $targetLevel = $hierarchyLevels[$targetWarehouse->warehouse_type] ?? 0;
+
+        // Target is higher if its level number is greater than user's level
+        return $targetLevel > $userLevel;
     }
 
-    public static function validationMessages()
+    /**
+     * Check if given warehouse is same level as user's warehouse
+     * ✅ NEW METHOD
+     */
+    public function isSameLevelWarehouse(int $warehouseId): bool
     {
-        return [
-            'username.required' => 'Username wajib diisi',
-            'username.unique' => 'Username sudah digunakan',
-            'password.required' => 'Password wajib diisi',
-            'password.min' => 'Password minimal 8 karakter',
-            'full_name.required' => 'Nama lengkap wajib diisi',
-            'role.required' => 'Role wajib dipilih',
-            'role.in' => 'Role tidak valid',
-            'branch_id.exists' => 'Branch tidak valid',
-            'email.email' => 'Format email tidak valid',
-            'email.unique' => 'Email sudah digunakan',
-            'status.required' => 'Status wajib dipilih'
+        // Super admin has no level concept
+        if ($this->isSuperAdmin()) {
+            return false;
+        }
+
+        // Get user's warehouse
+        $userWarehouse = $this->warehouse;
+        if (!$userWarehouse) {
+            return false;
+        }
+
+        // Get target warehouse
+        $targetWarehouse = \App\Models\Warehouse::find($warehouseId);
+        if (!$targetWarehouse) {
+            return false;
+        }
+
+        return $userWarehouse->warehouse_type === $targetWarehouse->warehouse_type;
+    }
+
+    /**
+     * Get warehouse hierarchy level number
+     * Central = 3, Branch = 2, Outlet = 1
+     * ✅ NEW METHOD
+     */
+    public function getWarehouseLevel(): int
+    {
+        if (!$this->warehouse) {
+            return 0;
+        }
+
+        $hierarchyLevels = [
+            'central' => 3,
+            'branch' => 2,
+            'outlet' => 1,
         ];
+
+        return $hierarchyLevels[$this->warehouse->warehouse_type] ?? 0;
+    }
+
+    /**
+     * Check if user can distribute to given warehouse
+     * Can only distribute to lower level warehouses
+     * ✅ NEW METHOD
+     */
+    public function canDistributeTo(int $warehouseId): bool
+    {
+        // Super admin can distribute anywhere
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Must be manager to distribute
+        if (!$this->isManager()) {
+            return false;
+        }
+
+        // Can only distribute to lower level warehouses
+        return $this->isLowerLevelWarehouse($warehouseId);
+    }
+
+    /**
+     * Check if user can receive from given warehouse
+     * Can only receive from higher level warehouses
+     * ✅ NEW METHOD
+     */
+    public function canReceiveFrom(int $warehouseId): bool
+    {
+        // Super admin can receive from anywhere
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Must be manager to receive
+        if (!$this->isManager()) {
+            return false;
+        }
+
+        // Can only receive from higher level warehouses
+        return $this->isHigherLevelWarehouse($warehouseId);
+    }
+
+    /**
+     * Get warehouses that user can distribute to
+     * ✅ NEW METHOD
+     */
+    public function getDistributableWarehouses()
+    {
+        // Super admin can distribute to all
+        if ($this->isSuperAdmin()) {
+            return \App\Models\Warehouse::where('status', 'ACTIVE')->get();
+        }
+
+        // Get all accessible warehouses
+        $accessibleIds = $this->getAccessibleWarehouseIds();
+        
+        // Filter only lower level warehouses
+        return \App\Models\Warehouse::whereIn('id', $accessibleIds)
+            ->where('status', 'ACTIVE')
+            ->get()
+            ->filter(function ($warehouse) {
+                return $this->isLowerLevelWarehouse($warehouse->id);
+            });
+    }
+
+    /**
+     * Get warehouses that user can receive from
+     * ✅ NEW METHOD
+     */
+    public function getReceivableWarehouses()
+    {
+        // Super admin can receive from all
+        if ($this->isSuperAdmin()) {
+            return \App\Models\Warehouse::where('status', 'ACTIVE')->get();
+        }
+
+        // Get all accessible warehouses
+        $accessibleIds = $this->getAccessibleWarehouseIds();
+        
+        // Filter only higher level warehouses
+        return \App\Models\Warehouse::whereIn('id', $accessibleIds)
+            ->where('status', 'ACTIVE')
+            ->get()
+            ->filter(function ($warehouse) {
+                return $this->isHigherLevelWarehouse($warehouse->id);
+            });
     }
 }
