@@ -217,7 +217,7 @@
                   <td>
                     <strong>{{ $balance->item->item_name ?? '-' }}</strong>
                     <br>
-                    <small class="text-muted">{{ $balance->item->unit_measurement ?? 'Unit' }}</small>
+                    <small class="text-muted">{{ $balance->item->unit ?? 'Unit' }}</small>
                   </td>
                   <td>
                     @if($balance->item->category)

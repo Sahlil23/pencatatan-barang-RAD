@@ -282,7 +282,7 @@
                     </small>
                     @if($transaction->item)
                     <br>
-                    <small class="text-muted">{{ $transaction->item->unit_measurement ?? 'Unit' }}</small>
+                    <small class="text-muted">{{ $transaction->item->unit ?? 'Unit' }}</small>
                     @endif
                   </td>
                   <td class="text-end">

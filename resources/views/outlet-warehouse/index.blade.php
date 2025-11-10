@@ -214,7 +214,7 @@
                     <span class="text-danger fw-semibold">
                       {{ rtrim(rtrim(number_format($ls->closing_stock ?? 0, 3, '.', ','), '0'), '.') }}
                     </span>
-                    <small class="text-muted">{{ $ls->item->unit_measurement ?? '' }}</small>
+                    <small class="text-muted">{{ $ls->item->unit ?? '' }}</small>
                   </td>
                   <td class="text-end">
                     {{ rtrim(rtrim(number_format($ls->item->low_stock_threshold ?? 0, 3, '.', ','), '0'), '.') }}
@@ -280,7 +280,7 @@
                   </td>
                   <td class="text-end">
                     {{ rtrim(rtrim(number_format($dist->quantity ?? 0, 3, '.', ','), '0'), '.') }}
-                    <small class="text-muted">{{ $dist->item->unit_measurement ?? '' }}</small>
+                    <small class="text-muted">{{ $dist->item->unit ?? '' }}</small>
                   </td>
                   <td class="text-center">
                     @php
@@ -357,7 +357,7 @@
                     <span class="{{ $q >= 0 ? 'text-success' : 'text-danger' }} fw-semibold">
                       {{ rtrim(rtrim(number_format($q, 3, '.', ','), '0'), '.') }}
                     </span>
-                    <small class="text-muted">{{ $trx->item->unit_measurement ?? '' }}</small>
+                    <small class="text-muted">{{ $trx->item->unit ?? '' }}</small>
                   </td>
                   <td>
                     <span class="badge bg-label-info">{{ $trx->user->full_name ?? '-' }}</span>

@@ -238,7 +238,7 @@
                                     </td>
                                     <td>
                                         <span class="badge bg-label-secondary">
-                                            {{ $balance->item->unit_measurement ?? 'Unit' }}
+                                            {{ $balance->item->unit ?? 'Unit' }}
                                         </span>
                                     </td>
                                     <td class="text-end">

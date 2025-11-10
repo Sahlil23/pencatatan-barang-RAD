@@ -86,7 +86,7 @@
 </div>
 
 <!-- Warehouse Management Info -->
-<div class="alert alert-info alert-dismissible mb-4" role="alert">
+<!-- <div class="alert alert-info alert-dismissible mb-4" role="alert">
   <h6 class="alert-heading mb-2">
     <i class="bx bx-info-circle me-2"></i>
     Warehouse Management System
@@ -97,7 +97,7 @@
     <strong>Status:</strong> Monitoring kondisi operasional gudang
   </p>
   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
+</div> -->
 
 <!-- Filters and Search -->
 <div class="card mb-4">
@@ -195,7 +195,7 @@
           </th>
           <th class="text-center">
             <i class="bx bx-user me-1"></i>
-            PIC
+            Manager
           </th>
           <!-- <th class="text-center">
             <i class="bx bx-cube me-1"></i>
@@ -266,11 +266,11 @@
           
           <!-- PIC -->
           <td class="text-center">
-            @if($warehouse->pic_name)
+            @if($warehouse->manager_name)
               <div>
-                <span class="fw-bold">{{ $warehouse->pic_name }}</span>
-                @if($warehouse->pic_phone)
-                  <br><small class="text-muted">{{ $warehouse->pic_phone }}</small>
+                <span class="fw-bold">{{ $warehouse->manager_name }}</span>
+                @if($warehouse->phone)
+                  <br><small class="text-muted">{{ $warehouse->phone }}</small>
                 @endif
               </div>
             @else
@@ -612,16 +612,6 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 /* Table responsive enhancements */
-@media (max-width: 768px) {
-  .table-responsive {
-    font-size: 0.875rem;
-  }
-  
-  .avatar-initial {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-  }
-}
+/* w */
 </style>
 @endpush

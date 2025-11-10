@@ -92,7 +92,7 @@
                           data-name="{{ $stockItem->item->item_name ?? '' }}"
                           data-sku="{{ $stockItem->item->sku ?? '' }}"
                           data-stock="{{ $stockItem->closing_stock }}"
-                          data-unit="{{ $stockItem->item->unit_measurement ?? 'Unit' }}"
+                          data-unit="{{ $stockItem->item->unit ?? 'Unit' }}"
                           @selected(old('item_id') == $stockItem->item_id)>
                     {{ $stockItem->item->sku ?? '' }} - {{ $stockItem->item->item_name ?? '' }} 
                     (Stock: {{ number_format($stockItem->closing_stock, 2) }})

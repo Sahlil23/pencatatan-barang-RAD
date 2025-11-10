@@ -113,7 +113,7 @@
                         <select class="form-select item-select" name="items[0][item_id]" required onchange="updateItemInfo(this, 0)">
                           <option value="">Pilih Item</option>
                           @foreach($items as $item)
-                          <option value="{{ $item->id }}" data-unit="{{ $item->unit_measurement ?? 'Unit' }}" data-cost="{{ $item->unit_cost ?? 0 }}">
+                          <option value="{{ $item->id }}" data-unit="{{ $item->unit ?? 'Unit' }}" data-cost="{{ $item->unit_cost ?? 0 }}">
                             {{ $item->sku }} - {{ $item->item_name }}
                           </option>
                           @endforeach
@@ -203,7 +203,7 @@ function addItemRow() {
             <select class="form-select item-select" name="items[${rowIndex}][item_id]" required onchange="updateItemInfo(this, ${rowIndex})">
                 <option value="">Pilih Item</option>
                 @foreach($items as $item)
-                <option value="{{ $item->id }}" data-unit="{{ $item->unit_measurement ?? 'Unit' }}" data-cost="{{ $item->unit_cost ?? 0 }}">
+                <option value="{{ $item->id }}" data-unit="{{ $item->unit ?? 'Unit' }}" data-cost="{{ $item->unit_cost ?? 0 }}">
                     {{ $item->sku }} - {{ $item->item_name }}
                 </option>
                 @endforeach

@@ -4,7 +4,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Warehouse;
-use App\Models\BranchStockTransaction;
+use App\Models\BranchStockTransaction;  
 use App\Models\BranchWarehouseMonthlyBalance;
 use App\Models\Item;
 use App\Models\Branch;
@@ -261,7 +261,7 @@ class BranchWarehouseController extends Controller
             $stockBalance = BranchWarehouseMonthlyBalance::where('warehouse_id', $warehouseId)
                 ->where('month', $currentMonth)
                 ->where('year', $currentYear)
-                ->with('item:id,sku,item_name,unit_measurement')
+                ->with('item:id,sku,item_name,unit')
                 ->get();
 
             return response()->json([
@@ -308,9 +308,9 @@ class BranchWarehouseController extends Controller
                 ->paginate(10);
 
             // Get all active items
-            $items = Item::where('is_active', true)
+            $items = Item::where('status', 'ACTIVE')
                 ->orderBy('item_name')
-                ->get(['id', 'sku', 'item_name', 'unit_measurement']);
+                ->get(['id', 'sku', 'item_name', 'unit']);
 
             $commonData = $this->getCommonViewData($request);
 
@@ -332,7 +332,7 @@ class BranchWarehouseController extends Controller
     public function storeReceiveStock(Request $request, $warehouseId)
     {
         // Validate access
-        $this->validateWarehouseAccess($warehouseId, true);
+        $this->validateBranchAccess($warehouseId, true);
 
         $validator = Validator::make($request->all(), [
             'transaction_date' => 'required|date',
@@ -402,18 +402,21 @@ class BranchWarehouseController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('receive_stock', 'BranchStockTransaction', null, [
-                    'warehouse_id' => $warehouseId,
-                    'reference_no' => $referenceNo,
-                    'total_items' => $successCount
-                ]);
+                // $this->logActivity('receive_stock', 'BranchStockTransaction', null, [
+                //     'warehouse_id' => $warehouseId,
+                //     'reference_no' => $referenceNo,
+                //     'total_items' => $successCount
+                // ]);
 
                 return [
                     'reference_no' => $referenceNo,
-                    'total_items' => $successCount
+                    'success_count' => $successCount
                 ];
             },
-            $successCount . ' items received successfully. Reference: ' . ($referenceNo ?? ''),
+            // ✅ FIX: Use callback function instead of direct variable
+            function($result) {
+                return $result['success_count'] . ' items received successfully. Reference: ' . $result['reference_no'];
+            },
             'Failed to receive stock'
         );
     }
@@ -566,20 +569,23 @@ class BranchWarehouseController extends Controller
                 $balance->save();
 
                 // Log activity
-                $this->logActivity('stock_adjustment', 'BranchStockTransaction', $transaction->id, [
-                    'warehouse_id' => $warehouseId,
-                    'item_id' => $request->item_id,
-                    'type' => $request->adjustment_type,
-                    'quantity' => $request->quantity,
-                    'reference_no' => $referenceNo
-                ]);
+                // $this->logActivity('stock_adjustment', 'BranchStockTransaction', $transaction->id, [
+                //     'warehouse_id' => $warehouseId,
+                //     'item_id' => $request->item_id,
+                //     'type' => $request->adjustment_type,
+                //     'quantity' => $request->quantity,
+                //     'reference_no' => $referenceNo
+                // ]);
 
                 return [
                     'reference_no' => $referenceNo,
                     'adjustment_type' => $request->adjustment_type
                 ];
             },
-            'Stock adjusted successfully. Reference: ' . ($referenceNo ?? ''),
+            // ✅ FIX: Use callback function
+            function($result) {
+                return 'Stock adjusted successfully. Reference: ' . $result['reference_no'];
+            },
             'Failed to adjust stock'
         );
     }
@@ -786,13 +792,13 @@ class BranchWarehouseController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('stock_distribution', 'BranchStockTransaction', null, [
-                    'warehouse_id' => $warehouseId,
-                    'outlet_id' => $request->outlet_id,
-                    'reference_no' => $referenceNo,
-                    'success_count' => $successCount,
-                    'errors' => $errors
-                ]);
+                // $this->logActivity('stock_distribution', 'BranchStockTransaction', null, [
+                //     'warehouse_id' => $warehouseId,
+                //     'outlet_id' => $request->outlet_id,
+                //     'reference_no' => $referenceNo,
+                //     'success_count' => $successCount,
+                //     'errors' => $errors
+                // ]);
 
                 return [
                     'reference_no' => $referenceNo,
@@ -801,7 +807,16 @@ class BranchWarehouseController extends Controller
                     'errors' => $errors
                 ];
             },
-            $successCount . ' items distributed successfully to ' . ($outlet->warehouse_name ?? '') . '. Reference: ' . ($referenceNo ?? ''),
+            function($result) {
+                // ✅ FIX: Success message menggunakan $result dari closure
+                $message = $result['success_count'] . ' items distributed successfully to ' . $result['outlet_name'] . '. Reference: ' . $result['reference_no'];
+                
+                if (!empty($result['errors'])) {
+                    $message .= "\n\nWarnings:\n" . implode("\n", $result['errors']);
+                }
+                
+                return $message;
+            },
             'Failed to distribute stock'
         );
     }

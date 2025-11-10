@@ -96,6 +96,9 @@
                 <option value="branch" {{ old('warehouse_type', $warehouse->warehouse_type) == 'branch' ? 'selected' : '' }}>
                   Branch Warehouse
                 </option>
+                <option value="outlet" {{ old('warehouse_type', $warehouse->warehouse_type) == 'outlet' ? 'selected' : '' }}>
+                  Outlet Warehouse
+                </option>
               </select>
               @error('warehouse_type')
                 <div class="invalid-feedback">{{ $message }}</div>

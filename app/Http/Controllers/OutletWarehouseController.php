@@ -396,18 +396,28 @@ class OutletWarehouseController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('receive_stock', 'OutletStockTransaction', null, [
-                    'warehouse_id' => $warehouseId,
-                    'success_count' => $successCount,
-                    'errors' => $errors
-                ]);
+                // $this->logActivity('receive_stock', 'OutletStockTransaction', null, [
+                //     'warehouse_id' => $warehouseId,
+                //     'success_count' => $successCount,
+                //     'errors' => $errors
+                // ]);
 
                 return [
+                    'warehouse_name' => $warehouse->warehouse_name,
                     'success_count' => $successCount,
                     'errors' => $errors
                 ];
             },
-            "✅ Successfully received {$successCount} items" . (!empty($errors) ? " | ⚠️ " . implode(', ', $errors) : ''),
+            // ✅ FIX: Use callback function
+            function($result) {
+                $message = "✅ Successfully received {$result['success_count']} items";
+                
+                if (!empty($result['errors'])) {
+                    $message .= " | ⚠️ " . implode(', ', $result['errors']);
+                }
+                
+                return $message;
+            },
             '❌ Failed to receive stock'
         );
     }
@@ -520,12 +530,12 @@ class OutletWarehouseController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('stock_adjustment', 'OutletStockTransaction', $transaction->id, [
-                    'warehouse_id' => $warehouseId,
-                    'item_id' => $request->item_id,
-                    'type' => $request->adjustment_type,
-                    'quantity' => $request->quantity
-                ]);
+                // $this->logActivity('stock_adjustment', 'OutletStockTransaction', $transaction->id, [
+                //     'warehouse_id' => $warehouseId,
+                //     'item_id' => $request->item_id,
+                //     'type' => $request->adjustment_type,
+                //     'quantity' => $request->quantity
+                // ]);
 
                 return $transaction;
             },
@@ -710,20 +720,30 @@ class OutletWarehouseController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('distribute_to_kitchen', 'OutletStockTransaction', null, [
-                    'warehouse_id' => $warehouseId,
-                    'reference_no' => $referenceNo,
-                    'success_count' => $successCount,
-                    'errors' => $errors
-                ]);
+                // $this->logActivity('distribute_to_kitchen', 'OutletStockTransaction', null, [
+                //     'warehouse_id' => $warehouseId,
+                //     'reference_no' => $referenceNo,
+                //     'success_count' => $successCount,
+                //     'errors' => $errors
+                // ]);
 
                 return [
+                    'warehouse_name' => $warehouse->warehouse_name,
                     'reference_no' => $referenceNo,
                     'success_count' => $successCount,
                     'errors' => $errors
                 ];
             },
-            "{$successCount} items distributed successfully to kitchen. Reference: " . ($referenceNo ?? ''),
+            // ✅ FIX: Use callback function to access $result
+            function($result) {
+                $message = "{$result['success_count']} items distributed successfully to kitchen. Reference: {$result['reference_no']}";
+                
+                if (!empty($result['errors'])) {
+                    $message .= "\n\nWarnings:\n" . implode("\n", $result['errors']);
+                }
+                
+                return $message;
+            },
             'Failed to distribute to kitchen'
         );
     }
@@ -745,19 +765,38 @@ class OutletWarehouseController extends Controller
             // Validate access
             $this->validateWarehouseAccess($warehouseId);
 
+            // ✅ Get date range from request or use defaults
+            $startDate = $request->input('start_date', now()->subDays(30)->format('Y-m-d'));
+            $endDate = $request->input('end_date', now()->format('Y-m-d'));
+
             // Build query
             $transactionsQuery = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
                 ->with(['item', 'user'])
-                ->orderBy('transaction_date', 'desc');
+                ->orderBy('transaction_date', 'desc')
+                ->orderBy('created_at', 'desc');
 
-            // Apply date range filter
-            $transactionsQuery = $this->applyDateRangeFilter($transactionsQuery, $request, 'transaction_date', 30);
+            // ✅ Apply date range filter manually
+            if ($startDate) {
+                $transactionsQuery->whereDate('transaction_date', '>=', $startDate);
+            }
+            if ($endDate) {
+                $transactionsQuery->whereDate('transaction_date', '<=', $endDate);
+            }
+
+            // ✅ Apply transaction type filter
+            if ($request->filled('type')) {
+                $transactionsQuery->where('transaction_type', $request->type);
+            }
 
             // Apply search filter
-            $transactionsQuery = $this->applySearchFilter($transactionsQuery, $request, [
-                'reference_no',
-                'notes'
-            ]);
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $transactionsQuery->where(function($q) use ($search) {
+                    $q->where('reference_no', 'LIKE', "%{$search}%")
+                      ->orWhere('document_no', 'LIKE', "%{$search}%")
+                      ->orWhere('notes', 'LIKE', "%{$search}%");
+                });
+            }
 
             $perPage = $this->getPerPage($request, 50);
             $transactions = $transactionsQuery->paginate($perPage);
@@ -766,7 +805,9 @@ class OutletWarehouseController extends Controller
 
             return view('outlet-warehouse.transactions', array_merge($commonData, [
                 'warehouse' => $warehouse,
-                'transactions' => $transactions
+                'transactions' => $transactions,
+                'startDate' => $startDate,     
+                'endDate' => $endDate,         
             ]));
 
         } catch (\Exception $e) {
@@ -791,14 +832,14 @@ class OutletWarehouseController extends Controller
                 ->where('month', $currentMonth)
                 ->where('year', $currentYear)
                 ->where('closing_stock', '>', 0)
-                ->with('item:id,sku,item_name,unit_measurement,unit_cost')
+                ->with('item:id,sku,item_name,unit,unit_cost')
                 ->get()
                 ->map(function($balance) {
                     return [
                         'item_id' => $balance->item_id,
                         'item_name' => $balance->item->item_name,
                         'sku' => $balance->item->sku,
-                        'unit' => $balance->item->unit_measurement,
+                        'unit' => $balance->item->unit,
                         'available_stock' => rtrim(rtrim(number_format($balance->closing_stock, 3, '.', ','), '0'), '.'),
                         'unit_cost' => $balance->item->unit_cost,
                     ];

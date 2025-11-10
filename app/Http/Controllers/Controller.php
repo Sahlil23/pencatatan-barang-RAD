@@ -6,10 +6,14 @@ namespace App\Http\Controllers;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Http\Request;
-use App\Models\{Branch, Warehouse, User};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Validator;
+use Illuminate\Http\Request; 
+use App\Models\User; 
+use App\Models\Warehouse;
+use App\Models\Branch;
 
 abstract class Controller extends BaseController
 {
@@ -44,9 +48,9 @@ abstract class Controller extends BaseController
      *
      * @return bool
      */
-    protected function isCentralUser(): bool
+    protected function isCentralLevel(): bool
     {
-        return $this->currentUser()->isCentralUser();
+        return $this->currentUser()->isCentralLevel();
     }
 
     /**
@@ -137,7 +141,7 @@ abstract class Controller extends BaseController
         }
 
         // Super Admin/Central: from last context or first branch
-        if ($user->isSuperAdmin() || $user->isCentralUser()) {
+        if ($user->isSuperAdmin() || $user->isCentralLevel()) {
             // From user's last context
             if ($user->last_branch_context) {
                 $branchId = (int) $user->last_branch_context;
@@ -195,7 +199,7 @@ abstract class Controller extends BaseController
         session(['current_branch_id' => $branchId]);
 
         // Update user's last context (for next login)
-        if ($user->isSuperAdmin() || $user->isCentralUser()) {
+        if ($user->isSuperAdmin() || $user->isCentralLevel()) {
             $user->last_branch_context = $branchId;
             $user->save();
         }
@@ -575,59 +579,110 @@ abstract class Controller extends BaseController
     // ========================================
 
     /**
-     * Execute database transaction with try-catch
-     *
-     * @param  callable  $callback
-     * @param  string  $successMessage
-     * @param  string  $errorMessage
-     * @return mixed
+     * Execute database transaction with error handling
+     * 
+     * @param callable $callback The transaction callback
+     * @param string|callable $successMessage Success message (string or callback that receives $result)
+     * @param string $errorMessage Error message
+     * @return \Illuminate\Http\RedirectResponse
      */
-    protected function executeTransaction(callable $callback, string $successMessage = 'Operation completed successfully', string $errorMessage = 'Operation failed')
-    {
+    protected function executeTransaction(
+        callable $callback, 
+        $successMessage = 'Operation completed successfully', 
+        string $errorMessage = 'Operation failed'
+    ) {
         try {
             DB::beginTransaction();
-
+            
+            // Execute callback and get result
             $result = $callback();
-
+            
             DB::commit();
-
-            return $this->successResponse($successMessage, $result);
-
+            
+            // ✅ Support both string and callback for success message
+            if (is_callable($successMessage)) {
+                $successMessage = $successMessage($result);
+            }
+            
+            return redirect()->back()->with('success', $successMessage);
+            
         } catch (\Exception $e) {
             DB::rollBack();
-
+            
             Log::error($errorMessage . ': ' . $e->getMessage(), [
-                'user_id' => $this->currentUser()->id,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
-
-            return $this->errorResponse($errorMessage . ': ' . $e->getMessage(), 500);
+            
+            $errorMsg = $errorMessage . ': ' . $e->getMessage();
+            
+            // If in debug mode, show full error
+            if (config('app.debug')) {
+                $errorMsg .= " (Line {$e->getLine()} in {$e->getFile()})";
+            }
+            
+            return redirect()->back()
+                ->with('error', $errorMsg)
+                ->withInput();
         }
     }
 
     /**
-     * Log user activity
-     *
-     * @param  string  $action
-     * @param  string  $model
-     * @param  int|null  $modelId
-     * @param  array  $data
-     * @return void
+     * Execute database transaction and return JSON response
+     * 
+     * @param callable $callback The transaction callback
+     * @param string|callable $successMessage Success message (string or callback that receives $result)
+     * @param string $errorMessage Error message
+     * @param int $successCode HTTP status code for success (default: 200)
+     * @return \Illuminate\Http\JsonResponse
      */
-    protected function logActivity(string $action, string $model, ?int $modelId = null, array $data = []): void
-    {
-        // You can implement activity logging here
-        // Example: using spatie/laravel-activitylog or custom implementation
-
-        Log::info("User Activity: {$action}", [
-            'user_id' => $this->currentUser()->id,
-            'username' => $this->currentUser()->username,
-            'model' => $model,
-            'model_id' => $modelId,
-            'data' => $data,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
-        ]);
+    protected function executeTransactionJson(
+        callable $callback,
+        $successMessage = 'Operation completed successfully',
+        string $errorMessage = 'Operation failed',
+        int $successCode = 200
+    ) {
+        try {
+            DB::beginTransaction();
+            
+            // Execute callback and get result
+            $result = $callback();
+            
+            DB::commit();
+            
+            // ✅ Support both string and callback for success message
+            if (is_callable($successMessage)) {
+                $successMessage = $successMessage($result);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => $successMessage,
+                'data' => $result
+            ], $successCode);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error($errorMessage . ': ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $errorMsg = $errorMessage . ': ' . $e->getMessage();
+            
+            // If in debug mode, show full error
+            if (config('app.debug')) {
+                $errorMsg .= " (Line {$e->getLine()} in {$e->getFile()})";
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => $errorMsg
+            ], 500);
+        }
     }
 
     // ========================================

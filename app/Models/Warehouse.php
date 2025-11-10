@@ -24,6 +24,11 @@ class Warehouse extends Model
         'status',
         'notes',
         'settings',
+        'manager_name',
+        'email',
+        'capacity_m2',
+        'coverage_area',
+        'capacity_volume'
     ];
 
     protected $casts = [

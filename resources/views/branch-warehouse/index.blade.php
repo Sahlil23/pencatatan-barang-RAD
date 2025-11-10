@@ -171,7 +171,7 @@
         <i class="bx bx-download me-1"></i>
         Export CSV
       </button>
-      <a href="#" class="btn btn-primary">
+      <a href="{{ route('warehouses.create') }}" class="btn btn-primary">
         <i class="bx bx-plus me-1"></i>
         Tambah Warehouse
       </a>

@@ -285,7 +285,7 @@
                   <span class="badge bg-label-{{ $statusColor }} fw-bold">
                     {{ number_format($closingStock, 2) }}
                   </span>
-                  <br><small class="text-muted">{{ $balance->item->unit_measurement ?? 'Unit' }}</small>
+                  <br><small class="text-muted">{{ $balance->item->unit ?? 'Unit' }}</small>
                 </div>
               </td>
 

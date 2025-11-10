@@ -134,7 +134,7 @@
                           <option value="">Pilih Item</option>
                           @foreach($items as $item)
                           <option value="{{ $item->id }}" 
-                                  data-unit="{{ $item->unit_measurement ?? 'Unit' }}" 
+                                  data-unit="{{ $item->unit ?? 'Unit' }}" 
                                   data-cost="{{ $item->unit_cost ?? 0 }}"
                                   data-sku="{{ $item->sku }}">
                             {{ $item->sku }} - {{ $item->item_name }}
@@ -253,7 +253,7 @@ function addItemRow() {
                 <option value="">Pilih Item</option>
                 @foreach($items as $item)
                 <option value="{{ $item->id }}" 
-                        data-unit="{{ $item->unit_measurement ?? 'Unit' }}" 
+                        data-unit="{{ $item->unit ?? 'Unit' }}" 
                         data-cost="{{ $item->unit_cost ?? 0 }}"
                         data-sku="{{ $item->sku }}">
                     {{ $item->sku }} - {{ $item->item_name }}

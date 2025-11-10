@@ -321,12 +321,12 @@ class KitchenStockController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('kitchen_receive', 'KitchenStockTransaction', null, [
-                    'branch_id' => $branchId,
-                    'source_type' => $sourceType,
-                    'count' => count($createdTransactions),
-                    'errors' => $errors
-                ]);
+                // $this->logActivity('kitchen_receive', 'KitchenStockTransaction', null, [
+                //     'branch_id' => $branchId,
+                //     'source_type' => $sourceType,
+                //     'count' => count($createdTransactions),
+                //     'errors' => $errors
+                // ]);
 
                 return [
                     'count' => count($createdTransactions),
@@ -461,11 +461,11 @@ class KitchenStockController extends Controller
                 }
 
                 // Log activity
-                $this->logActivity('kitchen_usage', 'KitchenStockTransaction', null, [
-                    'branch_id' => $branchId,
-                    'count' => count($createdUsages),
-                    'errors' => $errors
-                ]);
+                // $this->logActivity('kitchen_usage', 'KitchenStockTransaction', null, [
+                //     'branch_id' => $branchId,
+                //     'count' => count($createdUsages),
+                //     'errors' => $errors
+                // ]);
 
                 return [
                     'count' => count($createdUsages),
@@ -570,12 +570,12 @@ class KitchenStockController extends Controller
                 );
 
                 // Log activity
-                $this->logActivity('kitchen_adjustment', 'KitchenStockTransaction', $transaction->id, [
-                    'branch_id' => $branchId,
-                    'item_id' => $request->item_id,
-                    'type' => $request->adjustment_type,
-                    'quantity' => $request->quantity
-                ]);
+                // $this->logActivity('kitchen_adjustment', 'KitchenStockTransaction', $transaction->id, [
+                //     'branch_id' => $branchId,
+                //     'item_id' => $request->item_id,
+                //     'type' => $request->adjustment_type,
+                //     'quantity' => $request->quantity
+                // ]);
 
                 $item = Item::find($request->item_id);
                 $action = $request->adjustment_type === 'IN' ? 'increased' : 'decreased';

@@ -196,12 +196,12 @@ class UserController extends Controller
                     $user = User::create($validated);
 
                     // Log activity
-                    $this->logActivity('create_user', 'User', $user->id, [
-                        'username' => $user->username,
-                        'role' => $user->role,
-                        'warehouse_id' => $user->warehouse_id,
-                        'branch_id' => $user->branch_id
-                    ]);
+                    // $this->logActivity('create_user', 'User', $user->id, [
+                    //     'username' => $user->username,
+                    //     'role' => $user->role,
+                    //     'warehouse_id' => $user->warehouse_id,
+                    //     'branch_id' => $user->branch_id
+                    // ]);
 
                     return $user;
                 },
@@ -368,10 +368,10 @@ class UserController extends Controller
                     $user->update($validated);
 
                     // Log activity
-                    $this->logActivity('update_user', 'User', $user->id, [
-                        'old' => $oldData,
-                        'new' => $validated
-                    ]);
+                    // $this->logActivity('update_user', 'User', $user->id, [
+                    //     'old' => $oldData,
+                    //     'new' => $validated
+                    // ]);
 
                     return $user;
                 },
@@ -419,7 +419,7 @@ class UserController extends Controller
                     $user->delete();
 
                     // Log activity
-                    $this->logActivity('delete_user', 'User', $userId, $userData);
+                    // $this->logActivity('delete_user', 'User', $userId, $userData);
 
                     return true;
                 },
@@ -474,7 +474,7 @@ class UserController extends Controller
                 $user->save();
 
                 // Log activity
-                $this->logActivity('change_password', 'User', $user->id);
+                // $this->logActivity('change_password', 'User', $user->id);
 
                 return true;
             },
@@ -524,9 +524,9 @@ class UserController extends Controller
                 $user->save();
 
                 // Log activity
-                $this->logActivity('reset_password', 'User', $user->id, [
-                    'reset_by' => $this->currentUser()->username
-                ]);
+                // $this->logActivity('reset_password', 'User', $user->id, [
+                //     'reset_by' => $this->currentUser()->username
+                // ]);
 
                 return true;
             },
@@ -567,11 +567,11 @@ class UserController extends Controller
                 $user->save();
 
                 // Log activity
-                $this->logActivity('change_status', 'User', $user->id, [
-                    'old_status' => $oldStatus,
-                    'new_status' => $request->status,
-                    'changed_by' => $this->currentUser()->username
-                ]);
+                // $this->logActivity('change_status', 'User', $user->id, [
+                //     'old_status' => $oldStatus,
+                //     'new_status' => $request->status,
+                //     'changed_by' => $this->currentUser()->username
+                // ]);
 
                 return true;
             },
