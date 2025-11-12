@@ -463,7 +463,7 @@ abstract class Controller extends BaseController
     /**
      * Return error response (JSON or redirect)
      *
-     * @param  string  $message
+     * @param  string  $messagef
      * @param  int  $statusCode
      * @param  array  $errors
      * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse

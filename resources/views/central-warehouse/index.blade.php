@@ -386,13 +386,19 @@
           <!-- Actions -->
           <td class="text-center">
             <div class="btn-group" role="group">
-              <a href="{{ route('central-warehouse.show', $balance->id) }}" class="btn btn-sm btn-info" title="View Details">
+              <a href="{{ route('central-warehouse.show', $balance->id) }}" 
+                class="btn btn-sm btn-info" 
+                title="View Details">
                 <i class="bx bx-show"></i>
               </a>
-              <a href="{{ route('central-warehouse.adjust-stock', $balance->id) }}" class="btn btn-sm btn-primary" title="Adjust Stock">
+              <a href="{{ route('central-warehouse.adjust-stock', $balance->id) }}" 
+                class="btn btn-sm btn-primary" 
+                title="Adjust Stock">
                 <i class="bx bx-edit-alt"></i>
               </a>
-              <a href="{{ route('central-warehouse.distribute-stock', $balance->id) }}" class="btn btn-sm btn-success" title="Distribute">
+              <a href="{{ route('central-warehouse.distribute-stock-item', $balance->id) }}" 
+                class="btn btn-sm btn-success" 
+                title="Distribute">
                 <i class="bx bx-share"></i>
               </a>
             </div>

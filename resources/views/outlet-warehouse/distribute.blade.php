@@ -248,18 +248,17 @@ document.addEventListener('DOMContentLoaded', function() {
       submitBtn.disabled = checked === 0;
     }
   }
-
-  // ✅ FIX: Form validation - Don't prevent submit if valid
+  
   if (form) {
     form.addEventListener('submit', function(e) {
-      console.log('Form submit triggered'); // ✅ Debug log
+      e.preventDefault();
+      console.log('=== FORM SUBMIT STARTED ===');
       
       const checkedItems = document.querySelectorAll('.item-checkbox:checked');
       
       // Validate: At least 1 item selected
       if (checkedItems.length === 0) {
-        e.preventDefault();
-        alert('Pilih minimal 1 item untuk didistribusikan!');
+        alert('❌ Pilih minimal 1 item untuk didistribusikan!');
         console.log('Validation failed: No items selected');
         return false;
       }
@@ -284,29 +283,50 @@ document.addEventListener('DOMContentLoaded', function() {
       });
 
       if (!valid) {
-        e.preventDefault();
-        alert('Isi quantity untuk semua item yang dipilih!\n\nItem yang belum diisi:\n' + invalidItems.join('\n'));
+        alert('❌ Isi quantity untuk semua item yang dipilih!\n\nItem yang belum diisi:\n' + invalidItems.join('\n'));
         console.log('Validation failed: Invalid quantities', invalidItems);
         return false;
       }
 
+      // ✅ FIX: Remove unchecked rows from form submission
+      console.log('Removing unchecked items from submission...');
+      const uncheckedCheckboxes = document.querySelectorAll('.item-checkbox:not(:checked)');
+      
+      uncheckedCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        
+        // Remove all inputs in unchecked rows
+        row.querySelectorAll('input, select, textarea').forEach(input => {
+          input.remove();
+        });
+      });
+
+      // ✅ Debug: Log remaining form data
+      const formData = new FormData(this);
+      console.log('=== FORM DATA TO BE SENT ===');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, '=', value);
+      }
+      console.log('Total entries:', Array.from(formData.entries()).length);
+
       // ✅ Confirm before submit
       const confirmMsg = `Kirim ${checkedItems.length} item ke kitchen?\n\nPastikan data sudah benar!`;
       if (!confirm(confirmMsg)) {
-        e.preventDefault();
         console.log('User cancelled submission');
+        location.reload(); // Reload to restore removed inputs
         return false;
       }
 
-      // ✅ Disable submit button to prevent double-click
+      // ✅ Disable submit button
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Mengirim...';
       }
 
-      // ✅ Let form submit naturally (don't prevent default here)
-      console.log('Form validation passed, submitting...');
-      // return true; // Let it submit
+      console.log('Submitting form...');
+      
+      // ✅ Submit form
+      this.submit();
     });
   }
 

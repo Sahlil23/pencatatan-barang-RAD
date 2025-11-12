@@ -166,7 +166,6 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
     Route::prefix('central-warehouse')->name('central-warehouse.')->group(function () {
         // Dashboard & View
         Route::get('/', [CentralWarehouseController::class, 'index'])->name('index');
-        Route::get('/{balance}', [CentralWarehouseController::class, 'show'])->name('show');
         Route::get('/transactions/list', [CentralWarehouseController::class, 'transactions'])
             ->name('transactions');
         
@@ -176,17 +175,26 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
         Route::post('/receive-stock', [CentralWarehouseController::class, 'storeReceipt'])
             ->name('store-receipt');
         
-        // Stock Adjustment
+        // Stock Distribution 
+        Route::get('/distribute/create', [CentralWarehouseController::class, 'distributeStock'])
+            ->name('distribute-stock'); // Without specific item
+        Route::post('/distribute/store', [CentralWarehouseController::class, 'storeDistribution'])
+            ->name('store-distribution'); // General distribution
+        
+        // Stock Adjustment (specific item)
         Route::get('/{balance}/adjust', [CentralWarehouseController::class, 'adjustStock'])
             ->name('adjust-stock');
         Route::post('/{balance}/adjust', [CentralWarehouseController::class, 'storeAdjustment'])
             ->name('store-adjustment');
         
-        // Stock Distribution
+        // Stock Distribution (specific item)
         Route::get('/{balance}/distribute', [CentralWarehouseController::class, 'distributeStock'])
-            ->name('distribute-stock');
+            ->name('distribute-stock-item'); // From specific item
         Route::post('/{balance}/distribute', [CentralWarehouseController::class, 'storeDistribution'])
-            ->name('store-distribution');
+            ->name('store-distribution-item'); // From specific item
+        
+        // View Balance Details
+        Route::get('/{balance}/detail', [CentralWarehouseController::class, 'show'])->name('show');
         
         // Cancel Transaction
         Route::post('/transactions/{transaction}/cancel', [CentralWarehouseController::class, 'cancelTransaction'])
@@ -208,7 +216,17 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
         Route::get('/{id}', [BranchWarehouseController::class, 'show'])->name('show');
         Route::get('/{id}/current-stock', [BranchWarehouseController::class, 'getCurrentStock'])
             ->name('current-stock');
-        
+              
+        // ✅ Approval routes 
+        Route::get('/{id}/pending-distributions', [BranchWarehouseController::class, 'pendingDistributions'])
+            ->name('pending-distributions');
+        Route::post('/approve-distribution', [BranchWarehouseController::class, 'approveDistribution'])
+            ->name('approve-distribution');
+        Route::post('/reject-distribution', [BranchWarehouseController::class, 'rejectDistribution'])
+            ->name('reject-distribution');
+        Route::post('/distribution/{id}/partial-approve', [BranchWarehouseController::class, 'partialApproveDistribution'])
+            ->name('partial-approve-distribution');
+                
         // Receive Stock
         Route::get('/{id}/receive-stock', [BranchWarehouseController::class, 'showReceiveStockForm'])
             ->name('receive-form');
@@ -243,7 +261,6 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
         // Dashboard
         Route::get('/', [OutletWarehouseController::class, 'index'])->name('index');
         Route::get('/{warehouseId}/detail', [OutletWarehouseController::class, 'show'])->name('show');
-        
         // Stock Management
         Route::prefix('{warehouseId}')->group(function () {
             // Receive from Branch

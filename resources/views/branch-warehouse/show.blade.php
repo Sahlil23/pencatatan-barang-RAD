@@ -53,7 +53,12 @@
                 <i class="bx bx-cog me-1"></i>
                 Actions
               </button>
-              <div class="dropdown-menu dropdown-menu-end">
+            <div class="dropdown-menu dropdown-menu-end">
+                  <a class="dropdown-item text-warning" href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}">
+                    <i class="bx bx-time-five me-1"></i>
+                    Pending Distributions
+                  </a>  
+                  <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="{{ route('branch-warehouse.receive-form', $warehouse->id) }}">
                   <i class="bx bx-import me-1"></i>
                   Terima Stock
@@ -181,6 +186,149 @@
 
 <!-- Main Content Row -->
 <div class="row">
+  <!-- Pending Distributions Section -->
+  <!-- @if(isset($pendingDistributions) && $pendingDistributions->count() > 0) -->
+  <div class="col-12 mb-4">
+    <div class="card border-warning">
+      <div class="card-header bg-label-warning d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+          <i class="bx bx-time-five me-2"></i>
+          Pending Distributions
+          <span class="badge bg-warning">{{ $pendingDistributions->count() }} pending</span>
+        </h5>
+        <a href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}" class="btn btn-warning btn-sm">
+          <i class="bx bx-list-ul me-1"></i>
+          View All Pending
+        </a>
+      </div>
+
+      <div class="alert alert-warning m-3 mb-0">
+        <i class="bx bx-info-circle me-2"></i>
+        <strong>Action Required:</strong> You have {{ $pendingDistributions->count() }} distribution(s) waiting for approval or rejection.
+      </div>
+
+      <div class="table-responsive text-nowrap">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>
+                <i class="bx bx-calendar me-1"></i>
+                Date
+              </th>
+              <th>
+                <i class="bx bx-receipt me-1"></i>
+                Reference
+              </th>
+              <th>
+                <i class="bx bx-building me-1"></i>
+                From
+              </th>
+              <th>
+                <i class="bx bx-box me-1"></i>
+                Item
+              </th>
+              <th class="text-center">
+                <i class="bx bx-package me-1"></i>
+                Quantity
+              </th>
+              <th class="text-center">
+                <i class="bx bx-flag me-1"></i>
+                Status
+              </th>
+              <th class="text-center">
+                <i class="bx bx-cog me-1"></i>
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody class="table-border-bottom-0">
+            @foreach($pendingDistributions->take(5) as $distribution)
+            <tr>
+              <!-- Date -->
+              <td>
+                <div>
+                  <strong>{{ $distribution->transaction_date->format('d/m/Y') }}</strong>
+                  <br><small class="text-muted">{{ $distribution->transaction_date->format('H:i') }}</small>
+                </div>
+              </td>
+
+              <!-- Reference -->
+              <td>
+                <span class="badge bg-label-primary">{{ $distribution->reference_no }}</span>
+              </td>
+
+              <!-- From -->
+              <td>
+                <div>
+                  <strong>{{ $distribution->centralWarehouse->warehouse_name ?? 'N/A' }}</strong>
+                  <br><small class="text-muted">{{ $distribution->centralWarehouse->warehouse_code ?? '-' }}</small>
+                </div>
+              </td>
+
+              <!-- Item -->
+              <td>
+                <div>
+                  <strong>{{ $distribution->item->item_name }}</strong>
+                  <br><small class="text-muted">
+                    <i class="bx bx-barcode me-1"></i>{{ $distribution->item->sku }}
+                  </small>
+                </div>
+              </td>
+
+              <!-- Quantity -->
+              <td class="text-center">
+                <span class="badge bg-label-info fs-6">
+                  {{ number_format($distribution->quantity, 2) }} {{ $distribution->item->unit }}
+                </span>
+              </td>
+
+              <!-- Status -->
+              <td class="text-center">
+                <span class="badge bg-warning">
+                  <i class="bx bx-time-five me-1"></i>
+                  {{ $distribution->status }}
+                </span>
+              </td>
+
+              <!-- Action -->
+              <td class="text-center">
+                <a href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}" 
+                   class="btn btn-sm btn-warning"
+                   data-bs-toggle="tooltip"
+                   title="Review this distribution">
+                  <i class="bx bx-show me-1"></i>
+                  Review
+                </a>
+              </td>
+            </tr>
+            @endforeach
+          </tbody>
+          <tfoot class="table-light">
+            <tr>
+              <td colspan="4" class="text-end">
+                <strong>Total Pending:</strong>
+              </td>
+              <td class="text-center">
+                <strong>{{ number_format($pendingDistributions->sum('quantity'), 2) }}</strong>
+              </td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      @if($pendingDistributions->count() > 5)
+      <div class="card-footer text-center">
+        <a href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}" class="btn btn-outline-warning">
+          <i class="bx bx-right-arrow-alt me-1"></i>
+          View All {{ $pendingDistributions->count() }} Pending Distributions
+        </a>
+      </div>
+      @endif
+    </div>
+  </div>
+  <!-- @endif -->
+
   <!-- Current Stock Table -->
   <div class="col-12">
     <div class="card mb-4">

@@ -121,6 +121,9 @@
                 <li class="menu-item {{ request()->routeIs('central-warehouse.receive-stock') ? 'active' : '' }}">
                   <a href="{{ route('central-warehouse.receive-stock') }}" class="menu-link"><div data-i18n="Receive">Receive Stock</div></a>
                 </li>
+                <li class="menu-item {{ request()->routeIs('central-warehouse.distribute-stock') ? 'active' : '' }}">
+                  <a href="{{ route('central-warehouse.distribute-stock') }}" class="menu-link"><div data-i18n="Receive">Distribute</div></a>
+                </li>
                 @endif
                 <li class="menu-item {{ request()->routeIs('central-warehouse.transactions') ? 'active' : '' }}">
                   <a href="{{ route('central-warehouse.transactions') }}" class="menu-link"><div data-i18n="Transactions">Transactions</div></a>
@@ -149,6 +152,31 @@
                   <li class="menu-item {{ request()->routeIs('branch-warehouse.show') ? 'active' : '' }}">
                     <a href="{{ route('branch-warehouse.show', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
                       <div data-i18n="Stock">{{ $accessibleBranchWarehouses->first()->warehouse_name }}</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('branch-warehouse.pending-distributions') ? 'active' : '' }}">
+                    <a href="{{ route('branch-warehouse.pending-distributions', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
+                      <div data-i18n="Stock">Pending Distributions</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('branch-warehouse.adjust-form') ? 'active' : '' }}">
+                    <a href="{{ route('branch-warehouse.adjust-form', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
+                      <div data-i18n="Stock">Adjust Form</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('branch-warehouse.receive-form') ? 'active' : '' }}">
+                    <a href="{{ route('branch-warehouse.receive-form', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
+                      <div data-i18n="Stock">Add Stock</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('branch-warehouse.distribute-form') ? 'active' : '' }}">
+                    <a href="{{ route('branch-warehouse.distribute-form', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
+                      <div data-i18n="Stock">Distribute</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('branch-warehouse.distributions') ? 'active' : '' }}">
+                    <a href="{{ route('branch-warehouse.distributions', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
+                      <div data-i18n="Stock">Transaksi</div>
                     </a>
                   </li>
                 @else
@@ -180,6 +208,26 @@
                   <li class="menu-item {{ request()->routeIs('outlet-warehouse.show') ? 'active' : '' }}">
                     <a href="{{ route('outlet-warehouse.show', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
                       <div data-i18n="Stock">{{ $accessibleOutletWarehouses->first()->warehouse_name }}</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('outlet-warehouse.receive.create') ? 'active' : '' }}">
+                    <a href="{{ route('outlet-warehouse.receive.create', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
+                      <div data-i18n="Stock">Add Stock</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('outlet-warehouse.distribute.create') ? 'active' : '' }}">
+                    <a href="{{ route('outlet-warehouse.distribute.create', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
+                      <div data-i18n="Stock">Distribute</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('outlet-warehouse.adjustment.create') ? 'active' : '' }}">
+                    <a href="{{ route('outlet-warehouse.adjustment.create', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
+                      <div data-i18n="Stock">Adjustment</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('outlet-warehouse.transactions') ? 'active' : '' }}">
+                    <a href="{{ route('outlet-warehouse.transactions', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
+                      <div data-i18n="Stock">Transactions</div>
                     </a>
                   </li>
                 @else

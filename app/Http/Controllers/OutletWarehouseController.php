@@ -311,7 +311,7 @@ class OutletWarehouseController extends Controller
             // Check policy
             $this->authorize('manageStock', $warehouse);
 
-            $items = Item::where('is_active', true)
+            $items = Item::where('status', 'ACTIVE')
                 ->with('category')
                 ->orderBy('item_name')
                 ->get();

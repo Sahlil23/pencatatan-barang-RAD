@@ -1,5 +1,5 @@
 <?php
-// filepath: app/Http/Controllers/BranchWarehouseController.php
+// filepath: d:\xampp\htdocs\Chicking-BJM\app\Http\Controllers\BranchWarehouseController.php
 
 namespace App\Http\Controllers;
 
@@ -11,6 +11,8 @@ use App\Models\Branch;
 use App\Models\StockPeriod;
 use App\Models\MonthlyKitchenStockBalance;
 use App\Models\CentralToBranchWarehouseTransaction;
+use App\Models\CentralStockBalance;
+use App\Models\CentralStockTransaction;
 use App\Models\OutletWarehouseMonthlyBalance;
 use App\Models\OutletStockTransaction;  
 use App\Models\OutletWarehouseToKitchenTransaction;
@@ -149,6 +151,17 @@ class BranchWarehouseController extends Controller
             // Check policy
             $this->authorize('view', $warehouse);
 
+        $pendingDistributions = CentralToBranchWarehouseTransaction::where('warehouse_id', $warehouseId)
+            ->where('status', 'PENDING')
+            // ->orWhere('status', 'REJECTED')
+            ->with([
+                'item.category',
+                'centralWarehouse',
+                'user'
+            ])
+            ->orderBy('transaction_date', 'desc')
+            ->get();
+
             // Get warehouse display data
             $warehouseData = $this->getWarehouseDisplayData($warehouseId);
 
@@ -236,7 +249,8 @@ class BranchWarehouseController extends Controller
                 'recentTransactions' => $recentTransactions,
                 'stats' => $stats,
                 'isReadOnly' => $warehouseData['isReadOnly'],
-                'canWrite' => $warehouseData['canWrite']
+                'canWrite' => $warehouseData['canWrite'],
+                'pendingDistribution' => $pendingDistributions
             ]));
 
         } catch (\Exception $e) {
@@ -835,9 +849,9 @@ class BranchWarehouseController extends Controller
             $this->validateWarehouseAccess($warehouseId);
 
             $distributionsQuery = BranchStockTransaction::where('warehouse_id', $warehouseId)
-                ->where('transaction_type', 'OUT')
-                ->with(['item', 'user'])
-                ->orderBy('transaction_date', 'desc');
+                ->orderBy('transaction_date', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->with(['item', 'user']);
 
             // Apply date range filter
             $distributionsQuery = $this->applyDateRangeFilter($distributionsQuery, $request, 'transaction_date', 30);
@@ -912,5 +926,494 @@ class BranchWarehouseController extends Controller
         $date = date('ymd');
         $random = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
         return "{$type}-{$date}-{$random}";
+    }
+
+        public function pendingDistributions(Request $request, $warehouseId)
+        {
+            try {
+                // Validate warehouse
+                $warehouse = Warehouse::where('id', $warehouseId)
+                    ->where('warehouse_type', 'branch')
+                    ->where('status', 'ACTIVE')
+                    ->firstOrFail();
+
+                // Validate access
+                $this->validateWarehouseAccess($warehouseId);
+
+                // Get pending distributions
+                $distributions = CentralToBranchWarehouseTransaction::where('warehouse_id', $warehouseId)
+                    ->where('status', 'PENDING')
+                    ->with([
+                        'item.category',
+                        'centralWarehouse',
+                        'user'
+                    ])
+                    ->orderBy('transaction_date', 'desc')
+                    ->get()
+                    ->groupBy('reference_no'); // Group by reference number
+
+                // Calculate summary
+                $summary = [
+                    'total_references' => $distributions->count(),
+                    'total_items' => $distributions->flatten()->count(),
+                    'total_quantity' => $distributions->flatten()->sum('quantity'),
+                ];
+
+                $commonData = $this->getCommonViewData($request);
+
+                return view('branch-warehouse.pending-distributions', array_merge($commonData, [
+                    'warehouse' => $warehouse,
+                    'distributions' => $distributions,
+                    'summary' => $summary
+                ]));
+
+            } catch (\Exception $e) {
+                Log::error('Pending distributions error: ' . $e->getMessage());
+                return $this->errorResponse('Failed to load pending distributions: ' . $e->getMessage());
+            }
+        }
+
+    public function approveDistribution(Request $request)
+    {
+        Log::info('=== APPROVE DISTRIBUTION START ===', [
+            'request_data' => $request->all(),
+            'user_id' => $this->currentUser()->id,
+        ]);
+
+        try {
+            // ✅ Validate request
+            $validator = Validator::make($request->all(), [
+                'reference_no' => 'required|string',
+                'type' => 'required|in:all,selected',
+                'items' => 'required|array|min:1',
+                'items.*.id' => 'required|exists:central_to_branch_warehouse_transactions,id',
+                'items.*.selected' => 'nullable',
+                'items.*.approved_quantity' => 'required|numeric|min:0.001',
+                'items.*.notes' => 'nullable|string|max:255',
+                'general_notes' => 'nullable|string|max:500'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            $referenceNo = $request->reference_no;
+            $type = $request->type;
+            $successCount = 0;
+            $errors = [];
+            $currentMonth = (int)date('m');
+            $currentYear = (int)date('Y');
+            $currentUser = $this->currentUser();
+            $warehouseId = null;
+
+            // Process each item
+            foreach ($request->items as $itemData) {
+                try {
+                    // Skip if type is 'selected' and item is not selected
+                    if ($type === 'selected' && !isset($itemData['selected'])) {
+                        continue;
+                    }
+
+                    $distributionId = $itemData['id'];
+                    $approvedQty = (float)$itemData['approved_quantity'];
+                    $itemNotes = $itemData['notes'] ?? '';
+
+                    // Get distribution
+                    $distribution = CentralToBranchWarehouseTransaction::with([
+                        'item',
+                        'centralWarehouse',
+                        'branchWarehouse'
+                    ])->findOrFail($distributionId);
+
+                    // Store warehouse ID for redirect
+                    if (!$warehouseId) {
+                        $warehouseId = $distribution->warehouse_id;
+                    }
+
+                    // Validate status
+                    if ($distribution->status !== 'PENDING') {
+                        $errors[] = "Item {$distribution->item->item_name}: Already processed (Status: {$distribution->status})";
+                        continue;
+                    }
+
+                    // Validate quantity
+                    if ($approvedQty > $distribution->quantity) {
+                        $errors[] = "Item {$distribution->item->item_name}: Approved quantity ({$approvedQty}) exceeds requested quantity ({$distribution->quantity})";
+                        continue;
+                    }
+
+                    // Skip if approved quantity is 0
+                    if ($approvedQty <= 0) {
+                        $errors[] = "Item {$distribution->item->item_name}: Approved quantity must be greater than 0";
+                        continue;
+                    }
+
+                    // Validate warehouse access
+                    $this->validateWarehouseAccess($distribution->warehouse_id, true);
+
+                    // ✅ Get warehouse using Warehouse model
+                    $branchWarehouse = Warehouse::where('id', $distribution->warehouse_id)
+                        ->where('warehouse_type', 'branch')
+                        ->firstOrFail();
+
+                    // 1. Update distribution status to APPROVED
+                    $distribution->update([
+                        'status' => 'APPROVED',
+                    ]);
+
+                    // 2. Create Branch Stock Transaction (IN)
+                    $branchTransaction = BranchStockTransaction::create([
+                        'branch_id' => $branchWarehouse->branch_id,
+                        'warehouse_id' => $distribution->warehouse_id,
+                        'item_id' => $distribution->item_id,
+                        'transaction_type' => 'IN',
+                        'quantity' => $approvedQty,
+                        'reference_no' => $distribution->reference_no,
+                        'notes' => "Approved - Received from {$distribution->centralWarehouse->warehouse_name}" . 
+                                   ($itemNotes ? " | {$itemNotes}" : '') .
+                                   ($request->general_notes ? " | {$request->general_notes}" : ''),
+                        'transaction_date' => now(),
+                        'user_id' => $currentUser->id,
+                    ]);
+
+                    // 3. Update Branch Warehouse Monthly Balance
+                    // ✅ FIX: Use correct column names based on BranchWarehouseMonthlyBalance model
+                    $branchBalance = BranchWarehouseMonthlyBalance::firstOrCreate(
+                        [
+                            'warehouse_id' => $distribution->warehouse_id,
+                            'item_id' => $distribution->item_id,
+                            'month' => $currentMonth,
+                            'year' => $currentYear
+                        ],
+                        [
+                            'opening_stock' => 0,
+                            'stock_in' => 0, // ✅ Use stock_in
+                            'stock_out' => 0,
+                            'adjustments' => 0,
+                            'closing_stock' => 0,
+                            'is_closed' => false
+                        ]
+                    );
+
+                    // ✅ FIX: Update balance using correct column name
+                    $branchBalance->stock_in = (float)$branchBalance->stock_in + (float)$approvedQty;
+                    $branchBalance->closing_stock = (float)$branchBalance->opening_stock 
+                        + (float)$branchBalance->stock_in 
+                        - (float)$branchBalance->stock_out 
+                        + (float)$branchBalance->adjustments;
+                
+                    $branchBalance->save();
+
+                    // ✅ Handle partial approval - return remaining to central if needed
+                    if ($approvedQty < $distribution->quantity) {
+                        $remainingQty = $distribution->quantity - $approvedQty;
+                        
+                        // Return stock to central warehouse
+                        $centralBalance = CentralStockBalance::where('warehouse_id', $distribution->central_warehouse_id)
+                            ->where('item_id', $distribution->item_id)
+                            ->where('month', $currentMonth)
+                            ->where('year', $currentYear)
+                            ->first();
+
+                        if ($centralBalance) {
+                            // Create return transaction
+                            $returnTransaction = CentralStockTransaction::create([
+                                'item_id' => $distribution->item_id,
+                                'warehouse_id' => $distribution->central_warehouse_id,
+                                'user_id' => $currentUser->id,
+                                'transaction_type' => 'BRANCH_RETURN',
+                                'quantity' => $remainingQty,
+                                'unit_cost' => $distribution->item->unit_cost ?? 0,
+                                'total_cost' => $remainingQty * ($distribution->item->unit_cost ?? 0),
+                                'reference_no' => $distribution->reference_no . '-RET',
+                                'notes' => "Partial approval - returned from {$branchWarehouse->warehouse_name}. Approved: {$approvedQty}, Returned: {$remainingQty}",
+                                'transaction_date' => now()
+                            ]);
+
+                            // Update central balance (use correct column names based on CentralStockBalance model)
+                            $centralBalance->stock_in = (float)($centralBalance->stock_in ?? 0) + (float)$remainingQty;
+                            $centralBalance->closing_stock = (float)$centralBalance->opening_stock 
+                                + (float)($centralBalance->stock_in ?? 0)
+                                - (float)($centralBalance->stock_out ?? 0)
+                                + (float)($centralBalance->adjustments ?? 0);
+                            $centralBalance->save();
+
+                            Log::info('Partial approval - stock returned to central', [
+                                'distribution_id' => $distribution->id,
+                                'approved' => $approvedQty,
+                                'returned' => $remainingQty,
+                                'return_transaction_id' => $returnTransaction->id
+                            ]);
+                        }
+                    }
+
+                    $successCount++;
+
+                    Log::info('Distribution item approved', [
+                        'distribution_id' => $distribution->id,
+                        'item' => $distribution->item->item_name,
+                        'approved_qty' => $approvedQty
+                    ]);
+
+                } catch (\Exception $e) {
+                    Log::error('Error approving distribution item: ' . $e->getMessage(), [
+                        'distribution_id' => $distributionId ?? null,
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    $errors[] = "Distribution ID {$distributionId}: " . $e->getMessage();
+                }
+            }
+
+            if ($successCount === 0) {
+                DB::rollBack();
+                return redirect()
+                    ->back()
+                    ->with('error', 'No items were approved successfully. Errors: ' . implode('; ', $errors))
+                    ->withInput();
+            }
+
+            DB::commit();
+
+            $message = "✅ {$successCount} item(s) approved successfully!";
+            if (!empty($errors)) {
+                $message .= "\n\n⚠️ Warnings:\n" . implode("\n", $errors);
+            }
+
+            Log::info('=== APPROVE DISTRIBUTION SUCCESS ===', [
+                'reference_no' => $referenceNo,
+                'success_count' => $successCount
+            ]);
+
+            return redirect()
+                ->route('branch-warehouse.pending-distributions', $warehouseId)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Approve distribution error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Failed to approve distribution: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Reject pending distribution
+     */
+    public function rejectDistribution(Request $request)
+    {
+        Log::info('=== REJECT DISTRIBUTION START ===', [
+            'request_data' => $request->all(),
+            'user_id' => $this->currentUser()->id,
+        ]);
+
+        try {
+            // ✅ Validate request
+            $validator = Validator::make($request->all(), [
+                'reference_no' => 'required|string',
+                'rejection_reason' => 'required|string|max:255',
+                'rejection_notes' => 'nullable|string|max:500'
+            ], [
+                'reference_no.required' => 'Reference number is required',
+                'rejection_reason.required' => 'Rejection reason is required',
+                'rejection_reason.max' => 'Rejection reason cannot exceed 255 characters',
+                'rejection_notes.max' => 'Rejection notes cannot exceed 500 characters'
+            ]);
+
+            if ($validator->fails()) {
+                return redirect()
+                    ->back()
+                    ->withErrors($validator)
+                    ->withInput();
+            }
+
+            DB::beginTransaction();
+
+            $referenceNo = $request->reference_no;
+            $rejectionReason = $request->rejection_reason;
+            $rejectionNotes = $request->rejection_notes;
+            $currentMonth = (int)date('m');
+            $currentYear = (int)date('Y');
+            $currentUser = $this->currentUser();
+            $successCount = 0;
+            $errors = [];
+            $warehouseId = null;
+
+            // Get all distributions with this reference number
+            $distributions = CentralToBranchWarehouseTransaction::where('reference_no', $referenceNo)
+                ->where('status', 'PENDING')
+                ->with([
+                    'item',
+                    'centralWarehouse',
+                    'branchWarehouse'
+                ])
+                ->get();
+
+            if ($distributions->isEmpty()) {
+                throw new \Exception("No pending distributions found with reference: {$referenceNo}");
+            }
+
+            // Process each distribution
+            foreach ($distributions as $distribution) {
+                try {
+                    // Store warehouse ID for redirect
+                    if (!$warehouseId) {
+                        $warehouseId = $distribution->warehouse_id;
+                    }
+
+                    // Validate warehouse access
+                    $this->validateWarehouseAccess($distribution->warehouse_id, true);
+
+                    // Get warehouse
+                    $branchWarehouse = Warehouse::where('id', $distribution->warehouse_id)
+                        ->where('warehouse_type', 'branch')
+                        ->firstOrFail();
+
+                    // 1. Update distribution status to REJECTED
+                    $distribution->update([
+                        'status' => 'REJECTED',
+                        'notes' => ($distribution->notes ? $distribution->notes . ' | ' : '') 
+                            . "REJECTED: {$rejectionReason}" 
+                            . ($rejectionNotes ? " - {$rejectionNotes}" : '')
+                    ]);
+
+                    // 2. Return stock to central warehouse
+                    $centralBalance = CentralStockBalance::where('warehouse_id', $distribution->central_warehouse_id)
+                        ->where('item_id', $distribution->item_id)
+                        ->where('month', $currentMonth)
+                        ->where('year', $currentYear)
+                        ->first();
+
+                    if ($centralBalance) {
+                        // Create return transaction to central
+                        $returnTransaction = CentralStockTransaction::create([
+                            'item_id' => $distribution->item_id,
+                            'warehouse_id' => $distribution->central_warehouse_id,
+                            'user_id' => $currentUser->id,
+                            'transaction_type' => 'BRANCH_RETURN',
+                            'quantity' => $distribution->quantity,
+                            'unit_cost' => $distribution->item->unit_cost ?? 0,
+                            'total_cost' => $distribution->quantity * ($distribution->item->unit_cost ?? 0),
+                            'reference_no' => $distribution->reference_no . '-REJ',
+                            'notes' => "Distribution rejected by {$branchWarehouse->warehouse_name}. Reason: {$rejectionReason}" 
+                                . ($rejectionNotes ? " | {$rejectionNotes}" : ''),
+                            'transaction_date' => now()
+                        ]);
+
+                        // Update central balance - return stock
+                        $centralBalance->stock_in = (float)($centralBalance->stock_in ?? 0) + (float)$distribution->quantity;
+                        $centralBalance->closing_stock = (float)$centralBalance->opening_stock 
+                            + (float)($centralBalance->stock_in ?? 0)
+                            - (float)($centralBalance->stock_out ?? 0)
+                            + (float)($centralBalance->adjustments ?? 0);
+                        $centralBalance->save();
+
+                        Log::info('Distribution rejected - stock returned to central', [
+                            'distribution_id' => $distribution->id,
+                            'item' => $distribution->item->item_name,
+                            'quantity' => $distribution->quantity,
+                            'return_transaction_id' => $returnTransaction->id
+                        ]);
+                    } else {
+                        // Create central balance if not exists
+                        $centralBalance = CentralStockBalance::create([
+                            'warehouse_id' => $distribution->central_warehouse_id,
+                            'item_id' => $distribution->item_id,
+                            'month' => $currentMonth,
+                            'year' => $currentYear,
+                            'opening_stock' => 0,
+                            'stock_in' => $distribution->quantity,
+                            'stock_out' => 0,
+                            'adjustments' => 0,
+                            'closing_stock' => $distribution->quantity,
+                            'is_closed' => false
+                        ]);
+
+                        // Create return transaction
+                        CentralStockTransaction::create([
+                            'item_id' => $distribution->item_id,
+                            'warehouse_id' => $distribution->central_warehouse_id,
+                            'user_id' => $currentUser->id,
+                            'transaction_type' => 'BRANCH_RETURN',
+                            'quantity' => $distribution->quantity,
+                            'unit_cost' => $distribution->item->unit_cost ?? 0,
+                            'total_cost' => $distribution->quantity * ($distribution->item->unit_cost ?? 0),
+                            'reference_no' => $distribution->reference_no . '-REJ',
+                            'notes' => "Distribution rejected by {$branchWarehouse->warehouse_name}. Reason: {$rejectionReason}" 
+                                . ($rejectionNotes ? " | {$rejectionNotes}" : ''),
+                            'transaction_date' => now()
+                        ]);
+
+                        Log::info('Distribution rejected - central balance created', [
+                            'distribution_id' => $distribution->id,
+                            'item' => $distribution->item->item_name,
+                            'quantity' => $distribution->quantity
+                        ]);
+                    }
+
+                    $successCount++;
+
+                    Log::info('Distribution item rejected', [
+                        'distribution_id' => $distribution->id,
+                        'item' => $distribution->item->item_name,
+                        'quantity' => $distribution->quantity,
+                        'reason' => $rejectionReason
+                    ]);
+
+                } catch (\Exception $e) {
+                    Log::error('Error rejecting distribution item: ' . $e->getMessage(), [
+                        'distribution_id' => $distribution->id ?? null,
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    $errors[] = "Distribution ID {$distribution->id}: " . $e->getMessage();
+                }
+            }
+
+            if ($successCount === 0) {
+                DB::rollBack();
+                return redirect()
+                    ->back()
+                    ->with('error', 'No distributions were rejected. Errors: ' . implode('; ', $errors))
+                    ->withInput();
+            }
+
+            DB::commit();
+
+            $message = "❌ Distribution rejected successfully! {$successCount} item(s) returned to central warehouse.";
+            if (!empty($errors)) {
+                $message .= "\n\n⚠️ Warnings:\n" . implode("\n", $errors);
+            }
+
+            Log::info('=== REJECT DISTRIBUTION SUCCESS ===', [
+                'reference_no' => $referenceNo,
+                'success_count' => $successCount,
+                'rejection_reason' => $rejectionReason
+            ]);
+
+            return redirect()
+                ->route('branch-warehouse.pending-distributions', $warehouseId)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Reject distribution error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Failed to reject distribution: ' . $e->getMessage())
+                ->withInput();
+        }
     }
 }

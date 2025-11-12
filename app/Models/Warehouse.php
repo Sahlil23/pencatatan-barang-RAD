@@ -45,16 +45,82 @@ class Warehouse extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    // ✅ FIX: Add proper relationships for all warehouse types
+    
+    /**
+     * Central Warehouse relationships
+     */
+    public function centralStockBalances()
+    {
+        return $this->hasMany(CentralStockBalance::class, 'warehouse_id');
+    }
+
+    public function centralStockTransactions()
+    {
+        return $this->hasMany(CentralStockTransaction::class, 'warehouse_id');
+    }
+
+    /**
+     * Branch Warehouse relationships
+     */
+    public function branchStockBalances()
+    {
+        return $this->hasMany(BranchWarehouseMonthlyBalance::class, 'warehouse_id');
+    }
+
+    public function branchStockTransactions()
+    {
+        return $this->hasMany(BranchStockTransaction::class, 'warehouse_id');
+    }
+
+    /**
+     * Outlet Warehouse relationships
+     */
+    public function outletStockBalances()
+    {
+        return $this->hasMany(OutletWarehouseMonthlyBalance::class, 'warehouse_id');
+    }
+
+    // ✅ FIX: Correct method name (singular, camelCase)
+    public function outletStockTransactions()
+    {
+        return $this->hasMany(OutletStockTransaction::class, 'warehouse_id');
+    }
+
+    /**
+     * Legacy support - alias for backward compatibility
+     */
     public function monthlyBalances()
     {
+        // Return based on warehouse type
+        if ($this->warehouse_type === 'central' || $this->warehouse_type === 'main') {
+            return $this->centralStockBalances();
+        } elseif ($this->warehouse_type === 'branch') {
+            return $this->branchStockBalances();
+        } elseif ($this->warehouse_type === 'outlet') {
+            return $this->outletStockBalances();
+        }
+        
         return $this->hasMany(OutletWarehouseMonthlyBalance::class, 'warehouse_id');
     }
 
     public function stockTransactions()
     {
-        return $this->hasMany(OutletStockTransaction::class, 'outlet_warehouse_id');
+        // Return based on warehouse type
+        if ($this->warehouse_type === 'central' || $this->warehouse_type === 'main') {
+            return $this->centralStockTransactions();
+        } elseif ($this->warehouse_type === 'branch') {
+            return $this->branchStockTransactions();
+        } elseif ($this->warehouse_type === 'outlet') {
+            return $this->outletStockTransactions();
+        }
+        
+        return $this->hasMany(OutletStockTransaction::class, 'warehouse_id');
     }
 
+    /**
+     * Kitchen distributions (for outlet warehouses)
+     */
     public function kitchenDistributions()
     {
         return $this->hasMany(OutletWarehouseToKitchenTransaction::class, 'outlet_warehouse_id');
@@ -175,46 +241,6 @@ class Warehouse extends Model
     public function isCentral(): bool
     {
         return $this->warehouse_type === 'main';
-    }
-
-    public function centralStockTransactions()
-    {
-        return $this->stockTransactions();
-    }
-
-    public function branchStockTransactions()
-    {
-        return $this->stockTransactions();
-    }
-
-    public function centralStockBalances()
-    {
-        return $this->monthlyBalances();
-    }
-
-    public function branchStockBalances()
-    {
-        return $this->monthlyBalances();
-    }
-
-    public static function generateWarehouseCode(string $type, ?string $branchCode = null): string
-    {
-        $prefix = match ($type) {
-            'main' => 'MAIN',
-            'branch' => strtoupper($branchCode ?: 'BR'),
-            'outlet' => 'OUT',
-            default => 'WH',
-        };
-
-        $lastCode = static::withTrashed()
-            ->where('warehouse_code', 'like', "{$prefix}-%")
-            ->max('warehouse_code');
-
-        $next = $lastCode
-            ? (int) substr($lastCode, strrpos($lastCode, '-') + 1) + 1
-            : 1;
-
-        return sprintf('%s-%04d', $prefix, $next);
     }
 
     // ============================================================

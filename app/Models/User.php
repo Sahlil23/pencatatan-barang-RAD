@@ -287,13 +287,17 @@ class User extends Authenticatable
     /**
      * Generic write permission check method
      * Used by policies: $user->canWrite($model)
-     * ✅ NEW METHOD
+     * 
      */
     public function canWrite($model): bool
     {
         // Super admin can write everything
         if ($this->isSuperAdmin()) {
             return true;
+        }
+
+        if (is_int($model)){
+            return $this->canWriteToWarehouse($model);
         }
 
         // Check based on model type
@@ -313,10 +317,53 @@ class User extends Authenticatable
         return $this->isManager();
     }
 
+
+    private function canWriteToWarehouse(int $warehouseId): bool
+{
+    // Must have access to warehouse first
+    if (!$this->hasWarehouseAccess($warehouseId)) {
+        return false;
+    }
+    
+    // Staff and managers can write to their assigned warehouse
+    $writeRoles = [
+        self::ROLE_CENTRAL_MANAGER,
+        self::ROLE_CENTRAL_STAFF,
+        self::ROLE_BRANCH_MANAGER,
+        self::ROLE_BRANCH_STAFF,
+        self::ROLE_OUTLET_MANAGER,
+        self::ROLE_OUTLET_STAFF,
+    ];
+    
+    if (!in_array($this->role, $writeRoles)) {
+        return false;
+    }
+    
+    // Check if it's user's own warehouse
+    if ($this->warehouse_id === $warehouseId) {
+        return true;
+    }
+    
+    // Central manager: only write to central warehouses (NOT branch/outlet)
+    if ($this->isCentralManager()) {
+        $warehouse = \App\Models\Warehouse::find($warehouseId);
+        return $warehouse && $warehouse->warehouse_type === 'central';
+    }
+    
+    // Branch manager can write to warehouses in their branch
+    if ($this->isBranchManager() && $this->branch_id) {
+        $warehouse = \App\Models\Warehouse::find($warehouseId);
+        if ($warehouse && $warehouse->branch_id === $this->branch_id) {
+            return true;
+        }
+    }
+    
+    return false;
+}
     /**
      * Generic create permission check method
      * Used by policies: $user->canCreate($modelClass)
-     * ✅ NEW METHOD
+     * 
      */
     public function canCreate(string $modelClass): bool
     {
@@ -345,7 +392,7 @@ class User extends Authenticatable
     /**
      * Generic delete permission check method
      * Used by policies: $user->canDelete($model)
-     * ✅ NEW METHOD
+     * 
      */
     public function canDelete($model): bool
     {
@@ -370,7 +417,7 @@ class User extends Authenticatable
     /**
      * Check if user can access specific branch
      * Alias untuk hasBranchAccess()
-     * ✅ NEW METHOD
+     * 
      */
     public function canAccessBranch(?int $branchId): bool
     {
@@ -379,7 +426,7 @@ class User extends Authenticatable
 
     /**
      * Check if user can view another user
-     * ✅ NEW METHOD
+     * 
      */
     public function canViewUser(User $user): bool
     {
@@ -416,7 +463,7 @@ class User extends Authenticatable
 
     /**
      * Check if user can edit another user
-     * ✅ NEW METHOD
+     * 
      */
     public function canEditUser(User $user): bool
     {
@@ -463,7 +510,7 @@ class User extends Authenticatable
 
     /**
      * Check if user can delete another user
-     * ✅ NEW METHOD
+     * 
      */
     public function canDeleteUser(User $user): bool
     {
@@ -552,7 +599,7 @@ class User extends Authenticatable
 
     /**
      * Check if user can create in specific branch
-     * ✅ NEW METHOD
+     * 
      */
     public function canCreateInBranch(?int $branchId): bool
     {
@@ -576,7 +623,7 @@ class User extends Authenticatable
 
     /**
      * Check if user can create in specific warehouse
-     * ✅ NEW METHOD
+     * 
      */
     public function canCreateInWarehouse(int $warehouseId): bool
     {
@@ -590,13 +637,14 @@ class User extends Authenticatable
             return false;
         }
 
-        // Check if it's user's own warehouse
-        if ($this->warehouse_id === $warehouseId) {
-            return true;
+        // If central manager: only allow create in central warehouses
+        if ($this->isCentralManager()) {
+            $wh = \App\Models\Warehouse::find($warehouseId);
+            return $wh && $wh->warehouse_type === 'central';
         }
 
-        // Central manager can create in any warehouse
-        if ($this->isCentralManager()) {
+        // Check if it's user's own warehouse
+        if ($this->warehouse_id === $warehouseId) {
             return true;
         }
 
@@ -787,9 +835,10 @@ class User extends Authenticatable
             return true;
         }
 
-        // Central manager can manage all warehouses
+        // Central manager: only manage central warehouses
         if ($this->isCentralManager()) {
-            return true;
+            $wh = \App\Models\Warehouse::find($warehouseId);
+            return $wh && $wh->warehouse_type === 'central';
         }
 
         // Branch manager can manage warehouses in their branch
@@ -800,7 +849,7 @@ class User extends Authenticatable
             }
         }
 
-        // User can manage their own warehouse
+        // User can manage their own warehouse if they are manager
         return $this->warehouse_id === $warehouseId && $this->isManager();
     }
 
@@ -945,7 +994,7 @@ class User extends Authenticatable
     /**
      * Check if given warehouse is lower level than user's warehouse
      * Central > Branch > Outlet
-     * ✅ NEW METHOD
+     * 
      */
     public function isLowerLevelWarehouse(int $warehouseId): bool
     {
@@ -982,7 +1031,7 @@ class User extends Authenticatable
 
     /**
      * Check if given warehouse is higher level than user's warehouse
-     * ✅ NEW METHOD
+     * 
      */
     public function isHigherLevelWarehouse(int $warehouseId): bool
     {
@@ -1019,7 +1068,7 @@ class User extends Authenticatable
 
     /**
      * Check if given warehouse is same level as user's warehouse
-     * ✅ NEW METHOD
+     * 
      */
     public function isSameLevelWarehouse(int $warehouseId): bool
     {
@@ -1046,7 +1095,7 @@ class User extends Authenticatable
     /**
      * Get warehouse hierarchy level number
      * Central = 3, Branch = 2, Outlet = 1
-     * ✅ NEW METHOD
+     * 
      */
     public function getWarehouseLevel(): int
     {
@@ -1066,7 +1115,7 @@ class User extends Authenticatable
     /**
      * Check if user can distribute to given warehouse
      * Can only distribute to lower level warehouses
-     * ✅ NEW METHOD
+     * 
      */
     public function canDistributeTo(int $warehouseId): bool
     {
@@ -1087,7 +1136,7 @@ class User extends Authenticatable
     /**
      * Check if user can receive from given warehouse
      * Can only receive from higher level warehouses
-     * ✅ NEW METHOD
+     * 
      */
     public function canReceiveFrom(int $warehouseId): bool
     {
@@ -1107,7 +1156,7 @@ class User extends Authenticatable
 
     /**
      * Get warehouses that user can distribute to
-     * ✅ NEW METHOD
+     * 
      */
     public function getDistributableWarehouses()
     {
@@ -1130,7 +1179,7 @@ class User extends Authenticatable
 
     /**
      * Get warehouses that user can receive from
-     * ✅ NEW METHOD
+     * 
      */
     public function getReceivableWarehouses()
     {

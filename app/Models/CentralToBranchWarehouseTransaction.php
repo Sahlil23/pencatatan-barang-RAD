@@ -1,5 +1,5 @@
 <?php
-// filepath: app/Models/CentralToBranchWarehouseTransaction.php
+// filepath: d:\xampp\htdocs\Chicking-BJM\app\Models\CentralToBranchWarehouseTransaction.php
 
 namespace App\Models;
 
@@ -22,7 +22,8 @@ class CentralToBranchWarehouseTransaction extends Model
         'quantity',
         'reference_no',
         'notes',
-        'transaction_date'
+        'transaction_date',
+        'status'
     ];
 
     protected $casts = [
@@ -30,54 +31,6 @@ class CentralToBranchWarehouseTransaction extends Model
         'transaction_date' => 'datetime',
         'expiry_date' => 'date',
     ];
-
-    // ========================================
-    // TRANSACTION TYPES
-    // ========================================
-    
-    const TYPE_TRANSFER_OUT = 'TRANSFER_OUT';
-    const TYPE_DISTRIBUTION = 'DISTRIBUTION';
-    const TYPE_ADJUSTMENT_OUT = 'ADJUSTMENT_OUT';
-    const TYPE_RETURN_IN = 'RETURN_IN';
-    const TYPE_EMERGENCY_SUPPLY = 'EMERGENCY_SUPPLY';
-
-    // ========================================
-    // STATUS TYPES
-    // ========================================
-    
-    const STATUS_PENDING = 'PENDING';
-    const STATUS_IN_TRANSIT = 'IN_TRANSIT';
-    const STATUS_DELIVERED = 'DELIVERED';
-    const STATUS_CANCELLED = 'CANCELLED';
-    const STATUS_RETURNED = 'RETURNED';
-
-    /**
-     * Get available transaction types
-     */
-    public static function getTransactionTypes()
-    {
-        return [
-            self::TYPE_TRANSFER_OUT => 'Transfer Out',
-            self::TYPE_DISTRIBUTION => 'Distribution',
-            self::TYPE_ADJUSTMENT_OUT => 'Adjustment Out',
-            self::TYPE_RETURN_IN => 'Return In',
-            self::TYPE_EMERGENCY_SUPPLY => 'Emergency Supply'
-        ];
-    }
-
-    /**
-     * Get available status types
-     */
-    public static function getStatusTypes()
-    {
-        return [
-            self::STATUS_PENDING => 'Pending',
-            self::STATUS_IN_TRANSIT => 'In Transit',
-            self::STATUS_DELIVERED => 'Delivered',
-            self::STATUS_CANCELLED => 'Cancelled',
-            self::STATUS_RETURNED => 'Returned'
-        ];
-    }
 
     // ========================================
     // RELATIONSHIPS
@@ -92,11 +45,11 @@ class CentralToBranchWarehouseTransaction extends Model
     }
 
     /**
-     * Transaction belongs to branch warehouse
+     * ✅ FIXED: Transaction belongs to branch warehouse (menggunakan Warehouse model)
      */
     public function branchWarehouse()
     {
-        return $this->belongsTo(BranchWarehouse::class);
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 
     /**
@@ -137,15 +90,6 @@ class CentralToBranchWarehouseTransaction extends Model
     public function branchWarehouseToOutletTransactions()
     {
         return $this->hasMany(BranchWarehouseToOutletTransaction::class, 'central_to_branch_transaction_id');
-    }
-
-    /**
-     * Distribution chain - track where this stock went
-     */
-    public function distributionChain()
-    {
-        return $this->branchWarehouseToOutletTransactions()
-                    ->with(['branch', 'branchStockTransaction']);
     }
 
     // ========================================
@@ -213,6 +157,30 @@ class CentralToBranchWarehouseTransaction extends Model
     public function scopePending($query)
     {
         return $query->where('status', self::STATUS_PENDING);
+    }
+
+    /**
+     * Scope for approved transactions
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('status', self::STATUS_APPROVED); // ✅ Tambahkan scope untuk status approved
+    }
+
+    /**
+     * Scope for rejected transactions
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('status', self::STATUS_REJECTED); // ✅ Tambahkan scope untuk status rejected
+    }
+
+    /**
+     * Scope for partial approval transactions
+     */
+    public function scopePartialApproval($query)
+    {
+        return $query->where('status', self::STATUS_PARTIAL_APPROVAL); // ✅ Tambahkan scope untuk status partial approval
     }
 
     /**
@@ -288,7 +256,6 @@ class CentralToBranchWarehouseTransaction extends Model
                 'reference_no' => $referenceNo,
                 'notes' => $options['notes'] ?? "Distribution from central to branch warehouse",
                 'transaction_date' => $options['transaction_date'] ?? now()
-                // ❌ Removed: 'unit_cost', 'total_cost', 'status', 'supplier_id', 'batch_no', 'expiry_date'
             ]);
 
             // Update central stock balance
@@ -363,10 +330,15 @@ class CentralToBranchWarehouseTransaction extends Model
         DB::beginTransaction();
         try {
             // Validate branch warehouse stock
-            $branchBalance = BranchWarehouseMonthlyBalance::getOrCreateBalance($itemId, $branchWarehouseId);
+            $branchBalance = BranchWarehouseMonthlyBalance::where('warehouse_id', $branchWarehouseId)
+                ->where('item_id', $itemId)
+                ->where('year', now()->year)
+                ->where('month', now()->month)
+                ->first();
             
-            if ($branchBalance->closing_stock < $quantity) {
-                throw new \Exception("Stock branch warehouse tidak mencukupi. Tersedia: {$branchBalance->closing_stock}, Dikembalikan: {$quantity}");
+            if (!$branchBalance || $branchBalance->closing_stock < $quantity) {
+                $available = $branchBalance ? $branchBalance->closing_stock : 0;
+                throw new \Exception("Stock branch warehouse tidak mencukupi. Tersedia: {$available}, Dikembalikan: {$quantity}");
             }
 
             $referenceNo = static::generateReferenceNo('RET');
@@ -378,19 +350,11 @@ class CentralToBranchWarehouseTransaction extends Model
                 'user_id' => $options['user_id'] ?? auth()->id(),
                 'transaction_type' => self::TYPE_RETURN_IN,
                 'quantity' => $quantity,
-                'unit_cost' => $options['unit_cost'] ?? 0,
-                'total_cost' => ($options['unit_cost'] ?? 0) * $quantity,
                 'reference_no' => $referenceNo,
                 'notes' => $options['notes'] ?? "Return from branch warehouse to central",
                 'transaction_date' => $options['transaction_date'] ?? now(),
                 'status' => self::STATUS_PENDING
             ]);
-
-            // Update balances
-            $branchBalance->updateMovement('OUT', $quantity);
-            
-            $centralBalance = CentralStockBalance::getOrCreateBalance($itemId, $centralWarehouseId);
-            $centralBalance->updateMovement('IN', $quantity);
 
             DB::commit();
             
@@ -673,7 +637,7 @@ class CentralToBranchWarehouseTransaction extends Model
         $analytics = static::getAnalytics($startDate, $endDate);
         
         return collect($analytics['by_warehouse'])->map(function($data, $warehouseId) use ($startDate, $endDate) {
-            $warehouse = BranchWarehouse::find($warehouseId);
+            $warehouse = Warehouse::find($warehouseId); // ✅ Use Warehouse model
             $deliveryRate = static::getDeliveryRate($warehouseId, $startDate, $endDate);
             $avgDeliveryTime = static::getAverageDeliveryTime($warehouseId, $startDate, $endDate);
 
@@ -746,7 +710,6 @@ class CentralToBranchWarehouseTransaction extends Model
         return [
             'total_emergency_supplies' => $emergencySupplies->count(),
             'total_quantity' => $emergencySupplies->sum('quantity'),
-            'total_value' => $emergencySupplies->sum('total_cost'),
             'by_warehouse' => $emergencySupplies->groupBy('warehouse_id')->map(function($group) {
                 return [
                     'warehouse' => $group->first()->branchWarehouse,
@@ -810,10 +773,10 @@ class CentralToBranchWarehouseTransaction extends Model
     {
         return match($this->status) {
             self::STATUS_PENDING => 'warning',
-            self::STATUS_IN_TRANSIT => 'info',
-            self::STATUS_DELIVERED => 'success',
-            self::STATUS_CANCELLED => 'danger',
-            self::STATUS_RETURNED => 'secondary',
+            self::STATUS_APPROVED => 'success', // ✅ Tambahkan warna untuk status approved
+            self::STATUS_REJECTED => 'danger', // ✅ Tambahkan warna untuk status rejected
+            self::STATUS_PARTIAL_APPROVAL => 'info', // ✅ Tambahkan warna untuk status partial approval
+            self::STATUS_CANCELLED => 'secondary',
             default => 'light'
         };
     }
@@ -842,7 +805,7 @@ class CentralToBranchWarehouseTransaction extends Model
     }
 
     /**
-     * Get branch warehouse name
+     * ✅ FIXED: Get branch warehouse name
      */
     public function getBranchWarehouseNameAttribute()
     {
@@ -897,7 +860,7 @@ class CentralToBranchWarehouseTransaction extends Model
     {
         return [
             'central_warehouse_id' => 'required|exists:warehouses,id',
-            'warehouse_id' => 'required|exists:warehouses,id', // ✅ Changed from branch_warehouses
+            'warehouse_id' => 'required|exists:warehouses,id', // ✅ Points to warehouses table
             'item_id' => 'required|exists:items,id',
             'user_id' => 'required|exists:users,id',
             'transaction_type' => 'required|in:TRANSFER_OUT,DISTRIBUTION,ADJUSTMENT_OUT',
