@@ -36,10 +36,10 @@
             <div>
               <h4 class="mb-1">{{ $category->category_name }}</h4>
               <div class="d-flex align-items-center gap-3 mb-2">
-                <span class="badge bg-{{ $category->is_active ? 'success' : 'secondary' }}">
+                <!-- <span class="badge bg-{{ $category->is_active ? 'success' : 'secondary' }}">
                   <i class="bx bx-{{ $category->is_active ? 'check-circle' : 'x-circle' }} me-1"></i>
                   {{ $category->is_active ? 'Aktif' : 'Nonaktif' }}
-                </span>
+                </span> -->
                 <span class="text-muted">
                   <i class="bx bx-package me-1"></i>
                   {{ $category->items_count ?? $category->items->count() }} Item
@@ -213,19 +213,6 @@
           Daftar Item ({{ $category->items->count() }})
         </h5>
         <div class="d-flex gap-2">
-          <div class="dropdown">
-            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-              <i class="bx bx-filter me-1"></i>
-              Filter
-            </button>
-            <ul class="dropdown-menu">
-              <li><a class="dropdown-item filter-option" href="#" data-filter="all">Semua Item</a></li>
-              <li><a class="dropdown-item filter-option" href="#" data-filter="active">Item Aktif</a></li>
-              <li><a class="dropdown-item filter-option" href="#" data-filter="inactive">Item Nonaktif</a></li>
-              <li><a class="dropdown-item filter-option" href="#" data-filter="low-stock">Stok Menipis</a></li>
-              <li><a class="dropdown-item filter-option" href="#" data-filter="out-of-stock">Stok Habis</a></li>
-            </ul>
-          </div>
           <a href="{{ route('items.create', ['category' => $category->id]) }}" class="btn btn-primary btn-sm">
             <i class="bx bx-plus me-1"></i>
             Tambah Item
@@ -240,7 +227,7 @@
             <tr>
               <th>Item</th>
               <th>SKU</th>
-              <th class="text-center">Stok</th>
+              <!-- <th class="text-center">Stok</th> -->
               <th class="text-center">Unit</th>
               <th class="text-center">Status</th>
               <th class="text-center">Supplier</th>
@@ -274,7 +261,7 @@
               <td>
                 <span class="badge bg-label-dark">{{ $item->sku }}</span>
               </td>
-              <td class="text-center">
+              <!-- <td class="text-center">
                 <div>
                   <span class="fw-bold text-{{ $item->stock_status_color }}">
                     {{ number_format($item->current_stock, 2) }}
@@ -284,14 +271,14 @@
                     Min: {{ number_format($item->low_stock_threshold, 0) }}
                   </small>
                 </div>
-              </td>
+              </td> -->
               <td class="text-center">
                 <span class="badge bg-label-info">{{ $item->unit }}</span>
               </td>
               <td class="text-center">
                 <div class="d-flex flex-column align-items-center gap-1">
-                  <span class="badge bg-{{ $item->is_active ? 'success' : 'secondary' }}">
-                    {{ $item->is_active ? 'Aktif' : 'Nonaktif' }}
+                  <span class="badge bg-{{ $item->status == 'ACTIVE' ? 'success' : 'secondary' }}">
+                    {{ $item->status }}
                   </span>
                   @if($item->current_stock <= 0)
                     <span class="badge bg-danger">Habis</span>
@@ -321,10 +308,10 @@
                     <a class="dropdown-item" href="{{ route('items.edit', $item) }}">
                       <i class="bx bx-edit-alt me-1"></i> Edit
                     </a>
-                    <div class="dropdown-divider"></div>
+                    <!-- <div class="dropdown-divider"></div>
                     <a class="dropdown-item" href="{{ route('stock-transactions.create', ['item' => $item->id]) }}">
                       <i class="bx bx-transfer me-1 text-primary"></i> Transaksi Stok
-                    </a>
+                    </a> -->
                   </div>
                 </div>
               </td>
@@ -371,14 +358,14 @@
               <span class="fw-semibold">{{ $category->category_name }}</span>
             </div>
           </div>
-          <div class="list-group-item px-0 py-2 border-0">
+          <!-- <div class="list-group-item px-0 py-2 border-0">
             <div class="d-flex justify-content-between">
               <span class="text-muted">Status:</span>
               <span class="badge bg-{{ $category->is_active ? 'success' : 'secondary' }}">
                 {{ $category->is_active ? 'Aktif' : 'Nonaktif' }}
               </span>
             </div>
-          </div>
+          </div> -->
           <div class="list-group-item px-0 py-2 border-0">
             <div class="d-flex justify-content-between">
               <span class="text-muted">Jumlah Item:</span>
@@ -428,10 +415,10 @@
             Edit Kategori
           </a>
           @if($lowStockItems > 0)
-          <a href="{{ route('items.low-stock', ['category' => $category->id]) }}" class="btn btn-outline-warning btn-sm">
+          <!-- <a href="{{ route('items.low-stock', ['category' => $category->id]) }}" class="btn btn-outline-warning btn-sm">
             <i class="bx bx-error me-1"></i>
             Lihat Stok Menipis ({{ $lowStockItems }})
-          </a>
+          </a> -->
           @endif
           <a href="{{ route('stock-transactions.index', ['category' => $category->id]) }}" class="btn btn-outline-info btn-sm">
             <i class="bx bx-history me-1"></i>
@@ -442,7 +429,7 @@
     </div>
 
     <!-- Stock Status Distribution -->
-    @if($category->items->count() > 0)
+    <!-- @if($category->items->count() > 0)
     <div class="card">
       <div class="card-header">
         <h6 class="mb-0">
@@ -512,7 +499,7 @@
         </div>
       </div>
     </div>
-    @endif
+    @endif -->
   </div>
 </div>
 @endsection

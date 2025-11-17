@@ -133,7 +133,7 @@ public function index(Request $request)
     {
         try {
             // ✅ AUTHORIZATION CHECK
-            // $this->authorize('create', Warehouse::class);
+            $this->authorize('create', Warehouse::class);
 
             // Get accessible branches
             $accessibleBranchIds = $this->currentUser()->getAccessibleBranchIds();

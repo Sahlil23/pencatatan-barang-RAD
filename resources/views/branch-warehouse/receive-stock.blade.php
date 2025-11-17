@@ -30,7 +30,7 @@
         <div>
           <h5 class="mb-1">
             <i class="bx bx-package me-2"></i>
-            Terima Stock dari Central Warehouse
+            Terima Stock 
           </h5>
           <p class="text-muted mb-0 small">
             <i class="bx bx-store me-1"></i>{{ $warehouse->warehouse_name }} 

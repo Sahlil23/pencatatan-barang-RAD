@@ -9,6 +9,8 @@ use App\Models\Branch;
 use App\Models\OutletWarehouseMonthlyBalance;
 use App\Models\OutletStockTransaction;
 use App\Models\OutletWarehouseToKitchenTransaction;
+use App\Models\User;
+use App\Models\BranchWarehouseToOutletTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -61,14 +63,14 @@ class OutletWarehouseController extends Controller
                 ->with('branch');
 
             // Apply warehouse filter (accessible only)
-            if (!$this->isSuperAdmin()) {
+            if (auth()->user()->isOutletManager()) {
                 $query = $this->applyWarehouseFilter($query, 'id');
-            }
+            }   
 
             // Apply current branch filter if branch is selected
-            if ($branchId) {
-                $query->where('branch_id', $branchId);
-            }
+            // if ($branchId) {
+            //     $query->where('branch_id', $branchId);
+            // }
 
             // Apply search filter
             $query = $this->applySearchFilter($query, $request, [
@@ -512,7 +514,7 @@ class OutletWarehouseController extends Controller
 
                 $quantity = $request->adjustment_type === 'IN' 
                     ? $request->quantity 
-                    : -$request->quantity;
+                    : $request->quantity;
 
                 $data = [
                     'outlet_warehouse_id' => $warehouseId,
@@ -661,7 +663,7 @@ class OutletWarehouseController extends Controller
                             'outlet_warehouse_id' => $warehouseId,
                             'item_id' => $itemId,
                             'transaction_type' => 'DISTRIBUTE_TO_KITCHEN',
-                            'quantity' => -$quantity,
+                            'quantity' => $quantity,
                             'reference_no' => $referenceNo,
                             'notes' => "Distribusi ke kitchen" 
                                 . ($itemNotes ? " | {$itemNotes}" : '') 
@@ -686,7 +688,6 @@ class OutletWarehouseController extends Controller
 
                         // Create kitchen stock IN transaction
                         $kitchenData = [
-                            'branch_id' => $warehouse->branch_id,
                             'outlet_warehouse_id' => $warehouseId,
                             'item_id' => $itemId,
                             'quantity' => $quantity,
@@ -859,6 +860,301 @@ class OutletWarehouseController extends Controller
             ], 500);
         }
     }
+
+    public function pendingDistributions(Request $request, $warehouseId)
+    {
+        try {
+            // 1. Validasi warehouse sebagai 'outlet'
+            $warehouse = Warehouse::where('id', $warehouseId)
+                ->where('warehouse_type', 'outlet')
+                ->where('status', 'ACTIVE')
+                ->firstOrFail();
+
+            // 2. Validasi hak akses (Outlet Manager/Branch Manager/etc.)
+            $this->validateWarehouseAccess($warehouseId);
+
+            // 3. Ambil data "tiket" yang PENDING
+            $distributions = BranchWarehouseToOutletTransaction::where('outlet_warehouse_id', $warehouseId) // <-- Diubah
+                ->where('status', 'PENDING')
+                ->with([
+                    'item.category',
+                    'branchWarehouse', // <-- Diubah dari 'centralWarehouse'
+                    'user' // Ini adalah user (Branch) yang mengirim
+                ])
+                ->orderBy('transaction_date', 'desc')
+                ->get()
+                ->groupBy('reference_no'); // Group by reference number
+
+            // 4. Kalkulasi summary (Logika ini sama)
+            $summary = [
+                'total_references' => $distributions->count(),
+                'total_items' => $distributions->flatten()->count(),
+                'total_quantity' => $distributions->flatten()->sum('quantity'),
+            ];
+
+            // 5. Ambil data view yang umum
+            $commonData = $this->getCommonViewData($request);
+
+            // 6. Tampilkan view untuk outlet
+            return view('outlet-warehouse.pending-distributions', array_merge($commonData, [ // <-- Diubah
+                'warehouse' => $warehouse,
+                'distributions' => $distributions,
+                'summary' => $summary
+            ]));
+
+        } catch (\Exception $e) {
+            Log::error('Outlet pending distributions error: ' . $e->getMessage()); // <-- Diubah
+            return $this->errorResponse('Failed to load pending distributions: ' . $e->getMessage());
+        }
+    }
+
+    public function approveOutletDistribution(Request $request)
+    {
+        Log::info('=== APPROVE OUTLET DISTRIBUTION START ===', [
+            'request_data' => $request->all(),
+            'user_id' => $this->currentUser()->id,
+        ]);
+
+        try {
+            // 1. Validasi Input
+            $validator = Validator::make($request->all(), [
+                'reference_no' => 'required|string',
+                'type' => 'required|in:all,selected',
+                'items' => 'required|array|min:1',
+                'items.*.id' => 'required|exists:branch_warehouse_to_outlet_transactions,id',
+                'items.*.selected' => 'nullable',
+                'items.*.approved_quantity' => 'required|numeric|min:0.001',
+                'items.*.notes' => 'nullable|string|max:255',
+                'general_notes' => 'nullable|string|max:500'
+            ]);
+
+            if ($validator->fails()) {
+                // Asumsi Anda menggunakan respons JSON untuk validasi
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed', ['errors' => $e->errors()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $type = $request->type;
+            $successCount = 0;
+            $errors = [];
+            $currentMonth = (int)date('m');
+            $currentYear = (int)date('Y');
+            $currentUser = $this->currentUser();
+            $outletWarehouseId = null; // Untuk redirect
+
+            // 2. Proses Setiap Item
+            foreach ($request->items as $itemData) {
+                $distributionId = null; // Inisialisasi untuk blok catch
+                try {
+                    // Lewati jika 'selected' dan item tidak dicentang
+                    if ($type === 'selected' && !isset($itemData['selected'])) {
+                        continue;
+                    }
+
+                    $distributionId = $itemData['id'];
+                    $approvedQty = (float)$itemData['approved_quantity'];
+                    $itemNotes = $itemData['notes'] ?? '';
+
+                    // 3. Dapatkan "Tiket" Distribusi
+                    $distribution = BranchWarehouseToOutletTransaction::with([
+                        'item',
+                        'branchWarehouse', // Relasi ke gudang branch
+                    ])->findOrFail($distributionId);
+
+                    // Simpan ID outlet untuk redirect
+                    if (!$outletWarehouseId) {
+                        $outletWarehouseId = $distribution->outlet_warehouse_id;
+                    }
+
+                    // 4. Validasi Status dan Kuantitas
+                    if ($distribution->status !== 'PENDING') {
+                        $errors[] = "Item {$distribution->item->item_name}: Sudah diproses (Status: {$distribution->status})";
+                        continue;
+                    }
+
+                    if ($approvedQty > $distribution->quantity) {
+                        $errors[] = "Item {$distribution->item->item_name}: Kuantitas disetujui ({$approvedQty}) melebihi permintaan ({$distribution->quantity})";
+                        continue;
+                    }
+
+                    if ($approvedQty <= 0) {
+                        $errors[] = "Item {$distribution->item->item_name}: Kuantitas disetujui harus lebih dari 0";
+                        continue;
+                    }
+
+                    // 5. Validasi Hak Akses (Outlet Manager harus punya akses ke outlet ini)
+                    $this->validateWarehouseAccess($distribution->outlet_warehouse_id, true);
+
+                    // 6. Update Status Tiket
+                    $distribution->update([
+                        'status' => 'APPROVED',
+                        'approved_by' => $currentUser->id,
+                        'approved_at' => now(),
+                    ]);
+
+                    // 7. Buat Transaksi Stok Masuk (IN) untuk OUTLET
+                    // Ini adalah logika yang Anda pindahkan dari 'storeDistribution'
+                    $outletTransaction = OutletStockTransaction::createReceiveFromBranch([
+                        'outlet_warehouse_id' => $distribution->outlet_warehouse_id,
+                        'item_id' => $distribution->item_id,
+                        'quantity' => $approvedQty,
+                        'user_id' => $currentUser->id,
+                        'branch_warehouse_transaction_id' => $distribution->id, // Tautkan ke "tiket"
+                        'unit_cost' => $distribution->item->unit_cost ?? 0,
+                        'notes' => "Approved - Terima dari {$distribution->branchWarehouse->warehouse_name}" 
+                                . ($itemNotes ? " | {$itemNotes}" : '')
+                                . ($request->general_notes ? " | {$request->general_notes}" : ''),
+                        'transaction_date' => now(),
+                        'year' => $currentYear,
+                        'month' => $currentMonth,
+                        'status' => OutletStockTransaction::STATUS_COMPLETED,
+                        'document_no' => $distribution->reference_no,
+                    ]);
+                    
+                    if (!$outletTransaction) {
+                        throw new \Exception("Gagal membuat transaksi stok outlet");
+                    }
+
+                    // 8. Update Saldo Bulanan OUTLET
+                    $outletBalance = OutletWarehouseMonthlyBalance::firstOrCreate(
+                        [
+                            'warehouse_id' => $distribution->outlet_warehouse_id,
+                            'item_id' => $distribution->item_id,
+                            'month' => $currentMonth,
+                            'year' => $currentYear
+                        ],
+                        [
+                            'opening_stock' => 0,
+                            'closing_stock' => 0,
+                            'received_from_branch_warehouse' => 0,
+                            'received_return_from_kitchen' => 0,
+                            'distributed_to_kitchen' => 0,
+                            'transfer_out' => 0,
+                            'adjustments' => 0,
+                            'is_closed' => false
+                        ]
+                    );
+
+                    $outletBalance->received_from_branch_warehouse = 
+                        (float)$outletBalance->received_from_branch_warehouse + (float)$approvedQty; // <-- PERBAIKAN
+
+                    // Hitung ulang closing_stock menggunakan SEMUA kolom yang benar
+                    $outletBalance->closing_stock = 
+                          (float)$outletBalance->opening_stock 
+                        + (float)$outletBalance->received_from_branch_warehouse
+                        + (float)$outletBalance->received_return_from_kitchen
+                        + (float)$outletBalance->adjustments
+                        - (float)$outletBalance->distributed_to_kitchen
+                        - (float)$outletBalance->transfer_out;
+                    
+                    $outletBalance->save();
+
+                    // 9. Handle Persetujuan Parsial (Kembalikan sisa stok ke BRANCH)
+                    if ($approvedQty < $distribution->quantity) {
+                        $remainingQty = $distribution->quantity - $approvedQty;
+                        
+                        // Cari saldo branch
+                        $branchBalance = BranchWarehouseMonthlyBalance::where('warehouse_id', $distribution->branch_warehouse_id)
+                            ->where('item_id', $distribution->item_id)
+                            ->where('month', $currentMonth)
+                            ->where('year', $currentYear)
+                            ->first();
+
+                        if ($branchBalance) {
+                            // Buat transaksi pengembalian (IN untuk Branch)
+                            BranchStockTransaction::create([
+                                'branch_id' => $distribution->branch_id,
+                                'warehouse_id' => $distribution->branch_warehouse_id,
+                                'item_id' => $distribution->item_id,
+                                'transaction_type' => 'RETURN_IN', // Sesuai ENUM Anda
+                                'quantity' => $remainingQty, // Kuantitas positif
+                                'reference_no' => $distribution->reference_no . '-RET',
+                                'notes' => "Partial approval by outlet. Approved: {$approvedQty}, Returned: {$remainingQty}",
+                                'transaction_date' => now(),
+                                'user_id' => $currentUser->id
+                            ]);
+
+                            // Update saldo branch (stok masuk)
+                            $branchBalance->stock_in = (float)$branchBalance->stock_in + (float)$remainingQty;
+                            $branchBalance->closing_stock = (float)$branchBalance->opening_stock 
+                                + (float)$branchBalance->stock_in 
+                                - (float)$branchBalance->stock_out 
+                                + (float)$branchBalance->adjustments;
+                            $branchBalance->save();
+
+                            Log::info('Partial approval - stock returned to branch', [
+                                'distribution_id' => $distribution->id, 'returned' => $remainingQty
+                            ]);
+                        }
+                    }
+
+                    $successCount++;
+
+                    Log::info('Outlet distribution item approved', [
+                        'distribution_id' => $distribution->id, 'item' => $distribution->item->item_name
+                    ]);
+
+                } catch (\Exception $e) {
+                    Log::error('Error approving outlet distribution item: ' . $e->getMessage(), [
+                        'distribution_id' => $distributionId ?? null,
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    $errors[] = "Distribution ID {$distributionId}: ". $e->getMessage();
+                }
+            } // End foreach
+
+            if ($successCount === 0) {
+                DB::rollBack();
+                return redirect()
+                    ->back()
+                    ->with('error', 'Tidak ada item yang berhasil disetujui. Errors: '. implode('; ', $errors))
+                    ->withInput();
+            }
+
+            DB::commit();
+
+            $message = "✅ {$successCount} item(s) berhasil disetujui!";
+            if (!empty($errors)) {
+                $message .= "\n\n⚠️ Peringatan:\n". implode("\n", $errors);
+            }
+
+            Log::info('=== APPROVE OUTLET DISTRIBUTION SUCCESS ===', [
+                'success_count' => $successCount, 'outlet_warehouse_id' => $outletWarehouseId
+            ]);
+
+            // Redirect ke halaman pending-nya outlet (buat rute ini)
+            return redirect()
+                ->route('outlet-warehouse.pending-distributions', $outletWarehouseId) 
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Approve outlet distribution error: '. $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()
+                ->back()
+                ->with('error', 'Gagal menyetujui distribusi: '. $e->getMessage())
+                ->withInput();
+        }
+    }
+
 
     // ============================================================
     // 🔧 HELPER METHODS

@@ -253,7 +253,7 @@ class User extends Authenticatable
      */
     public function canManageUsers(): bool
     {
-        return $this->can_manage_users || $this->isSuperAdmin();
+        return $this->can_manage_users || $this->isSuperAdmin() || $this->isManager();
     }
 
     /**
@@ -313,53 +313,54 @@ class User extends Authenticatable
             return $this->canEditUser($model);
         }
 
-        // Default: only managers can write
+        // Default: managers can write
         return $this->isManager();
     }
 
 
     private function canWriteToWarehouse(int $warehouseId): bool
-{
-    // Must have access to warehouse first
-    if (!$this->hasWarehouseAccess($warehouseId)) {
-        return false;
-    }
-    
-    // Staff and managers can write to their assigned warehouse
-    $writeRoles = [
-        self::ROLE_CENTRAL_MANAGER,
-        self::ROLE_CENTRAL_STAFF,
-        self::ROLE_BRANCH_MANAGER,
-        self::ROLE_BRANCH_STAFF,
-        self::ROLE_OUTLET_MANAGER,
-        self::ROLE_OUTLET_STAFF,
-    ];
-    
-    if (!in_array($this->role, $writeRoles)) {
-        return false;
-    }
-    
-    // Check if it's user's own warehouse
-    if ($this->warehouse_id === $warehouseId) {
-        return true;
-    }
-    
-    // Central manager: only write to central warehouses (NOT branch/outlet)
-    if ($this->isCentralManager()) {
-        $warehouse = \App\Models\Warehouse::find($warehouseId);
-        return $warehouse && $warehouse->warehouse_type === 'central';
-    }
-    
-    // Branch manager can write to warehouses in their branch
-    if ($this->isBranchManager() && $this->branch_id) {
-        $warehouse = \App\Models\Warehouse::find($warehouseId);
-        if ($warehouse && $warehouse->branch_id === $this->branch_id) {
+    {
+        // Must have access to warehouse first
+        if (!$this->hasWarehouseAccess($warehouseId)) {
+            return false;
+        }
+        
+        // ✅ FIX: Branch Manager CAN write to their own branch warehouse
+        if ($this->isBranchManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            // Can only write to branch warehouse in their branch
+            return $warehouse 
+                && $warehouse->warehouse_type === 'branch' 
+                && $warehouse->branch_id === $this->branch_id;
+        }
+        
+        // Staff and managers can write to their assigned warehouse
+        $writeRoles = [
+            self::ROLE_CENTRAL_MANAGER,
+            self::ROLE_CENTRAL_STAFF,
+            self::ROLE_BRANCH_MANAGER,
+            self::ROLE_BRANCH_STAFF,
+            self::ROLE_OUTLET_MANAGER,
+            self::ROLE_OUTLET_STAFF,
+        ];
+        
+        if (!in_array($this->role, $writeRoles)) {
+            return false;
+        }
+        
+        // Check if it's user's own warehouse
+        if ($this->warehouse_id === $warehouseId) {
             return true;
         }
+        
+        // Central manager: can write to all central warehouses
+        if ($this->isCentralManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            return $warehouse && $warehouse->warehouse_type === 'central';
+        }
+        
+        return false;
     }
-    
-    return false;
-}
     /**
      * Generic create permission check method
      * Used by policies: $user->canCreate($modelClass)
@@ -613,6 +614,11 @@ class User extends Authenticatable
             return true;
         }
 
+        // ✅ FIX: Branch Manager CAN create in their own branch
+        if ($this->isBranchManager() && $this->branch_id === $branchId) {
+            return true;
+        }
+
         // Branch/outlet users can only create in their own branch
         if ($this->branch_id === $branchId) {
             return true;
@@ -632,6 +638,14 @@ class User extends Authenticatable
             return true;
         }
 
+        // ✅ FIX: Branch Manager CAN create in their branch warehouse
+        if ($this->isBranchManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            return $warehouse 
+                && $warehouse->warehouse_type === 'branch' 
+                && $warehouse->branch_id === $this->branch_id;
+        }
+
         // Only managers can create
         if (!$this->isManager()) {
             return false;
@@ -646,14 +660,6 @@ class User extends Authenticatable
         // Check if it's user's own warehouse
         if ($this->warehouse_id === $warehouseId) {
             return true;
-        }
-
-        // Branch manager can create in warehouses in their branch
-        if ($this->isBranchManager() && $this->branch_id) {
-            $warehouse = \App\Models\Warehouse::find($warehouseId);
-            if ($warehouse && $warehouse->branch_id === $this->branch_id) {
-                return true;
-            }
         }
 
         return false;
@@ -688,11 +694,11 @@ class User extends Authenticatable
         }
 
         // Branch manager gets all warehouses in their branch
-        if ($this->isBranchManager() && $this->branch_id) {
-            $branchWarehouses = \App\Models\Warehouse::where('branch_id', $this->branch_id)
+        if ($this->isBranchManager() && $this->warehouse_id) {
+            $childWarehouses = \App\Models\Warehouse::where('id', $this->warehouse_id)
                 ->pluck('id')
                 ->toArray();
-            $warehouseIds = array_merge($warehouseIds, $branchWarehouses);
+            $warehouseIds = array_merge($warehouseIds, $childWarehouses);
         }
 
         return array_unique($warehouseIds);
@@ -835,18 +841,18 @@ class User extends Authenticatable
             return true;
         }
 
+        // ✅ FIX: Branch Manager CAN manage their branch warehouse ONLY
+        if ($this->isBranchManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            return $warehouse 
+                && $warehouse->warehouse_type === 'branch' 
+                && $warehouse->branch_id === $this->branch_id;
+        }
+
         // Central manager: only manage central warehouses
         if ($this->isCentralManager()) {
             $wh = \App\Models\Warehouse::find($warehouseId);
             return $wh && $wh->warehouse_type === 'central';
-        }
-
-        // Branch manager can manage warehouses in their branch
-        if ($this->isBranchManager() && $this->branch_id) {
-            $warehouse = \App\Models\Warehouse::find($warehouseId);
-            if ($warehouse && $warehouse->branch_id === $this->branch_id) {
-                return true;
-            }
         }
 
         // User can manage their own warehouse if they are manager
@@ -869,6 +875,22 @@ class User extends Authenticatable
     {
         if (!$this->hasWarehouseAccess($warehouseId)) {
             return 'none';
+        }
+
+        // ✅ FIX: Branch Manager gets full access to branch warehouse, read-only for outlets
+        if ($this->isBranchManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            if ($warehouse) {
+                // Full access to branch warehouse in their branch
+                if ($warehouse->warehouse_type === 'branch' && $warehouse->branch_id === $this->branch_id) {
+                    return 'full';
+                }
+                // Read-only for outlet warehouses in their branch
+                if ($warehouse->warehouse_type === 'outlet' && $warehouse->branch_id === $this->branch_id) {
+                    return 'read-only';
+                }
+            }
+            return 'read-only';
         }
 
         if ($this->canManageWarehouse($warehouseId)) {
@@ -1124,6 +1146,15 @@ class User extends Authenticatable
             return true;
         }
 
+        // ✅ FIX: Branch Manager CAN distribute to outlet warehouses in their branch
+        if ($this->isBranchManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            // Can only distribute to outlet warehouses in same branch
+            return $warehouse 
+                && $warehouse->warehouse_type === 'outlet' 
+                && $warehouse->branch_id === $this->branch_id;
+        }
+
         // Must be manager to distribute
         if (!$this->isManager()) {
             return false;
@@ -1145,6 +1176,13 @@ class User extends Authenticatable
             return true;
         }
 
+        // ✅ FIX: Branch Manager CAN receive from central warehouse
+        if ($this->isBranchManager()) {
+            $warehouse = \App\Models\Warehouse::find($warehouseId);
+            // Can only receive from central warehouses
+            return $warehouse && $warehouse->warehouse_type === 'central';
+        }
+
         // Must be manager to receive
         if (!$this->isManager()) {
             return false;
@@ -1160,6 +1198,15 @@ class User extends Authenticatable
      */
     public function getDistributableWarehouses()
     {
+        // ✅ FIX: Branch Manager can distribute to outlet warehouses in their branch
+        if ($this->isBranchManager()) {
+            return \App\Models\Warehouse::where('warehouse_type', 'outlet')
+                ->where('branch_id', $this->branch_id)
+                ->where('status', 'ACTIVE')
+                ->orderBy('warehouse_name')
+                ->get();
+        }
+
         // Super admin can distribute to all
         if ($this->isSuperAdmin()) {
             return \App\Models\Warehouse::where('status', 'ACTIVE')->get();
@@ -1183,6 +1230,14 @@ class User extends Authenticatable
      */
     public function getReceivableWarehouses()
     {
+        // ✅ FIX: Branch Manager can receive from central warehouses
+        if ($this->isBranchManager()) {
+            return \App\Models\Warehouse::where('warehouse_type', 'central')
+                ->where('status', 'ACTIVE')
+                ->orderBy('warehouse_name')
+                ->get();
+        }
+
         // Super admin can receive from all
         if ($this->isSuperAdmin()) {
             return \App\Models\Warehouse::where('status', 'ACTIVE')->get();
@@ -1198,5 +1253,75 @@ class User extends Authenticatable
             ->filter(function ($warehouse) {
                 return $this->isHigherLevelWarehouse($warehouse->id);
             });
+    }
+
+    /**
+     * Check if user can create users
+     */
+    public function canCreateUsers(): bool
+    {
+        return $this->isManager() || $this->isSuperAdmin();
+    }
+
+    /**
+     * Get roles that current user can assign to new users
+     */
+    public function getAssignableRoles(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return [
+                self::ROLE_SUPER_ADMIN => 'Super Admin',
+                self::ROLE_CENTRAL_MANAGER => 'Central Manager',
+                self::ROLE_CENTRAL_STAFF => 'Central Staff',
+                self::ROLE_BRANCH_MANAGER => 'Branch Manager',
+                self::ROLE_BRANCH_STAFF => 'Branch Staff',
+                self::ROLE_OUTLET_MANAGER => 'Outlet Manager',
+                self::ROLE_OUTLET_STAFF => 'Outlet Staff',
+            ];
+        }
+
+        if ($this->isCentralManager()) {
+            return [
+                self::ROLE_CENTRAL_STAFF => 'Central Staff',
+            ];
+        }
+
+        if ($this->isBranchManager()) {
+            return [
+                self::ROLE_BRANCH_STAFF => 'Branch Staff',
+            ];
+        }
+
+        if ($this->isOutletManager()) {
+            return [
+                self::ROLE_OUTLET_STAFF => 'Outlet Staff',
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * Get allowed warehouse types for user creation
+     */
+    public function getAllowedWarehouseTypesForUserCreation(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return ['central', 'branch', 'outlet'];
+        }
+
+        if ($this->isCentralManager()) {
+            return ['central'];
+        }
+
+        if ($this->isBranchManager()) {
+            return ['branch'];
+        }
+
+        if ($this->isOutletManager()) {
+            return ['outlet'];
+        }
+
+        return [];
     }
 }

@@ -52,7 +52,7 @@
     </div>
     @endif
 
-    {{-- Pending from Central Alert --}}
+    <!-- {{-- Pending from Central Alert --}} -->
     @if($pendingFromCentral->count() > 0)
     <div class="row mb-4">
         <div class="col-12">
@@ -71,9 +71,9 @@
     </div>
     @endif
 
-    {{-- Statistics Cards Row 1: Current Stock Overview --}}
+    <!-- {{-- Statistics Cards Row 1: Current Stock Overview --}} -->
     <div class="row mb-4">
-        {{-- Total Items --}}
+        <!-- {{-- Total Items --}} -->
         <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
                 <div class="card-body">
@@ -96,7 +96,7 @@
             </div>
         </div>
 
-        {{-- Total Stock Quantity --}}
+        <!-- {{-- Total Stock Quantity --}} -->
         <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
                 <div class="card-body">
@@ -119,7 +119,7 @@
             </div>
         </div>
 
-        {{-- Low Stock Count --}}
+        <!-- {{-- Low Stock Count --}} -->
         <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
                 <div class="card-body">
@@ -145,9 +145,9 @@
         </div>
     </div>
 
-    {{-- Today's Activity & Monthly Activity --}}
+    
     <div class="row mb-4">
-        {{-- Today's Activity --}}
+        
         <div class="col-lg-6 col-md-12 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -200,7 +200,7 @@
             </div>
         </div>
 
-        {{-- This Month Activity --}}
+        
         <div class="col-lg-6 col-md-12 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -254,7 +254,7 @@
         </div>
     </div>
 
-    {{-- Stock Movement Chart --}}
+    
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">

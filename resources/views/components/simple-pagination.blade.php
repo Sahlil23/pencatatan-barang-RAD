@@ -31,18 +31,6 @@
           {{ $items->appends(request()->query())->links('pagination::bootstrap-4') }}
         </div>
         @endif
-        
-        <!-- Export Buttons -->
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-secondary btn-sm" onclick="window.print()" title="Print">
-            <i class="bx bx-printer"></i>
-            <span class="d-none d-sm-inline ms-1">Print</span>
-          </button>
-          <button class="btn btn-outline-success btn-sm" onclick="exportToExcel()" title="Export Excel">
-            <i class="bx bx-download"></i>
-            <span class="d-none d-sm-inline ms-1">Excel</span>
-          </button>
-        </div>
       </div>
     </div>
   </div>

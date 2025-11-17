@@ -29,41 +29,6 @@
         </div>
     </div>
 
-    {{-- System Alerts --}}
-    @if(isset($alerts) && ($alerts['low_stock'] > 0 || $alerts['pending_distributions'] > 0 || $alerts['out_of_stock'] > 0))
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <h6 class="alert-heading mb-2">
-                    <i class="bx bx-error-circle me-2"></i>
-                    System Alerts
-                </h6>
-                <ul class="mb-0">
-                    @if($alerts['low_stock'] > 0)
-                    <li>
-                        <strong>{{ $alerts['low_stock'] }}</strong> items are running low on stock
-                        <a href="{{ route('items.index') }}?filter=low_stock" class="alert-link">View Items</a>
-                    </li>
-                    @endif
-                    @if($alerts['out_of_stock'] > 0)
-                    <li>
-                        <strong>{{ $alerts['out_of_stock'] }}</strong> items are out of stock
-                        <a href="{{ route('items.index') }}?filter=out_of_stock" class="alert-link">View Items</a>
-                    </li>
-                    @endif
-                    @if($alerts['pending_distributions'] > 0)
-                    <li>
-                        <strong>{{ $alerts['pending_distributions'] }}</strong> distributions pending approval
-                        <a href="#" class="alert-link">View Distributions</a>
-                    </li>
-                    @endif
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        </div>
-    </div>
-    @endif
-
     <div class="row mb-4">
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
@@ -87,7 +52,6 @@
             </div>
         </div>
 
-        {{-- Total Warehouses --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
                 <div class="card-body">
@@ -111,7 +75,6 @@
             </div>
         </div>
 
-        {{-- Total Items --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
                 <div class="card-body">
@@ -133,7 +96,6 @@
             </div>
         </div>
 
-        {{-- Total Users --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card">
                 <div class="card-body">
@@ -157,9 +119,7 @@
         </div>
     </div>
 
-    {{-- Statistics Cards Row 2: Stock Overview --}}
     <div class="row mb-4">
-        {{-- Central Stock --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card border-primary">
                 <div class="card-body">
@@ -182,7 +142,6 @@
             </div>
         </div>
 
-        {{-- Branch Stock --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card border-info">
                 <div class="card-body">
@@ -205,7 +164,6 @@
             </div>
         </div>
 
-        {{-- Outlet Stock --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card border-warning">
                 <div class="card-body">
@@ -228,7 +186,6 @@
             </div>
         </div>
 
-        {{-- Kitchen Stock --}}
         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 mb-4">
             <div class="card border-success">
                 <div class="card-body">
@@ -252,9 +209,7 @@
         </div>
     </div>
 
-    {{-- Today's Activity & Monthly Activity --}}
     <div class="row mb-4">
-        {{-- Today's Activity --}}
         <div class="col-lg-6 col-md-12 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between">
@@ -349,7 +304,7 @@
             </div>
         </div>
 
-        {{-- Monthly Activity --}}
+        
         <div class="col-lg-6 col-md-12 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between">
@@ -445,7 +400,6 @@
         </div>
     </div>
 
-    {{-- Stock Movement Chart --}}
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
@@ -474,7 +428,7 @@
         </div>
     </div>
 
-    <div class="row mb-4">
+    <!-- <div class="row mb-4">
         <div class="col-lg-6 col-md-12 mb-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between">
@@ -587,9 +541,8 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
-    {{-- Quick Links --}}
     <div class="row">
         <div class="col-12">
             <div class="card">

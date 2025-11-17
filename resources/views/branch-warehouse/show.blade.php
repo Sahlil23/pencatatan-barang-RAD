@@ -29,11 +29,6 @@
       <div class="card-body">
         <div class="d-flex align-items-start justify-content-between">
           <div class="d-flex align-items-start">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-primary" style="width: 56px; height: 56px; font-size: 24px;">
-                <i class="bx bx-building"></i>
-              </span>
-            </div>
             <div>
               <h5 class="mb-0">{{ $warehouse->warehouse_name }}</h5>
               <small class="text-muted">

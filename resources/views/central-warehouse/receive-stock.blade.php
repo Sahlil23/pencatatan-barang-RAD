@@ -50,7 +50,7 @@
                 <div class="form-text text-danger">{{ $message }}</div>
               @enderror
             </div>
-            <div class="col-md-3">
+            <!-- <div class="col-md-3">
               <label class="form-label">Supplier <span class="text-danger">*</span></label>
               <select class="form-select @error('supplier_id') is-invalid @enderror" name="supplier_id" required>
                 <option value="">Select Supplier</option>
@@ -63,7 +63,7 @@
               @error('supplier_id')
                 <div class="form-text text-danger">{{ $message }}</div>
               @enderror
-            </div>
+            </div> -->
             <div class="col-md-3">
               <label class="form-label">Transaction Date <span class="text-danger">*</span></label>
               <input type="date" class="form-control @error('transaction_date') is-invalid @enderror" 

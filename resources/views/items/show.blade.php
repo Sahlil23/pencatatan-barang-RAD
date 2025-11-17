@@ -261,70 +261,7 @@
     </div>
     @endif
 
-    <!-- Recent Transactions -->
-    <div class="card">
-      <div class="card-header">
-        <h5 class="mb-0">
-          <i class="bx bx-history me-2"></i>
-          Transaksi Terkini
-        </h5>
-      </div>
-      <div class="card-body">
-        @if($item->stockTransactions->count() > 0)
-        <div class="table-responsive">
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>Tanggal</th>
-                <th>Tipe</th>
-                <th class="text-end">Jumlah</th>
-                <th>Catatan</th>
-              </tr>
-            </thead>
-            <tbody>
-              @foreach($item->stockTransactions as $transaction)
-              <tr>
-                <td>
-                  <small>{{ $transaction->created_at->format('d/m/Y H:i') }}</small>
-                </td>
-                <td>
-                  @if($transaction->transaction_type === 'IN')
-                    <span class="badge bg-success">Masuk</span>
-                  @elseif($transaction->transaction_type === 'OUT')
-                    <span class="badge bg-danger">Keluar</span>
-                  @else
-                    <span class="badge bg-warning">Penyesuaian</span>
-                  @endif
-                </td>
-                <td class="text-end">
-                  <span class="fw-semibold">
-                    {{ $transaction->transaction_type === 'OUT' ? '-' : '+' }}{{ number_format($transaction->quantity, 0) }}
-                  </span>
-                </td>
-                <td>
-                  <small>{{ $transaction->notes }}</small>
-                </td>
-              </tr>
-              @endforeach
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="text-center mt-3">
-          <a href="{{ route('stock-transactions.index', ['item_id' => $item->id]) }}" class="btn btn-outline-primary btn-sm">
-            <i class="bx bx-list-ul me-1"></i>
-            Lihat Semua Transaksi
-          </a>
-        </div>
-        @else
-        <div class="text-center py-4">
-          <i class="bx bx-history" style="font-size: 48px; color: #ddd;"></i>
-          <h6 class="mt-2 text-muted">Belum Ada Transaksi</h6>
-          <p class="text-muted">Belum ada riwayat transaksi untuk item ini</p>
-        </div>
-        @endif
-      </div>
-    </div>
+    
   </div>
 </div>
 

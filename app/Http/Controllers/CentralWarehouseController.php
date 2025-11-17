@@ -180,7 +180,6 @@ class CentralWarehouseController extends Controller
 
         $validated = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
-            'supplier_id' => 'required|exists:suppliers,id',
             'transaction_date' => 'required|date',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|exists:items,id',
@@ -200,7 +199,7 @@ class CentralWarehouseController extends Controller
                         'item_id' => $itemData['item_id'],
                         'warehouse_id' => $validated['warehouse_id'],
                         'user_id' => $this->currentUser()->id,
-                        'supplier_id' => $validated['supplier_id'],
+                        'supplier_id' => null,
                         'transaction_type' => 'PURCHASE',
                         'quantity' => $itemData['quantity'],
                         'unit_cost' => $itemData['unit_cost'],
@@ -287,7 +286,7 @@ class CentralWarehouseController extends Controller
         return $this->executeTransaction(
             function () use ($validated, $balance) {
                 $adjustmentQuantity = $validated['adjustment_type'] === 'ADD' ? 
-                                     $validated['quantity'] : -$validated['quantity'];
+                                     $validated['quantity'] : $validated['quantity'];
 
                 $referenceNo = $this->generateReferenceNo('ADJ');
 
@@ -543,7 +542,7 @@ class CentralWarehouseController extends Controller
                         'warehouse_id' => $validated['source_warehouse_id'],
                         'user_id' => $this->currentUser()->id,
                         'transaction_type' => 'DISTRIBUTE_OUT',
-                        'quantity' => -$quantity,
+                        'quantity' => $quantity,
                         'unit_cost' => $balance->item->unit_cost ?? 0,
                         'total_cost' => $quantity * ($balance->item->unit_cost ?? 0),
                         'reference_no' => $referenceNo,

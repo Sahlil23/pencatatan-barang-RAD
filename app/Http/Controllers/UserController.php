@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -36,11 +37,19 @@ class UserController extends Controller
             $this->authorize('viewAny', User::class);
 
             // Build query
-            $query = User::with(['branch', 'warehouse']);
+            $query = User::with(['warehouse', 'branch']);
+
+            $query->where('id', '!=', auth()->id()); 
 
             // Apply warehouse filter (managers only see their warehouse users)
             if (!$this->isSuperAdmin()) {
-                $query = $this->applyWarehouseFilter($query, 'warehouse_id');
+
+                $curentUser = auth()->user();
+
+                if($curentUser->warehouse_id){
+                    $query->where('warehouse_id', $curentUser->warehouse_id);
+                }
+                // $query = $this->applyWarehouseFilter($query, 'warehouse_id');
             }
 
             // Apply branch filter (jika branch context aktif)
@@ -48,8 +57,8 @@ class UserController extends Controller
                 $branchId = $request->input('branch_id');
                 $this->validateBranchAccess($branchId);
                 $query->where('branch_id', $branchId);
-            } elseif ($this->getBranchId($request)) {
-                $query->where('branch_id', $this->getBranchId($request));
+            } elseif (!$this->isSuperAdmin() && auth()->user()->branch_id) {
+                $query->where('branch_id', auth()->user()->branch_id);
             }
 
             // Apply search filter
@@ -109,14 +118,53 @@ class UserController extends Controller
             // Check policy
             $this->authorize('create', User::class);
 
-            $user = $this->currentUser();
+            $currentUser = $this->currentUser();
 
-            // Get available roles based on current user
-            $availableRoles = $this->getAvailableRoles();
+            // Check if user can create users
+            if (!$currentUser->canCreateUsers()) {
+                abort(403, 'You do not have permission to create users.');
+            }
 
-            // Get accessible warehouses & branches
-            $warehouses = $this->getAccessibleWarehouses();
-            $branches = $this->getAccessibleBranches();
+            // Get roles that current user can assign
+            $availableRoles = $currentUser->getAssignableRoles();
+
+            if (empty($availableRoles)) {
+                abort(403, 'You cannot assign any roles.');
+            }
+
+            // Get warehouses filtered by allowed types
+            $allowedWarehouseTypes = $currentUser->getAllowedWarehouseTypesForUserCreation();
+            
+            $warehouses = Warehouse::where('status', 'ACTIVE')
+                ->whereIn('warehouse_type', $allowedWarehouseTypes);
+
+            // Non-super admin: filter by accessible warehouses
+            if (!$currentUser->isSuperAdmin()) {
+                $accessibleWarehouseIds = $currentUser->getAccessibleWarehouseIds();
+                $warehouses->whereIn('id', $accessibleWarehouseIds);
+            }
+
+            $warehouses = $warehouses->with('branch')->orderBy('warehouse_name')->get();
+
+            // Get branches
+            $branches = Branch::where('status', 'active');
+            
+            // Non-super admin: filter by accessible branches
+            if (!$currentUser->isSuperAdmin()) {
+                $accessibleBranchIds = $currentUser->getAccessibleBranchIds();
+                $branches->whereIn('id', $accessibleBranchIds);
+            }
+            
+            $branches = $branches->orderBy('branch_name')->get();
+
+            // Auto-select warehouse & branch for managers (non-super-admin)
+            $defaultWarehouseId = null;
+            $defaultBranchId = null;
+
+            if (!$currentUser->isSuperAdmin()) {
+                $defaultWarehouseId = $currentUser->warehouse_id;
+                $defaultBranchId = $currentUser->branch_id;
+            }
 
             $commonData = $this->getCommonViewData(request());
 
@@ -124,6 +172,9 @@ class UserController extends Controller
                 'availableRoles' => $availableRoles,
                 'warehouses' => $warehouses,
                 'branches' => $branches,
+                'defaultWarehouseId' => $defaultWarehouseId,
+                'defaultBranchId' => $defaultBranchId,
+                'isLimitedCreator' => !$currentUser->isSuperAdmin(), // Flag untuk disable input
                 'statuses' => [
                     'ACTIVE' => 'Active',
                     'INACTIVE' => 'Inactive'
@@ -145,22 +196,38 @@ class UserController extends Controller
             // Check policy
             $this->authorize('create', User::class);
 
-            // Validation rules
-            $rules = [
-                'username' => 'required|string|max:50|unique:users,username',
-                'email' => 'nullable|email|max:100|unique:users,email',
-                'password' => 'required|string|min:6|confirmed',
-                'full_name' => 'required|string|max:100',
-                'phone' => 'nullable|string|max:20',
-                'role' => 'required|in:' . implode(',', array_keys($this->getAvailableRoles())),
-                'status' => 'required|in:ACTIVE,INACTIVE',
-                'branch_id' => 'nullable|exists:branches,id',
-                'warehouse_id' => 'nullable|exists:warehouses,id',
-            ];
+            $currentUser = $this->currentUser();
 
-            // Additional rules for super admin
-            if ($this->isSuperAdmin()) {
-                $rules['can_manage_users'] = 'nullable|boolean';
+            // Get assignable roles for validation
+            $assignableRoles = array_keys($currentUser->getAssignableRoles());
+
+            // ✅ Validation rules - Different for super admin vs manager
+            if ($currentUser->isSuperAdmin()) {
+                // Super admin: warehouse & branch are OPTIONAL
+                $rules = [
+                    'username' => 'required|string|max:50|unique:users,username',
+                    'email' => 'nullable|email|max:100|unique:users,email',
+                    'password' => 'required|string|min:6|confirmed',
+                    'full_name' => 'required|string|max:100',
+                    'phone' => 'nullable|string|max:20',
+                    'role' => 'required|in:' . implode(',', $assignableRoles),
+                    'status' => 'required|in:ACTIVE,INACTIVE',
+                    'branch_id' => 'nullable|exists:branches,id',
+                    'warehouse_id' => 'nullable|exists:warehouses,id',
+                ];
+            } else {
+                // Manager: warehouse & branch are REQUIRED and auto-set
+                $rules = [
+                    'username' => 'required|string|max:50|unique:users,username',
+                    'email' => 'nullable|email|max:100|unique:users,email',
+                    'password' => 'required|string|min:6|confirmed',
+                    'full_name' => 'required|string|max:100',
+                    'phone' => 'nullable|string|max:20',
+                    'role' => 'required|in:' . implode(',', $assignableRoles),
+                    'status' => 'required|in:ACTIVE,INACTIVE',
+                    'branch_id' => 'required|exists:branches,id',
+                    'warehouse_id' => 'required|exists:warehouses,id',
+                ];
             }
 
             $validator = Validator::make($request->all(), $rules);
@@ -171,37 +238,153 @@ class UserController extends Controller
 
             $validated = $validator->validated();
 
-            // Override for managers (tidak bisa set sembarangan warehouse/branch)
-            if (!$this->isSuperAdmin()) {
-                // Manager hanya bisa create staff di warehouse/branch mereka
-                $validated['warehouse_id'] = $this->currentUser()->warehouse_id;
-                $validated['branch_id'] = $this->currentUser()->branch_id;
-                $validated['can_manage_users'] = false;
-                
-                // Validate role (hanya bisa create staff)
-                $allowedRole = $this->getStaffRoleForManager($this->currentUser()->role);
-                if ($validated['role'] !== $allowedRole) {
-                    return $this->errorResponse('You can only create staff at your level.');
+            // ✅ AUTHORIZATION CHECKS
+            if ($currentUser->isSuperAdmin()) {
+                // ✅ Super Admin: Only validate IF warehouse is selected
+                // If warehouse is selected, auto-set branch from it
+                if (!empty($validated['warehouse_id'])) {
+                    $warehouse = Warehouse::find($validated['warehouse_id']);
+                    if ($warehouse) {
+                        // Auto-set branch from warehouse
+                        $validated['branch_id'] = $warehouse->branch_id;
+                    }
                 }
+                
+                // ✅ For roles that REQUIRE warehouse, validate it
+                $role = $validated['role'];
+                
+                // Central roles: If warehouse selected, must be central type
+                if (in_array($role, [User::ROLE_CENTRAL_MANAGER, User::ROLE_CENTRAL_STAFF])) {
+                    if (!empty($validated['warehouse_id'])) {
+                        $warehouse = Warehouse::find($validated['warehouse_id']);
+                        if ($warehouse && $warehouse->warehouse_type !== 'central') {
+                            return back()->withErrors([
+                                'warehouse_id' => 'Central roles must be assigned to a central warehouse.'
+                            ])->withInput();
+                        }
+                    }
+                }
+                
+                // Branch roles: MUST have branch warehouse
+                if (in_array($role, [User::ROLE_BRANCH_MANAGER, User::ROLE_BRANCH_STAFF])) {
+                    if (empty($validated['warehouse_id'])) {
+                        return back()->withErrors([
+                            'warehouse_id' => 'Branch roles must be assigned to a branch warehouse.'
+                        ])->withInput();
+                    }
+                    
+                    $warehouse = Warehouse::find($validated['warehouse_id']);
+                    if (!$warehouse || $warehouse->warehouse_type !== 'branch') {
+                        return back()->withErrors([
+                            'warehouse_id' => 'Branch roles must be assigned to a branch warehouse.'
+                        ])->withInput();
+                    }
+                    
+                    // Auto-set branch
+                    $validated['branch_id'] = $warehouse->branch_id;
+                    
+                    if (!$validated['branch_id']) {
+                        return back()->withErrors([
+                            'warehouse_id' => 'Selected warehouse does not have a branch assigned.'
+                        ])->withInput();
+                    }
+                }
+                
+                // Outlet roles: MUST have outlet warehouse
+                if (in_array($role, [User::ROLE_OUTLET_MANAGER, User::ROLE_OUTLET_STAFF])) {
+                    if (empty($validated['warehouse_id'])) {
+                        return back()->withErrors([
+                            'warehouse_id' => 'Outlet roles must be assigned to an outlet warehouse.'
+                        ])->withInput();
+                    }
+                    
+                    $warehouse = Warehouse::find($validated['warehouse_id']);
+                    if (!$warehouse || $warehouse->warehouse_type !== 'outlet') {
+                        return back()->withErrors([
+                            'warehouse_id' => 'Outlet roles must be assigned to an outlet warehouse.'
+                        ])->withInput();
+                    }
+                    
+                    // Auto-set branch
+                    $validated['branch_id'] = $warehouse->branch_id;
+                    
+                    if (!$validated['branch_id']) {
+                        return back()->withErrors([
+                            'warehouse_id' => 'Selected warehouse does not have a branch assigned.'
+                        ])->withInput();
+                    }
+                }
+                
+                // Super Admin role: no warehouse/branch needed
+                if ($role === User::ROLE_SUPER_ADMIN) {
+                    $validated['warehouse_id'] = null;
+                    $validated['branch_id'] = null;
+                }
+
             } else {
-                // Super admin: validate warehouse/branch sesuai role
-                $this->validateRoleRequirements($validated);
+                // ✅ NON-SUPER-ADMIN (Manager): Strict validation
+                
+                // 1. Check role is allowed
+                if (!in_array($validated['role'], $assignableRoles)) {
+                    return back()->withErrors([
+                        'role' => 'You are not authorized to create users with this role.'
+                    ])->withInput();
+                }
+
+                // 2. Force warehouse & branch to current user's
+                $validated['warehouse_id'] = $currentUser->warehouse_id;
+                $validated['branch_id'] = $currentUser->branch_id;
+
+                // 3. Validate warehouse & branch match
+                if ($request->warehouse_id != $currentUser->warehouse_id || 
+                    $request->branch_id != $currentUser->branch_id) {
+                    return back()->withErrors([
+                        'warehouse_id' => 'You can only create users in your assigned warehouse and branch.'
+                    ])->withInput();
+                }
+
+                // 4. Validate warehouse type matches role
+                $warehouse = Warehouse::find($validated['warehouse_id']);
+                
+                if ($currentUser->isCentralManager() && $warehouse->warehouse_type !== 'central') {
+                    return back()->withErrors([
+                        'warehouse_id' => 'Central Manager can only create staff in central warehouses.'
+                    ])->withInput();
+                }
+
+                if ($currentUser->isBranchManager() && $warehouse->warehouse_type !== 'branch') {
+                    return back()->withErrors([
+                        'warehouse_id' => 'Branch Manager can only create staff in branch warehouses.'
+                    ])->withInput();
+                }
+
+                if ($currentUser->isOutletManager() && $warehouse->warehouse_type !== 'outlet') {
+                    return back()->withErrors([
+                        'warehouse_id' => 'Outlet Manager can only create staff in outlet warehouses.'
+                    ])->withInput();
+                }
+
+                // 5. Force can_manage_users = false for non-admin created users
+                $validated['can_manage_users'] = false;
             }
 
             return $this->executeTransaction(
-                function () use ($validated) {
+                function () use ($validated, $currentUser) {
                     // Hash password
                     $validated['password'] = Hash::make($validated['password']);
 
                     $user = User::create($validated);
 
-                    // Log activity
-                    // $this->logActivity('create_user', 'User', $user->id, [
-                    //     'username' => $user->username,
-                    //     'role' => $user->role,
-                    //     'warehouse_id' => $user->warehouse_id,
-                    //     'branch_id' => $user->branch_id
-                    // ]);
+                    Log::info('User created successfully', [
+                        'created_user_id' => $user->id,
+                        'created_user_username' => $user->username,
+                        'created_user_role' => $user->role,
+                        'created_by_user_id' => $currentUser->id,
+                        'created_by_username' => $currentUser->username,
+                        'created_by_role' => $currentUser->role,
+                        'warehouse_id' => $user->warehouse_id,
+                        'branch_id' => $user->branch_id
+                    ]);
 
                     return $user;
                 },
@@ -210,7 +393,9 @@ class UserController extends Controller
             );
 
         } catch (\Exception $e) {
-            Log::error('User store error: ' . $e->getMessage());
+            Log::error('User store error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return $this->errorResponse('Error creating user: ' . $e->getMessage());
         }
     }
@@ -696,70 +881,105 @@ class UserController extends Controller
     }
 
     /**
-     * Validate role requirements (warehouse/branch sesuai role)
+     * Validate role requirements (warehouse type, branch assignment, etc)
+     * 
+     * @throws \Illuminate\Validation\ValidationException
      */
-    private function validateRoleRequirements(array &$data): void
+    private function validateRoleRequirements(array &$validated): void
     {
-        $role = $data['role'] ?? null;
+        $role = $validated['role'];
+        $warehouseId = $validated['warehouse_id'] ?? null;
+        $branchId = $validated['branch_id'] ?? null;
 
-        if (!$role) {
-            return;
-        }
-
-        // Super admin tidak perlu warehouse/branch
+        // ✅ Super Admin: No requirements
         if ($role === User::ROLE_SUPER_ADMIN) {
-            $data['warehouse_id'] = null;
-            $data['branch_id'] = null;
+            // Super admin doesn't need warehouse or branch
+            $validated['warehouse_id'] = null;
+            $validated['branch_id'] = null;
             return;
         }
 
-        // Central roles
+        // ✅ Central roles: Must have central warehouse
         if (in_array($role, [User::ROLE_CENTRAL_MANAGER, User::ROLE_CENTRAL_STAFF])) {
-            if (empty($data['warehouse_id'])) {
-                throw new \Exception('Central roles must have a warehouse assigned.');
+            if ($warehouseId) {
+                $warehouse = Warehouse::find($warehouseId);
+                if (!$warehouse || $warehouse->warehouse_type !== 'central') {
+                    throw ValidationException::withMessages([
+                        'warehouse_id' => 'Central roles must be assigned to a central warehouse.'
+                    ]);
+                }
+                // ✅ Auto-set branch from warehouse (or null for central)
+                $validated['branch_id'] = $warehouse->branch_id;
             }
-            
-            $warehouse = Warehouse::find($data['warehouse_id']);
-            if ($warehouse->warehouse_type !== 'central') {
-                throw new \Exception('Central roles must be assigned to a central warehouse.');
-            }
-
-            $data['branch_id'] = null; // Central tidak ada branch
             return;
         }
 
-        // Branch & outlet roles
-        if (in_array($role, [
-            User::ROLE_BRANCH_MANAGER, User::ROLE_BRANCH_STAFF,
-            User::ROLE_OUTLET_MANAGER, User::ROLE_OUTLET_STAFF
-        ])) {
-            if (empty($data['branch_id'])) {
-                throw new \Exception('Branch/Outlet roles must have a branch assigned.');
+        // ✅ Branch roles: Must have branch warehouse
+        if (in_array($role, [User::ROLE_BRANCH_MANAGER, User::ROLE_BRANCH_STAFF])) {
+            if (!$warehouseId) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Branch roles must be assigned to a warehouse.'
+                ]);
             }
 
-            if (empty($data['warehouse_id'])) {
-                throw new \Exception('Branch/Outlet roles must have a warehouse assigned.');
-            }
-
-            $warehouse = Warehouse::find($data['warehouse_id']);
+            $warehouse = Warehouse::find($warehouseId);
             
-            // Validate warehouse type sesuai role
-            if (in_array($role, [User::ROLE_BRANCH_MANAGER, User::ROLE_BRANCH_STAFF])) {
-                if ($warehouse->warehouse_type !== 'branch') {
-                    throw new \Exception('Branch roles must be assigned to a branch warehouse.');
-                }
+            if (!$warehouse) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Selected warehouse not found.'
+                ]);
             }
 
-            if (in_array($role, [User::ROLE_OUTLET_MANAGER, User::ROLE_OUTLET_STAFF])) {
-                if ($warehouse->warehouse_type !== 'outlet') {
-                    throw new \Exception('Outlet roles must be assigned to an outlet warehouse.');
-                }
+            if ($warehouse->warehouse_type !== 'branch') {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Branch roles must be assigned to a branch warehouse.'
+                ]);
             }
 
-            // Validate warehouse & branch match
-            if ($warehouse->branch_id != $data['branch_id']) {
-                throw new \Exception('Warehouse and branch must match.');
+            // ✅ ALWAYS auto-set branch from warehouse
+            $validated['branch_id'] = $warehouse->branch_id;
+
+            if (!$validated['branch_id']) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Selected warehouse does not have a branch assigned.'
+                ]);
             }
+
+            return;
+        }
+
+        // ✅ Outlet roles: Must have outlet warehouse
+        if (in_array($role, [User::ROLE_OUTLET_MANAGER, User::ROLE_OUTLET_STAFF])) {
+            if (!$warehouseId) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Outlet roles must be assigned to a warehouse.'
+                ]);
+            }
+
+            $warehouse = Warehouse::find($warehouseId);
+            
+            if (!$warehouse) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Selected warehouse not found.'
+                ]);
+            }
+
+            if ($warehouse->warehouse_type !== 'outlet') {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Outlet roles must be assigned to an outlet warehouse.'
+                ]);
+            }
+
+            // ✅ ALWAYS auto-set branch from warehouse
+            $validated['branch_id'] = $warehouse->branch_id;
+
+            if (!$validated['branch_id']) {
+                throw ValidationException::withMessages([
+                    'warehouse_id' => 'Selected warehouse does not have a branch assigned.'
+                ]);
+            }
+
+            return;
         }
     }
 }

@@ -113,19 +113,21 @@
                     <div class="col">
                         <h5 class="mb-0">
                             <i class="bx bx-food-menu me-2"></i>
-                            Kitchen Stock List
+                            Kitchen Stock
+                            @if(!empty($selectedOutletId) && ($outlet = $outletWarehouses->firstWhere('id', $selectedOutletId)))
+                                - Outlet: <span class="text-muted">{{ $outlet->warehouse_name }}</span>
+                            @else
+                                - All / Branch Kitchen
+                            @endif
                         </h5>
                     </div>
                     <div class="col-auto">
                         <div class="d-flex gap-2 flex-wrap">
-                            <a href="{{ route('kitchen.receive.create') }}" class="btn btn-primary btn-sm">
+                            <a href="{{ route('kitchen.adjustment') }}{{ $selectedOutletId ? '?outlet_id='.$selectedOutletId : '' }}" class="btn btn-primary btn-sm">
                                 <i class="bx bx-download me-1"></i> Receive Stock
                             </a>
-                            <a href="{{ route('kitchen.usage.create') }}" class="btn btn-danger btn-sm">
+                            <a href="{{ route('kitchen.usage') }}{{ $selectedOutletId ? '?outlet_id='.$selectedOutletId : '' }}" class="btn btn-danger btn-sm">
                                 <i class="bx bx-minus me-1"></i> Record Usage
-                            </a>
-                            <a href="{{ route('kitchen.adjustment.create') }}" class="btn btn-warning btn-sm">
-                                <i class="bx bx-edit me-1"></i> Adjustment
                             </a>
                         </div>
                     </div>
@@ -143,6 +145,19 @@
                                value="{{ request('search') }}" 
                                placeholder="Item name or SKU...">
                     </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Outlet</label>
+                        <select name="outlet_id" class="form-select">
+                            <option value="">All Outlets / Branch Kitchen</option>
+                            @foreach($outletWarehouses as $outlet)
+                                <option value="{{ $outlet->id }}" {{ (string)request('outlet_id') === (string)$outlet->id ? 'selected' : '' }}>
+                                    {{ $outlet->warehouse_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     <div class="col-md-3">
                         <label class="form-label">Category</label>
                         <select class="form-select" name="category_id">
@@ -155,21 +170,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Stock Status</label>
-                        <select class="form-select" name="stock_status">
-                            <option value="">All Status</option>
-                            <option value="available" {{ request('stock_status') == 'available' ? 'selected' : '' }}>
-                                Available Stock
-                            </option>
-                            <option value="low" {{ request('stock_status') == 'low' ? 'selected' : '' }}>
-                                Low Stock
-                            </option>
-                            <option value="out" {{ request('stock_status') == 'out' ? 'selected' : '' }}>
-                                Out of Stock
-                            </option>
-                        </select>
-                    </div>
+
                     <div class="col-md-3 d-flex align-items-end gap-2">
                         <button type="submit" class="btn btn-primary flex-grow-1">
                             <i class="bx bx-search me-1"></i> Filter
@@ -245,10 +246,10 @@
                                         {{ number_format($balance->opening_stock ?? 0, 3) }}
                                     </td>
                                     <td class="text-end text-success">
-                                        +{{ number_format($balance->total_in ?? 0, 3) }}
+                                        +{{ number_format($balance->total_in ?? ($balance->transfer_in ?? 0), 3) }}
                                     </td>
                                     <td class="text-end text-danger">
-                                        -{{ number_format($balance->total_out ?? 0, 3) }}
+                                        -{{ number_format($balance->total_out ?? ($balance->usage ?? 0), 3) }}
                                     </td>
                                     <td class="text-end">
                                         <strong class="text-{{ $statusClass }}">
@@ -272,26 +273,21 @@
                                                 <i class="bx bx-dots-vertical-rounded"></i>
                                             </button>
                                             <div class="dropdown-menu">
-                                                <a class="dropdown-item" 
-                                                   href="{{ route('kitchen.receive.create') }}?item_id={{ $balance->item_id }}">
-                                                    <i class="bx bx-download me-2"></i>
-                                                    Receive Stock
-                                                </a>
                                                 @if($closingStock > 0)
                                                 <a class="dropdown-item" 
-                                                   href="{{ route('kitchen.usage.create') }}?item_id={{ $balance->item_id }}">
+                                                   href="{{ route('kitchen.usage') }}?item_id={{ $balance->item_id }}{{ $selectedOutletId ? '&outlet_id='.$selectedOutletId : '' }}">
                                                     <i class="bx bx-minus me-2"></i>
                                                     Record Usage
                                                 </a>
                                                 @endif
                                                 <a class="dropdown-item" 
-                                                   href="{{ route('kitchen.adjustment.create') }}?item_id={{ $balance->item_id }}">
+                                                   href="{{ route('kitchen.adjustment') }}?item_id={{ $balance->item_id }}{{ $selectedOutletId ? '&outlet_id='.$selectedOutletId : '' }}">
                                                     <i class="bx bx-edit me-2"></i>
                                                     Adjustment
                                                 </a>
                                                 <div class="dropdown-divider"></div>
                                                 <a class="dropdown-item" 
-                                                   href="{{ route('kitchen.transactions') }}?item_id={{ $balance->item_id }}">
+                                                   href="{{ route('kitchen.transactions') }}?item_id={{ $balance->item_id }}{{ $selectedOutletId ? '&outlet_id='.$selectedOutletId : '' }}">
                                                     <i class="bx bx-history me-2"></i>
                                                     View History
                                                 </a>
@@ -301,12 +297,12 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="9" class="text-center py-5">
+                                    <td colspan="{{ 9 + (!empty($selectedOutletId) ? 1 : 0) }}" class="text-center py-5">
                                         <div class="text-muted">
                                             <i class="bx bx-package display-4 d-block mb-3 text-secondary"></i>
                                             <h5>No kitchen stock data</h5>
                                             <p class="mb-3">Start by receiving stock from warehouse</p>
-                                            <a href="{{ route('kitchen.receive.create') }}" class="btn btn-primary">
+                                            <a href="{{ route('kitchen.adjustment') }}{{ $selectedOutletId ? '?outlet_id='.$selectedOutletId : '' }}" class="btn btn-primary">
                                                 <i class="bx bx-plus me-1"></i> Receive First Stock
                                             </a>
                                         </div>
@@ -437,23 +433,15 @@
         <div class="card bg-primary">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3">
-                        <a href="{{ route('kitchen.receive.create') }}" 
-                           class="btn btn-white w-100 d-flex flex-column align-items-center py-3">
-                            <i class="bx bx-download display-6 mb-2"></i>
-                            <span class="fw-semibold">Receive Stock</span>
-                            <small class="text-muted">From warehouse</small>
-                        </a>
-                    </div>
-                    <div class="col-md-3">
-                        <a href="{{ route('kitchen.usage.create') }}" 
+                    <div class="col-md-3 align-self-left">
+                        <a href="{{ route('kitchen.usage') }}" 
                            class="btn btn-white w-100 d-flex flex-column align-items-center py-3">
                             <i class="bx bx-minus-circle display-6 mb-2"></i>
                             <span class="fw-semibold">Record Usage</span>
                             <small class="text-muted">Daily consumption</small>
                         </a>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 align-self-center">
                         <a href="{{ route('kitchen.transactions') }}" 
                            class="btn btn-white w-100 d-flex flex-column align-items-center py-3">
                             <i class="bx bx-list-ul display-6 mb-2"></i>
@@ -461,7 +449,7 @@
                             <small class="text-muted">View history</small>
                         </a>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-3 align-self-right">
                         <a href="{{ route('kitchen.report') }}" 
                            class="btn btn-white w-100 d-flex flex-column align-items-center py-3">
                             <i class="bx bx-bar-chart display-6 mb-2"></i>
@@ -490,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cancelButtonText: 'Later'
         }).then((result) => {
             if (result.isConfirmed) {
-                window.location.href = '{{ route("kitchen.receive.create") }}';
+                window.location.href = '{{ route("kitchen.adjustment") }}';
             }
         });
     @elseif($stats['low_stock_items'] > 0)
@@ -503,7 +491,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cancelButtonText: 'Later'
         }).then((result) => {
             if (result.isConfirmed) {
-                window.location.href = '{{ route("kitchen.receive.create") }}';
+                window.location.href = '{{ route("kitchen.adjustment") }}';
             }
         });
     @endif

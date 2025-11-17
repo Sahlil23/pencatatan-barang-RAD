@@ -836,6 +836,6 @@ abstract class Controller extends BaseController
      */
     protected function validateUserManagement(User $targetUser): bool
     {
-        return $this->currentUser()->canManageUser($targetUser);
+        return $this->currentUser()->canManageUsers($targetUser);
     }
 }

@@ -13,12 +13,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <title>@yield('title', 'Chicking - Banjarmasin')</title>
-    <link rel="icon" type="image/png" href="{{ asset('assets/img/Chicking-logo-bjm.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/img/pd.png') }}">
 
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/Chicking-logo-bjm.png') }}" />
+    <link rel="icon" type="image/x-icon" href="{{ asset('assets/img/pd.png') }}" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,7 +61,7 @@
           <div class="app-brand demo">
             <a href="{{ route('beranda') }}" class="app-brand-link">
               <span class="app-brand-logo demo">
-                <img src="{{ asset('assets/img/chicking-logo-bjm.png') }}" alt="Chicking Logo" width="180" height="120" />
+                <img src="{{ asset('assets/img/chicking-logo.png') }}" alt="Chicking Logo" width="200" height="200" />
               </span>
             </a>
 
@@ -94,7 +94,7 @@
                 <li class="menu-item {{ request()->routeIs('warehouses.index') ? 'active' : '' }}">
                   <a href="{{ route('warehouses.index') }}" class="menu-link"><div data-i18n="List">Semua Warehouse</div></a>
                 </li>
-                @if(Auth::user()->isSuperAdmin() || Auth::user()->isCentralManager())
+                @if(Auth::user()->isSuperAdmin() || Auth::user()->isCentralManager() || Auth::user()->isBranchManager())
                 <li class="menu-item {{ request()->routeIs('warehouses.create') ? 'active' : '' }}">
                   <a href="{{ route('warehouses.create') }}" class="menu-link"><div data-i18n="Create">Tambah Warehouse</div></a>
                 </li>
@@ -218,6 +218,11 @@
                   <li class="menu-item {{ request()->routeIs('outlet-warehouse.distribute.create') ? 'active' : '' }}">
                     <a href="{{ route('outlet-warehouse.distribute.create', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
                       <div data-i18n="Stock">Distribute</div>
+                    </a>
+                  </li>
+                  <li class="menu-item {{ request()->routeIs('outlet-warehouse.pending-distributions') ? 'active' : '' }}">
+                    <a href="{{ route('outlet-warehouse.pending-distributions', ['warehouseId' => $accessibleOutletWarehouses->first()->id, 'detail' => 'detail']) }}" class="menu-link">
+                      <div data-i18n="Stock">Receive Distribution</div>
                     </a>
                   </li>
                   <li class="menu-item {{ request()->routeIs('outlet-warehouse.adjustment.create') ? 'active' : '' }}">
@@ -389,9 +394,9 @@
             </li>
 
             <li class="menu-item">
-                <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                <form action="{{ route('logout') }}" method="POST" class="logout-form" style="display: inline;">
                     @csrf
-                    <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent" style="padding: 0.625rem 1rem;">
+                    <button type="submit" class="menu-link w-100 text-start border-0 bg-transparent logout-button" style="padding: 0.625rem 1rem;">
                         <i class="menu-icon tf-icons bx bx-power-off text-danger"></i>
                         <div data-i18n="Logout">Logout</div>
                     </button>
@@ -496,6 +501,24 @@
         link.click();
         document.body.removeChild(link);
       }
+
+      document.addEventListener('DOMContentLoaded', function() {
+       document.querySelectorAll('form.logout-form').forEach(function(form) {
+         form.addEventListener('submit', function(e) {
+           // prevent immediate submit
+           e.preventDefault();
+           const confirmed = confirm('Anda yakin ingin logout? Semua perubahan yang belum disimpan akan hilang.');
+           if (confirmed) {
+             // disable button to avoid double submit
+             const btn = form.querySelector('button[type="submit"]');
+             if (btn) {
+               btn.disabled = true;
+             }
+             form.submit();
+           }
+         });
+       });
+     });
       </script>
     </body>
   </html>

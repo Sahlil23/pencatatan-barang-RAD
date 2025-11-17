@@ -88,20 +88,6 @@
   </div>
 </div>
 
-<!-- Branch Warehouse Management Info -->
-<div class="alert alert-info alert-dismissible mb-4" role="alert">
-  <h6 class="alert-heading mb-2">
-    <i class="bx bx-info-circle me-2"></i>
-    Branch Warehouse Management
-  </h6>
-  <p class="mb-0">
-    <strong>Kelola Stock:</strong> Terima dan kelola stock dari central warehouse |
-    <strong>Distribusi:</strong> Kirim stock ke outlet/kitchen cabang |
-    <strong>Adjustment:</strong> Catat rusak, expired, atau return ke central
-  </p>
-  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-
 <!-- Filters and Search -->
 <div class="card mb-4">
   <div class="card-body">
@@ -114,19 +100,7 @@
           <input type="text" class="form-control" name="search" value="{{ request('search') }}" placeholder="Nama warehouse atau branch...">
         </div>
       </div>
-      
-      <!-- Branch Filter -->
-      <div class="col-md-3">
-        <label class="form-label">Branch</label>
-        <select class="form-select" name="branch">
-          <option value="">Semua Branch</option>
-          @foreach($branches ?? [] as $branch)
-            <option value="{{ $branch->id }}" {{ request('branch') == $branch->id ? 'selected' : '' }}>
-              {{ $branch->branch_name }}
-            </option>
-          @endforeach
-        </select>
-      </div>
+
       
       <!-- Status Filter -->
       <div class="col-md-3">
@@ -137,6 +111,10 @@
           <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
           <option value="maintenance" {{ request('status') == 'maintenance' ? 'selected' : '' }}>Maintenance</option>
         </select>
+      </div>
+
+      <div class="col-md-3">
+
       </div>
       
       <!-- Filter Actions -->
@@ -256,7 +234,7 @@
           
           <!-- Items Count -->
           <td class="text-center">
-            <span class="badge bg-label-success">
+            <span class="fw-bold">
               {{ $warehouseStats[$warehouse->id]['total_items'] ?? 0 }}
             </span>
           </td>

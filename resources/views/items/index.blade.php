@@ -326,18 +326,7 @@
     </table>
   </div>
 
-  <!-- Pagination -->
-  @if($items->hasPages())
-  <div class="card-footer">
-    <div class="d-flex justify-content-between align-items-center">
-      <div class="text-muted">
-        Showing {{ $items->firstItem() }} to {{ $items->lastItem() }} of {{ $items->total() }} items
-      </div>
-      {{ $items->links() }}
-    </div>
-  </div>
-  @endif
-</div>
+  <x-simple-pagination :items="$items" type="item" />
 
 <!-- Import Modal -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">

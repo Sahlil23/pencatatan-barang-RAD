@@ -41,8 +41,11 @@ class WarehousePolicy
      */
     public function create(User $user): bool
     {
-        // Only super admin can create new warehouses
-        return $user->isSuperAdmin();
+
+        if ($user->isSuperAdmin() || $user->isCentralManager() || $user->isBranchManager()) {
+            return true;
+        }
+        return false;
     }
 
     /**

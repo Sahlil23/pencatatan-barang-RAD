@@ -14,6 +14,8 @@ class BranchWarehouseToOutletTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_warehouse_id', // <-- TAMBAHKAN INI
+        'outlet_warehouse_id',
         'warehouse_id',
         'branch_id',
         'item_id',
@@ -30,7 +32,9 @@ class BranchWarehouseToOutletTransaction extends Model
         'transaction_date',
         'status',
         'delivery_date',
-        'received_by'
+        'status',          // <-- TAMBAHKAN INI
+        'approved_by',     // <-- TAMBAHKAN INI
+        'approved_at',
     ];
 
     protected $casts = [
@@ -105,7 +109,7 @@ class BranchWarehouseToOutletTransaction extends Model
      */
     public function branchWarehouse()
     {
-        return $this->belongsTo(BranchWarehouse::class);
+       return $this->belongsTo(Warehouse::class, 'branch_warehouse_id');
     }
 
     /**

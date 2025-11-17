@@ -13,7 +13,8 @@ class KitchenStockTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'branch_id',
+        'outlet_warehouse_id',
+        // 'branch_id',
         'item_id',
         'user_id',
         'branch_warehouse_transaction_id',
@@ -148,16 +149,20 @@ class KitchenStockTransaction extends Model
     }
 
     /**
-     * Related monthly kitchen balance
+     * ✅ FIXED: Related monthly kitchen balance
      */
     public function monthlyKitchenBalance()
     {
         return $this->belongsTo(MonthlyKitchenStockBalance::class, 'item_id', 'item_id')
-            ->where('branch_id', $this->branch_id)
+            ->where('outlet_warehouse_id', $this->outlet_warehouse_id)  // ✅ CHANGED
             ->where('year', $this->transaction_date->year)
             ->where('month', $this->transaction_date->month);
     }
 
+    public function outletWarehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'outlet_warehouse_id');
+    }
     // ========================================
     // SCOPES
     // ========================================
@@ -572,11 +577,15 @@ class KitchenStockTransaction extends Model
     /**
      * Create usage transaction (legacy compatibility)
      */
-    public static function createUsage($itemId, $quantity, $notes = null, $userId = null, $branchId = null)
+    public static function createUsage($itemId, $quantity, $notes = null, $userId = null, $outletWarehouseId = null)
     {
+        if (!$outletWarehouseId) {
+            throw new \Exception('outlet_warehouse_id is required');
+        }
+
         return self::createUsageProduction([
             'item_id' => $itemId,
-            'branch_id' => $branchId ?? auth()->user()?->branch_id,
+            'outlet_warehouse_id' => $outletWarehouseId,  // ✅ CHANGED
             'user_id' => $userId ?? auth()->id(),
             'quantity' => $quantity,
             'notes' => $notes ?? 'Penggunaan dapur'
@@ -585,15 +594,20 @@ class KitchenStockTransaction extends Model
 
     /**
      * Create adjustment transaction
+     * ✅ UPDATED: Use outlet_warehouse_id
      */
-    public static function createAdjustment($itemId, $quantity, $notes = null, $userId = null, $branchId = null)
+    public static function createAdjustment($itemId, $quantity, $notes = null, $userId = null, $outletWarehouseId = null)
     {
+        if (!$outletWarehouseId) {
+            throw new \Exception('outlet_warehouse_id is required');
+        }
+
         $type = $quantity >= 0 ? self::TYPE_ADJUSTMENT_IN : self::TYPE_ADJUSTMENT_OUT;
         $absQuantity = abs($quantity);
 
         $transaction = self::create([
             'item_id' => $itemId,
-            'branch_id' => $branchId ?? auth()->user()?->branch_id,
+            'outlet_warehouse_id' => $outletWarehouseId,  // ✅ CHANGED
             'user_id' => $userId ?? auth()->id(),
             'transaction_type' => $type,
             'quantity' => $absQuantity,
@@ -604,13 +618,13 @@ class KitchenStockTransaction extends Model
         // Update kitchen monthly balance
         $balance = MonthlyKitchenStockBalance::getOrCreateBalance(
             $itemId,
-            $branchId ?? auth()->user()?->branch_id,
+            $outletWarehouseId,  // ✅ CHANGED
             $transaction->transaction_date->year,
             $transaction->transaction_date->month
         );
         
-        $movementType = $quantity >= 0 ? 'IN' : 'OUT';
-        $balance->updateMovement($movementType, $absQuantity);
+        $movementType = $quantity >= 0 ? 'adjustment' : 'adjustment';
+        $balance->updateMovement($movementType, $quantity);
 
         return $transaction;
     }
@@ -655,21 +669,17 @@ class KitchenStockTransaction extends Model
         try {
             DB::beginTransaction();
 
-            // Validate required data
-            if (!isset($data['branch_id'], $data['item_id'], $data['quantity'])) {
-                throw new \Exception('Missing required data for receive from outlet warehouse transaction');
+            if (!isset($data['outlet_warehouse_id'], $data['item_id'], $data['quantity'])) {
+                throw new \Exception('Missing required data');
             }
 
-            // Generate reference number
-            $referenceNo = self::generateReferenceNo('RCV-OUT', $data['branch_id']);
-
-            // Get current balance
             $year = $data['year'] ?? date('Y');
             $month = $data['month'] ?? date('m');
             
+            // ✅ FIXED: Use outlet_warehouse_id instead of branch_id
             $balance = MonthlyKitchenStockBalance::getOrCreateBalance(
                 $data['item_id'],
-                $data['branch_id'],
+                $data['outlet_warehouse_id'],  // ✅ CHANGED
                 $year,
                 $month
             );
@@ -677,9 +687,8 @@ class KitchenStockTransaction extends Model
             $balanceBefore = $balance->closing_stock;
             $balanceAfter = $balanceBefore + $data['quantity'];
 
-            // Create transaction
             $transaction = self::create([
-                'branch_id' => $data['branch_id'],
+                'outlet_warehouse_id' => $data['outlet_warehouse_id'],
                 'item_id' => $data['item_id'],
                 'user_id' => $data['user_id'] ?? auth()->id(),
                 'outlet_warehouse_transaction_id' => $data['outlet_warehouse_transaction_id'] ?? null,
@@ -689,24 +698,23 @@ class KitchenStockTransaction extends Model
                 'total_cost' => isset($data['unit_cost']) ? ($data['quantity'] * $data['unit_cost']) : null,
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
-                'reference_no' => $referenceNo,
+                'reference_no' => $data['reference_no'] ?? self::generateReferenceNo('KIT'),
                 'batch_no' => $data['batch_no'] ?? null,
                 'notes' => $data['notes'] ?? 'Terima dari outlet warehouse',
                 'transaction_date' => $data['transaction_date'] ?? now(),
                 'year' => $year,
                 'month' => $month,
-                'status' => $data['status'] ?? self::STATUS_COMPLETED,
+                'status' => $data['status'] ?? 'COMPLETED',
             ]);
 
-            // Update monthly balance
+            // ✅ Update balance with correct movement type
             $balance->updateMovement('received_from_outlet_warehouse', $data['quantity']);
 
             DB::commit();
 
             Log::info('Kitchen stock transaction created - RECEIVE FROM OUTLET WAREHOUSE', [
                 'transaction_id' => $transaction->id,
-                'reference_no' => $referenceNo,
-                'branch_id' => $data['branch_id'],
+                'outlet_warehouse_id' => $data['outlet_warehouse_id'],
                 'item_id' => $data['item_id'],
                 'quantity' => $data['quantity'],
             ]);
@@ -715,7 +723,7 @@ class KitchenStockTransaction extends Model
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Create kitchen receive from outlet warehouse transaction error: ' . $e->getMessage());
+            Log::error('Create kitchen receive from outlet warehouse error: ' . $e->getMessage());
             return null;
         }
     }

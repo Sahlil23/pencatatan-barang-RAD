@@ -26,11 +26,11 @@ class beranda extends Controller
         // Role-based data
         if ($user->isSuperAdmin()) {
             return $this->superAdminDashboard();
-        } elseif ($user->isCentralManager() || $user->isCentralStaff()) {
+        } elseif ($user->isCentralManager() && $user->isCentralStaff()) {
             return $this->centralDashboard();
-        } elseif ($user->isBranchManager() || $user->isBranchStaff()) {
+        } elseif ($user->isBranchManager() && $user->isBranchStaff()) {
             return $this->branchDashboard();
-        } elseif ($user->isOutletManager() || $user->isOutletStaff()) {
+        } elseif ($user->isOutletManager() && $user->isOutletStaff()) {
             return $this->outletAndKitchenDashboard(); // ✅ GABUNG OUTLET + KITCHEN
         }
         
@@ -79,24 +79,24 @@ class beranda extends Controller
             
             // Today's Activity Summary
             'todayActivity' => [
-                'central_in' => CentralStockTransaction::where('transaction_type', 'PURCHASE' || 'BRANCH_RETURN')
+                'central_in' => CentralStockTransaction::where('transaction_type', 'PURCHASE' && 'BRANCH_RETURN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'central_out' => CentralStockTransaction::where('transaction_type', 'DISTRIBUTE_OUT')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'branch_in' => BranchStockTransaction::where('transaction_type', 'IN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'branch_out' => BranchStockTransaction::where('transaction_type', 'OUT')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'outlet_in' => OutletStockTransaction::where('transaction_type', 'IN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'kitchen_usage' => KitchenStockTransaction::where('transaction_type', 'USAGE')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
             ],
             
             // Monthly Summary
@@ -167,11 +167,11 @@ class beranda extends Controller
                     ->where('transaction_type', 'PURCHASE')
                     ->orwhere('transaction_type', 'BRANCH_RETURN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'distributed' => CentralStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'DISTRIBUTE_OUT')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'transactions_count' => CentralStockTransaction::where('warehouse_id', $warehouseId)
                     ->whereDate('transaction_date', today())
                     ->count(),
@@ -184,12 +184,12 @@ class beranda extends Controller
                     ->orwhere('transaction_type', 'BRANCH_RETURN')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'distributed' => CentralStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'DISTRIBUTE_OUT')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'distributions_count' => CentralStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'DISTRIBUTE_OUT')
                     ->whereMonth('transaction_date', now()->month)
@@ -282,11 +282,11 @@ class beranda extends Controller
                 'received' => BranchStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'IN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'distributed' => BranchStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'OUT')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'transactions_count' => BranchStockTransaction::where('warehouse_id', $warehouseId)
                     ->whereDate('transaction_date', today())
                     ->count(),
@@ -298,12 +298,12 @@ class beranda extends Controller
                     ->where('transaction_type', 'IN')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'distributed' => BranchStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'OUT')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
             ],
             
             // Recent Transactions
@@ -402,21 +402,21 @@ class beranda extends Controller
                 'outlet_received' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
                     ->where('transaction_type', 'IN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'outlet_to_kitchen' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
                     ->where('transaction_type', 'OUT')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                     
                 // Kitchen
                 'kitchen_received' => KitchenStockTransaction::where('branch_id', $branchId)
                     ->where('transaction_type', 'IN')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'kitchen_usage' => KitchenStockTransaction::where('branch_id', $branchId)
                     ->where('transaction_type', 'USAGE')
                     ->whereDate('transaction_date', today())
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                     
                 // Total transactions
                 'total_transactions' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
@@ -434,24 +434,24 @@ class beranda extends Controller
                     ->where('transaction_type', 'IN')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'outlet_to_kitchen' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
                     ->where('transaction_type', 'OUT')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                     
                 // Kitchen
                 'kitchen_received' => KitchenStockTransaction::where('branch_id', $branchId)
                     ->where('transaction_type', 'IN')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
                 'kitchen_usage' => KitchenStockTransaction::where('branch_id', $branchId)
                     ->where('transaction_type', 'USAGE')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
-                    ->sum('quantity'),
+                    ->sum(DB::raw('abs(`quantity`)')),
             ],
             
             // ========== RECENT TRANSACTIONS (COMBINED) ==========
@@ -527,30 +527,30 @@ class beranda extends Controller
     private function getMonthlyActivitySummary()
     {
         return [
-            'central_in' => CentralStockTransaction::where('transaction_type', 'PURCHASE' || 'BRANCH_RETURN')
+            'central_in' => CentralStockTransaction::where('transaction_type', 'PURCHASE' && 'BRANCH_RETURN')
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
-                ->sum('quantity'),
+                ->sum(DB::raw('abs(`quantity`)')),
             'central_out' => CentralStockTransaction::where('transaction_type', 'DISTRIBUTE_OUT')
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
-                ->sum('quantity'),
+                ->sum(DB::raw('abs(`quantity`)')),
             'branch_in' => BranchStockTransaction::where('transaction_type', 'IN')
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
-                ->sum('quantity'),
+                ->sum(DB::raw('abs(`quantity`)')),
             'branch_out' => BranchStockTransaction::where('transaction_type', 'OUT')
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
-                ->sum('quantity'),
-            'outlet_in' => OutletStockTransaction::where('transaction_type', 'IN')
+                ->sum(DB::raw('abs(`quantity`)')),
+            'outlet_in' => OutletStockTransaction::where('transaction_type', 'RECEIVE_FROM_BRANCH' && 'TRANSFER_IN' && 'ADJUSTMENT_IN')
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
-                ->sum('quantity'),
+                ->sum(DB::raw('abs(`quantity`)')),
             'kitchen_usage' => KitchenStockTransaction::where('transaction_type', 'USAGE')
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
-                ->sum('quantity'),
+                ->sum(DB::raw('abs(`quantity`)')),
         ];
     }
     
@@ -570,21 +570,21 @@ class beranda extends Controller
             $dateStr = $date->format('Y-m-d');
             $dates[] = $date->format('d/m');
             
-            $centralIn[] = CentralStockTransaction::where('transaction_type', 'PURCHASE' || 'BRANCH_RETURN')
+            $centralIn[] = CentralStockTransaction::where('transaction_type', 'PURCHASE' && 'BRANCH_RETURN')
                 ->whereDate('transaction_date', $dateStr)
-                ->sum('quantity');
+                ->sum(DB::raw('abs(`quantity`)'));
             $centralOut[] = CentralStockTransaction::where('transaction_type', 'DISTRIBUTE_OUT')
                 ->whereDate('transaction_date', $dateStr)
-                ->sum('quantity');
+                ->sum(DB::raw('abs(`quantity`)'));
             $branchIn[] = BranchStockTransaction::where('transaction_type', 'IN')
                 ->whereDate('transaction_date', $dateStr)
-                ->sum('quantity');
+                ->sum(DB::raw('abs(`quantity`)'));
             $branchOut[] = BranchStockTransaction::where('transaction_type', 'OUT')
                 ->whereDate('transaction_date', $dateStr)
-                ->sum('quantity');
+                ->sum(DB::raw('abs(`quantity`)'));
             $kitchenUsage[] = KitchenStockTransaction::where('transaction_type', 'USAGE')
                 ->whereDate('transaction_date', $dateStr)
-                ->sum('quantity');
+                ->sum(DB::raw('abs(`quantity`)'));
         }
         
         return compact('dates', 'centralIn', 'centralOut', 'branchIn', 'branchOut', 'kitchenUsage');
@@ -605,40 +605,40 @@ class beranda extends Controller
             
             if ($level === 'central') {
                 $in = CentralStockTransaction::where('warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'PURCHASE' || 'BRANCH_RETURN')
+                    ->where('transaction_type', 'PURCHASE' && 'BRANCH_RETURN')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
                 $out = CentralStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'DISTRIBUTE_OUT')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'branch') {
                 $in = BranchStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'IN')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
                 $out = BranchStockTransaction::where('warehouse_id', $warehouseId)
                     ->where('transaction_type', 'OUT')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'outlet') {
                 $in = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
                     ->where('transaction_type', 'IN')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
                 $out = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
                     ->where('transaction_type', 'OUT')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'kitchen') {
                 $in = KitchenStockTransaction::where('branch_id', $branchId)
                     ->where('transaction_type', 'IN')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
                 $out = KitchenStockTransaction::where('branch_id', $branchId)
                     ->where('transaction_type', 'USAGE')
                     ->whereDate('transaction_date', $dateStr)
-                    ->sum('quantity');
+                    ->sum(DB::raw('abs(`quantity`)'));
             } else {
                 $in = 0;
                 $out = 0;

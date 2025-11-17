@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\Warehouse;
 use App\Models\BranchStockTransaction;  
 use App\Models\BranchWarehouseMonthlyBalance;
+use App\Models\BranchWarehouseToOutletTransaction;
 use App\Models\Item;
 use App\Models\Branch;
 use App\Models\StockPeriod;
@@ -707,34 +708,29 @@ class BranchWarehouseController extends Controller
 
         return $this->executeTransaction(
             function () use ($request, $warehouseId, $selectedItems) {
-                // Get branch warehouse
+                
                 $warehouse = Warehouse::where('warehouse_type', 'branch')
                     ->where('id', $warehouseId)
                     ->firstOrFail();
 
-                // Validate outlet
                 $outlet = Warehouse::where('warehouse_type', 'outlet')
                     ->where('id', $request->outlet_id)
                     ->firstOrFail();
 
                 $currentMonth = (int)date('m');
                 $currentYear = (int)date('Y');
-                $referenceNo = $this->generateReferenceNo('DIST');
+                $referenceNo = $this->generateReferenceNo('B2O-DIST');
                 $successCount = 0;
                 $errors = [];
+                $currentUser = $this->currentUser();
 
-                // Process each selected item
                 foreach ($selectedItems as $index => $item) {
                     try {
                         $itemId = $item['item_id'];
                         $quantity = $item['quantity'];
                         $itemNotes = $item['item_notes'] ?? '';
 
-                        // 1. Validate stock availability
                         $branchBalance = BranchWarehouseMonthlyBalance::where('warehouse_id', $warehouseId)
-                            ->where('item_id', $itemId)
-                            ->where('month', $currentMonth)
-                            ->where('year', $currentYear)
                             ->first();
 
                         if (!$branchBalance || $branchBalance->closing_stock < $quantity) {
@@ -743,77 +739,54 @@ class BranchWarehouseController extends Controller
                             continue;
                         }
 
-                        // 2. Create BRANCH stock transaction (OUT)
+                       
                         $branchTransaction = BranchStockTransaction::create([
                             'branch_id' => $warehouse->branch_id,
                             'warehouse_id' => $warehouseId,
                             'item_id' => $itemId,
-                            'transaction_type' => 'OUT',
+                            'transaction_type' => 'OUT', 
                             'quantity' => $quantity,
                             'reference_no' => $referenceNo,
                             'notes' => "Distribusi ke outlet {$outlet->warehouse_name}" 
                                 . ($itemNotes ? " | {$itemNotes}" : '') 
                                 . ($request->notes ? " | {$request->notes}" : ''),
                             'transaction_date' => now(),
-                            'user_id' => $this->currentUser()->id
+                            'user_id' => $currentUser->id
                         ]);
 
-                        // 3. Update BRANCH balance
+                        // 3. Update BRANCH balance (Sudah Benar)
                         $branchBalance->stock_out = (float)$branchBalance->stock_out + (float)$quantity;
-                        $branchBalance->closing_stock = (float)$branchBalance->opening_stock 
-                            + (float)$branchBalance->stock_in 
-                            - (float)$branchBalance->stock_out 
-                            + (float)$branchBalance->adjustments;
+                        $branchBalance->closing_stock = $branchBalance->opening_stock + $branchBalance->stock_in - $branchBalance->stock_out + $branchBalance->adjustments;
                         $branchBalance->save();
 
-                        // 4. Create OUTLET stock transaction
-                        $outletTransaction = OutletStockTransaction::createReceiveFromBranch([
+                        // 4. --- PERUBAHAN UTAMA ---
+                        BranchWarehouseToOutletTransaction::create([
+                            'branch_warehouse_id' => $warehouseId,
                             'outlet_warehouse_id' => $request->outlet_id,
+                            'branch_id' => $warehouse->branch_id, // Anda punya kolom ini
                             'item_id' => $itemId,
+                            'user_id' => $currentUser->id,
+                            'transaction_type' => 'DISTRIBUTION', // Sesuai ENUM Anda
                             'quantity' => $quantity,
-                            'user_id' => $this->currentUser()->id,
-                            'branch_warehouse_transaction_id' => $branchTransaction->id,
-                            'unit_cost' => 0,
-                            'batch_no' => null,
-                            'notes' => "Terima dari branch warehouse {$warehouse->warehouse_name}" 
-                                . ($itemNotes ? " | {$itemNotes}" : ''),
+                            'reference_no' => $referenceNo,
+                            'notes' => ($itemNotes ? " | {$itemNotes}" : '') 
+                                . ($request->notes ? " | {$request->notes}" : ''),
                             'transaction_date' => now(),
-                            'year' => $currentYear,
-                            'month' => $currentMonth,
-                            'status' => OutletStockTransaction::STATUS_COMPLETED,
-                            'document_no' => $referenceNo,
+                            'status' => 'PENDING' // Kolom baru dari migrasi
                         ]);
-
-                        if (!$outletTransaction) {
-                            throw new \Exception("Gagal create outlet stock transaction untuk item ID {$itemId}");
-                        }
 
                         $successCount++;
 
                     } catch (\Exception $e) {
-                        Log::error("Error processing item distribution: " . $e->getMessage(), [
-                            'item_id' => $itemId ?? null,
-                            'warehouse_id' => $warehouseId,
-                            'outlet_id' => $request->outlet_id,
-                        ]);
-                        $errors[] = "Item ID {$itemId}: " . $e->getMessage();
+                        throw $e;
                     }
                 }
 
-                // Check if any items were processed
                 if ($successCount === 0) {
-                    throw new \Exception("Tidak ada item yang berhasil didistribusikan. Errors: " . implode('; ', $errors));
+                    throw new \Exception("Tidak ada item yang berhasil didistribusikan. Errors: " . json_encode($errors));
                 }
 
-                // Log activity
-                // $this->logActivity('stock_distribution', 'BranchStockTransaction', null, [
-                //     'warehouse_id' => $warehouseId,
-                //     'outlet_id' => $request->outlet_id,
-                //     'reference_no' => $referenceNo,
-                //     'success_count' => $successCount,
-                //     'errors' => $errors
-                // ]);
-
+                // ... (return data) ...
                 return [
                     'reference_no' => $referenceNo,
                     'outlet_name' => $outlet->warehouse_name,
@@ -822,16 +795,12 @@ class BranchWarehouseController extends Controller
                 ];
             },
             function($result) {
-                // ✅ FIX: Success message menggunakan $result dari closure
-                $message = $result['success_count'] . ' items distributed successfully to ' . $result['outlet_name'] . '. Reference: ' . $result['reference_no'];
-                
-                if (!empty($result['errors'])) {
-                    $message .= "\n\nWarnings:\n" . implode("\n", $result['errors']);
-                }
-                
+                // Ubah pesan sukses
+                $message = $result['success_count'] . ' items distribution request created for ' . $result['outlet_name'] . '. Waiting for approval. Ref: ' . $result['reference_no'];
+                // ... (warning handling) ...
                 return $message;
             },
-            'Failed to distribute stock'
+            'Failed to create distribution request'
         );
     }
 

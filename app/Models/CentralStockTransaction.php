@@ -396,7 +396,7 @@ class CentralStockTransaction extends Model
         };
 
         $reverseQuantity = $this->transaction_type === self::TYPE_ADJUSTMENT ? 
-            -$this->quantity : $this->quantity;
+            $this->quantity : $this->quantity;
 
         $reverseTransaction = self::create([
             'item_id' => $this->item_id,

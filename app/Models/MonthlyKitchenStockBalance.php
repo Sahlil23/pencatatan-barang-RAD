@@ -7,14 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\db;
+use Illuminate\Support\Facades\DB;
 
 class MonthlyKitchenStockBalance extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'branch_id',
+        'outlet_warehouse_id',      // ✅ CHANGED: from branch_id
         'item_id',
         'year',
         'month',
@@ -36,8 +36,8 @@ class MonthlyKitchenStockBalance extends Model
         'opening_stock' => 'decimal:3',
         'closing_stock' => 'decimal:3',
         'transfer_in' => 'decimal:3',
-        'received_from_branch_warehouse' => 'decimal:3',   // ✅ NEW
-        'received_from_outlet_warehouse' => 'decimal:3',   // ✅ NEW
+        'received_from_branch_warehouse' => 'decimal:3',
+        'received_from_outlet_warehouse' => 'decimal:3',
         'usage' => 'decimal:3',
         'waste' => 'decimal:3',
         'transfer_out' => 'decimal:3',
@@ -55,15 +55,30 @@ class MonthlyKitchenStockBalance extends Model
      */
     public function item()
     {
-        return $this->belongsTo(Item::class);
+        return $this->belongsTo(Item::class, 'item_id', 'id');
     }
 
     /**
-     * Balance belongs to branch
+     * Balance belongs to outlet warehouse
+     */
+    public function outletWarehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'outlet_warehouse_id');
+    }
+
+    /**
+     * Get branch through outlet warehouse
      */
     public function branch()
     {
-        return $this->belongsTo(Branch::class);
+        return $this->hasOneThrough(
+            Branch::class,
+            Warehouse::class,
+            'id',           // Foreign key on warehouses table
+            'id',           // Foreign key on branches table
+            'outlet_warehouse_id',  // Local key on monthly_kitchen_stock_balances table
+            'branch_id'     // Local key on warehouses table
+        );
     }
 
     /**
@@ -72,7 +87,7 @@ class MonthlyKitchenStockBalance extends Model
     public function kitchenStockTransactions()
     {
         return $this->hasMany(KitchenStockTransaction::class, 'item_id', 'item_id')
-            ->where('branch_id', $this->branch_id)
+            ->where('outlet_warehouse_id', $this->outlet_warehouse_id)
             ->whereYear('transaction_date', $this->year)
             ->whereMonth('transaction_date', $this->month);
     }
@@ -94,31 +109,35 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Dapatkan atau buat balance untuk bulan tertentu
      */
-    public static function getOrCreateBalance($itemId, $branchId, $year = null, $month = null)
+    public static function getOrCreateBalance($itemId, $outletWarehouseId, $year = null, $month = null)
     {
         $year = $year ?? now()->year;
         $month = $month ?? now()->month;
         
         $balance = static::where([
             'item_id' => $itemId,
-            'branch_id' => $branchId,
+            'outlet_warehouse_id' => $outletWarehouseId,
             'year' => $year,
             'month' => $month
         ])->first();
         
         if (!$balance) {
             // Cari opening stock dari bulan sebelumnya
-            $openingStock = static::getOpeningStock($itemId, $branchId, $year, $month);
+            $openingStock = static::getOpeningStock($itemId, $outletWarehouseId, $year, $month);
             
             $balance = static::create([
                 'item_id' => $itemId,
-                'branch_id' => $branchId,
+                'outlet_warehouse_id' => $outletWarehouseId,
                 'year' => $year,
                 'month' => $month,
                 'opening_stock' => $openingStock,
                 'closing_stock' => $openingStock,
                 'transfer_in' => 0,
-                'usage_out' => 0,
+                'received_from_branch_warehouse' => 0,
+                'received_from_outlet_warehouse' => 0,
+                'usage' => 0,
+                'waste' => 0,
+                'transfer_out' => 0,
                 'adjustments' => 0,
                 'is_closed' => false,
                 'closed_at' => null
@@ -131,7 +150,7 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Hitung opening stock dari closing stock bulan sebelumnya
      */
-    public static function getOpeningStock($itemId, $branchId, $year, $month)
+    public static function getOpeningStock($itemId, $outletWarehouseId, $year, $month)
     {
         // Tentukan bulan sebelumnya
         if ($month == 1) {
@@ -145,7 +164,7 @@ class MonthlyKitchenStockBalance extends Model
         // Cari closing stock bulan sebelumnya
         $previousBalance = static::where([
             'item_id' => $itemId,
-            'branch_id' => $branchId,
+            'outlet_warehouse_id' => $outletWarehouseId,
             'year' => $prevYear,
             'month' => $prevMonth
         ])->first();
@@ -161,11 +180,11 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Dapatkan balance untuk bulan tertentu (tanpa create)
      */
-    public static function getBalance($itemId, $branchId, $year, $month)
+    public static function getBalance($itemId, $outletWarehouseId, $year, $month)
     {
         return static::where([
             'item_id' => $itemId,
-            'branch_id' => $branchId,
+            'outlet_warehouse_id' => $outletWarehouseId,
             'year' => $year,
             'month' => $month
         ])->first();
@@ -174,7 +193,7 @@ class MonthlyKitchenStockBalance extends Model
     /**
      * Dapatkan balance bulan sebelumnya
      */
-    public static function getPreviousMonthBalance($itemId, $branchId, $year = null, $month = null)
+    public static function getPreviousMonthBalance($itemId, $outletWarehouseId, $year = null, $month = null)
     {
         $year = $year ?? now()->year;
         $month = $month ?? now()->month;
@@ -188,17 +207,17 @@ class MonthlyKitchenStockBalance extends Model
             $prevYear = $year;
         }
 
-        return static::getBalance($itemId, $branchId, $prevYear, $prevMonth);
+        return static::getBalance($itemId, $outletWarehouseId, $prevYear, $prevMonth);
     }
 
     /**
      * Dapatkan all balance untuk item tertentu di branch (riwayat bulanan)
      */
-    public static function getItemHistory($itemId, $branchId, $limit = 12)
+    public static function getItemHistory($itemId, $outletWarehouseId, $limit = 12)
     {
         return static::where([
                 'item_id' => $itemId,
-                'branch_id' => $branchId
+                'outlet_warehouse_id' => $outletWarehouseId
             ])
             ->orderBy('year', 'desc')
             ->orderBy('month', 'desc')
@@ -357,7 +376,7 @@ class MonthlyKitchenStockBalance extends Model
     {
         $openingStock = static::getOpeningStock(
             $this->item_id, 
-            $this->branch_id,
+            $this->outlet_warehouse_id,
             $this->year, 
             $this->month
         );
@@ -389,13 +408,11 @@ class MonthlyKitchenStockBalance extends Model
                     break;
 
                 case 'received_from_branch_warehouse':
-                    // ✅ NEW: Detailed tracking from branch warehouse
                     $this->received_from_branch_warehouse += $quantity;
                     $this->closing_stock += $quantity;
                     break;
 
                 case 'received_from_outlet_warehouse':
-                    // ✅ NEW: Detailed tracking from outlet warehouse
                     $this->received_from_outlet_warehouse += $quantity;
                     $this->closing_stock += $quantity;
                     break;
@@ -454,8 +471,8 @@ class MonthlyKitchenStockBalance extends Model
         try {
             $calculatedClosing = $this->opening_stock
                                + $this->transfer_in
-                               + $this->received_from_branch_warehouse   // ✅ ADD
-                               + $this->received_from_outlet_warehouse   // ✅ ADD
+                               + $this->received_from_branch_warehouse
+                               + $this->received_from_outlet_warehouse
                                - $this->usage
                                - $this->waste
                                - $this->transfer_out
@@ -602,7 +619,7 @@ class MonthlyKitchenStockBalance extends Model
     {
         $previousBalance = static::getPreviousMonthBalance(
             $this->item_id, 
-            $this->branch_id,
+            $this->outlet_warehouse_id,
             $this->year, 
             $this->month
         );
@@ -635,9 +652,12 @@ class MonthlyKitchenStockBalance extends Model
         return $query->where('item_id', $itemId);
     }
 
-    public function scopeForBranch($query, $branchId)
+    /**
+     * ✅ CHANGED: Scope for outlet warehouse
+     */
+    public function scopeForOutletWarehouse($query, $outletWarehouseId)
     {
-        return $query->where('branch_id', $branchId);
+        return $query->where('outlet_warehouse_id', $outletWarehouseId);
     }
     
     public function scopeCurrentMonth($query)
@@ -704,7 +724,7 @@ class MonthlyKitchenStockBalance extends Model
     
     public function getTotalMovementAttribute()
     {
-        return $this->transfer_in + $this->usage_out + abs($this->adjustments);
+        return $this->transfer_in + $this->usage + abs($this->adjustments);
     }
     
     public function getFormattedPeriodAttribute()
@@ -718,37 +738,17 @@ class MonthlyKitchenStockBalance extends Model
         return $months[$this->month] . ' ' . $this->year;
     }
 
-    public function getPeriodValueAttribute()
+    /**
+     * ✅ NEW: Get outlet warehouse name
+     */
+    public function getOutletWarehouseNameAttribute()
     {
-        return $this->year . '-' . str_pad($this->month, 2, '0', STR_PAD_LEFT);
+        return $this->outletWarehouse ? $this->outletWarehouse->warehouse_name : 'Unknown Outlet';
     }
 
-    public function getIsCurrentMonthAttribute()
-    {
-        return $this->year == now()->year && $this->month == now()->month;
-    }
-
-    public function getIsPreviousMonthAttribute()
-    {
-        $prevDate = now()->subMonth();
-        return $this->year == $prevDate->year && $this->month == $prevDate->month;
-    }
-
-    public function getCanEditAttribute()
-    {
-        return !$this->is_closed;
-    }
-
-    public function getStatusTextAttribute()
-    {
-        return $this->is_closed ? 'Ditutup' : 'Terbuka';
-    }
-
-    public function getStatusColorAttribute()
-    {
-        return $this->is_closed ? 'danger' : 'success';
-    }
-
+    /**
+     * ✅ CHANGED: Get branch name through outlet warehouse
+     */
     public function getBranchNameAttribute()
     {
         return $this->branch ? $this->branch->branch_name : 'Unknown Branch';
@@ -923,13 +923,13 @@ class MonthlyKitchenStockBalance extends Model
     {
         return [
             'item_id' => 'required|exists:items,id',
-            'branch_id' => 'required|exists:branches,id',
+            'outlet_warehouse_id' => 'required|exists:warehouses,id',
             'year' => 'required|integer|min:2020|max:2050',
             'month' => 'required|integer|min:1|max:12',
             'opening_stock' => 'required|numeric|min:0',
             'closing_stock' => 'required|numeric|min:0',
             'transfer_in' => 'required|numeric|min:0',
-            'usage_out' => 'required|numeric|min:0',
+            'usage' => 'required|numeric|min:0',
             'adjustments' => 'nullable|numeric'
         ];
     }

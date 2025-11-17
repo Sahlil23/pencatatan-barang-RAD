@@ -140,8 +140,7 @@
     </table>
   </div>
 
-  <div class="card-footer">
-    {{ $transactions->links() }}
-  </div>
+  <x-simple-pagination :items="$transactions" type="transaction" />
+
 </div>
 @endsection

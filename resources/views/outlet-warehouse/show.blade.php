@@ -141,7 +141,7 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-3">
-            <a href="{{ route('outlet-warehouse.receive.create', $warehouse->id) }}" class="btn btn-primary w-100">
+            <a href="{{ route('outlet-warehouse.pending-distributions', $warehouse->id) }}" class="btn btn-primary w-100">
               <i class="bx bx-package me-2"></i>
               Terima Stock
             </a>
@@ -200,7 +200,7 @@
                   <th>SKU</th>
                   <th>Item Name</th>
                   <th>Category</th>
-                  <th class="text-end">Opening</th>
+                  <!-- <th class="text-end">Opening</th> -->
                   <th class="text-end">Received</th>
                   <th class="text-end">Distributed</th>
                   <th class="text-end">Adjustments</th>
@@ -221,12 +221,12 @@
                   </td>
                   <td>
                     @if($balance->item->category)
-                      <span class="badge bg-label-info">{{ $balance->item->category->name }}</span>
+                      <span class="badge bg-label-info">{{ $balance->item->category->category_name }}</span>
                     @else
                       <span class="text-muted">-</span>
                     @endif
                   </td>
-                  <td class="text-end">{{ number_format($balance->opening_stock, 2) }}</td>
+                  <!-- <td class="text-end">{{ number_format($balance->opening_stock, 2) }}</td> -->
                   <td class="text-end text-success">
                     <strong>+{{ number_format($balance->received_from_branch_warehouse, 2) }}</strong>
                   </td>
@@ -258,12 +258,11 @@
               <tfoot class="table-secondary">
                 <tr>
                   <td colspan="3" class="text-end fw-bold">TOTAL:</td>
-                  <td class="text-end fw-bold">{{ number_format($stockBalance->sum('opening_stock'), 2) }}</td>
                   <td class="text-end fw-bold text-success">+{{ number_format($stockBalance->sum('received_from_branch_warehouse'), 2) }}</td>
                   <td class="text-end fw-bold text-warning">-{{ number_format($stockBalance->sum('distributed_to_kitchen'), 2) }}</td>
                   <td class="text-end fw-bold">{{ number_format($stockBalance->sum('adjustments'), 2) }}</td>
                   <td class="text-end fw-bold">{{ number_format($stockBalance->sum('closing_stock'), 2) }}</td>
-                  <td></td>
+                  <td></td>  
                 </tr>
               </tfoot>
             </table>

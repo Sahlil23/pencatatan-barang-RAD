@@ -217,7 +217,7 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
         Route::get('/{id}/current-stock', [BranchWarehouseController::class, 'getCurrentStock'])
             ->name('current-stock');
               
-        // ✅ Approval routes 
+        // ✅ Approval routes   
         Route::get('/{id}/pending-distributions', [BranchWarehouseController::class, 'pendingDistributions'])
             ->name('pending-distributions');
         Route::post('/approve-distribution', [BranchWarehouseController::class, 'approveDistribution'])
@@ -268,6 +268,8 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
                 ->name('receive.create');
             Route::post('/receive', [OutletWarehouseController::class, 'receiveStore'])
                 ->name('receive.store');
+            Route::get('/pending-distributions', [OutletWarehouseController::class,'pendingDistributions'])
+                 ->name('pending-distributions');
             
             // Adjustment
             Route::get('/adjustment', [OutletWarehouseController::class, 'adjustmentCreate'])
@@ -289,7 +291,10 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
             Route::get('/stock/available', [OutletWarehouseController::class, 'getAvailableStock'])
                 ->name('stock.available');
         });
-        
+        Route::post('/approve-distribution', [OutletWarehouseController::class,'approveOutletDistribution'])
+                 ->name('approve-distribution');
+        Route::post('/reject-distribution', [OutletWarehouseController::class, 'rejectOutletDistribution'])
+                ->name('reject-distribution');
         // AJAX
         Route::get('/ajax/stock/{warehouseId}', [OutletWarehouseController::class, 'getAvailableStock'])
             ->name('ajax.stock');
@@ -308,8 +313,8 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
             ->name('transfer.process');
         
         // Usage
-        Route::get('/usage', [KitchenStockController::class, 'usage'])->name('usage');
-        Route::post('/usage', [KitchenStockController::class, 'processUsage'])->name('usage.process');
+        Route::get('/usage', [KitchenStockController::class, 'usageCreate'])->name('usage');
+        Route::post('/usage', [KitchenStockController::class, 'usageStore'])->name('usage.process');
         Route::post('/usage-multiple', [KitchenStockController::class, 'processMultipleUsage'])
             ->name('usage.process-multiple');
         

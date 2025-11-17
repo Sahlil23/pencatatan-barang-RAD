@@ -73,12 +73,16 @@
                 <select class="form-select @error('warehouse_type') is-invalid @enderror" 
                         id="warehouse_type" name="warehouse_type" required>
                   <option value="">Pilih tipe warehouse...</option>
-                  <option value="central" {{ old('warehouse_type') == 'central' ? 'selected' : '' }}>
-                    Central Warehouse
-                  </option>
-                  <option value="branch" {{ old('warehouse_type') == 'branch' ? 'selected' : '' }}>
-                    Branch Warehouse
-                  </option>
+                  @if(auth()->user()->isSuperAdmin())
+                    <option value="central" {{ old('warehouse_type') == 'central' ? 'selected' : '' }}>
+                      Central Warehouse
+                    </option>
+                  @endif
+                  @if(auth()->user()->isSuperAdmin() || auth()->user()->isCentralManager())
+                    <option value="branch" {{ old('warehouse_type') == 'branch' ? 'selected' : '' }}>
+                      Branch Warehouse
+                    </option>
+                  @endif  
                   <option value="outlet" {{ old('warehouse_type') == 'outlet' ? 'selected' : '' }}>
                     Outlet Warehouse
                   </option>

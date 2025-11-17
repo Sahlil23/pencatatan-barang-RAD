@@ -40,43 +40,61 @@ class KitchenStockController extends Controller
     public function index(Request $request)
     {
         try {
-            // Get branch context
-            $branchId = $this->getBranchId($request);
-            $currentBranch = $this->getCurrentBranch($request);
-            
-            if (!$branchId) {
-                return $this->errorResponse('Branch tidak ditemukan. Silakan pilih branch terlebih dahulu.');
+            $accessibleOutletWarehouses = $this->currentUser()->getAccessibleWarehousesByType('outlet');
+
+            if ($accessibleOutletWarehouses->isEmpty()) {
+                return $this->errorResponse('Anda tidak memiliki akses ke kitchen (dapur) outlet manapun.');
             }
 
-            // Validate branch access
-            $this->validateBranchAccess($branchId);
+            // 2. Tentukan outlet mana yang akan ditampilkan
+            $selectedOutletId = $request->input('outlet_id');
+            $selectedOutlet = null;
 
+            if ($selectedOutletId) {
+                // Jika user memilih dari dropdown, validasi apakah dia boleh mengaksesnya
+                $selectedOutlet = $accessibleOutletWarehouses->firstWhere('id', $selectedOutletId);
+                if (!$selectedOutlet) {
+                    // Jika tidak, tolak akses
+                    return $this->errorResponse('Akses ditolak ke outlet warehouse ini.', 403);
+                }
+            } else {
+                // Jika tidak ada yang dipilih, tampilkan data untuk outlet pertama yang dia bisa akses
+                $selectedOutlet = $accessibleOutletWarehouses->first();
+                $selectedOutletId = $selectedOutlet->id;
+            }
+
+            // 3. Siapkan variabel
             $currentMonth = (int)date('m');
             $currentYear = (int)date('Y');
 
-            // Build query
-            $query = MonthlyKitchenStockBalance::where('branch_id', $branchId)
+            // 4. Buat kueri utama HANYA ke MonthlyKitchenStockBalance
+            //    dan HANYA menggunakan outlet_warehouse_id
+            $query = MonthlyKitchenStockBalance::where('outlet_warehouse_id', $selectedOutletId)
                 ->where('month', $currentMonth)
                 ->where('year', $currentYear)
-                ->with(['item.category', 'branch']);
+                ->with(['item.category']); // Eager load relasi
 
-            // Apply category filter
+            // 5. Terapkan Filter (Logika Anda sebagian besar sudah benar)
+            
+            // Filter Kategori
             if ($request->filled('category_id')) {
                 $query->whereHas('item', function($q) use ($request) {
                     $q->where('category_id', $request->category_id);
                 });
             }
 
-            // Apply stock status filter
+            // Filter Status Stok (PERBAIKAN BUG 'whereColumn' ADA DI SINI)
             if ($request->filled('stock_status')) {
                 switch ($request->stock_status) {
                     case 'available':
                         $query->where('closing_stock', '>', 0);
                         break;
                     case 'low':
-                        $query->whereHas('item', function($q) {
-                            $q->whereColumn('monthly_kitchen_stock_balances.closing_stock', '<=', 'items.low_stock_threshold')
-                              ->whereColumn('monthly_kitchen_stock_balances.closing_stock', '>', 0);
+                        $tableName = (new MonthlyKitchenStockBalance)->getTable();
+                        $query->whereHas('item', function($q) use ($tableName) {
+                            $q->whereColumn("$tableName.closing_stock", '<=', 'items.low_stock_threshold')
+                            // PERBAIKAN: Gunakan 'where' (bukan 'whereColumn') saat membandingkan dengan nilai '0'
+                            ->where("$tableName.closing_stock", '>', 0);
                         });
                         break;
                     case 'out':
@@ -84,78 +102,66 @@ class KitchenStockController extends Controller
                         break;
                 }
             }
-
-            // Apply search filter
+            
+            // Filter Pencarian
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->whereHas('item', function($q) use ($search) {
                     $q->where('item_name', 'like', "%{$search}%")
-                      ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
 
+            // Paginasi
             $perPage = $this->getPerPage($request, 15);
-            $stockBalances = $query->paginate($perPage);
+            $stockBalances = $query->paginate($perPage)->appends($request->query());
 
-            // Get master data
+            // 6. Ambil Data Master
             $categories = Category::all();
 
-            // Calculate statistics
+            // 7. Hitung Statistik (PERBAIKAN: Kueri dibuat ulang agar efisien)
+            $statsQueryBase = MonthlyKitchenStockBalance::where('outlet_warehouse_id', $selectedOutletId)
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear);
+
             $stats = [
-                'total_items' => MonthlyKitchenStockBalance::where('branch_id', $branchId)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->count(),
-                    
-                'available_items' => MonthlyKitchenStockBalance::where('branch_id', $branchId)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->where('closing_stock', '>', 0)
-                    ->count(),
-                    
-                'low_stock_items' => MonthlyKitchenStockBalance::where('branch_id', $branchId)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->whereHas('item', function($q) {
-                        $q->whereColumn('monthly_kitchen_stock_balances.closing_stock', '<=', 'items.low_stock_threshold')
-                          ->whereColumn('monthly_kitchen_stock_balances.closing_stock', '>', 0);
-                    })
-                    ->count(),
-                    
-                'out_of_stock_items' => MonthlyKitchenStockBalance::where('branch_id', $branchId)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->where('closing_stock', '<=', 0)
-                    ->count(),
-                    
-                'total_stock_value' => MonthlyKitchenStockBalance::where('branch_id', $branchId)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->with('item')
+                'total_items' => (clone $statsQueryBase)->count(),
+                'available_items' => (clone $statsQueryBase)->where('closing_stock', '>', 0)->count(),
+                'low_stock_items' => (clone $statsQueryBase)->whereHas('item', function($q) {
+                        $tableName = (new MonthlyKitchenStockBalance)->getTable();
+                        $q->whereColumn("$tableName.closing_stock", '<=', 'items.low_stock_threshold')
+                        ->where("$tableName.closing_stock", '>', 0);
+                    })->count(),
+                'out_of_stock_items' => (clone $statsQueryBase)->where('closing_stock', '<=', 0)->count(),
+                'total_stock_value' => (clone $statsQueryBase)->with('item:id,unit_cost')
                     ->get()
                     ->sum(fn($b) => $b->closing_stock * ($b->item->unit_cost ?? 0)),
             ];
 
-            // Get recent transactions
-            $recentTransactionsQuery = KitchenStockTransaction::where('branch_id', $branchId)
+            // 8. Ambil Transaksi Terakhir (PERBAIKAN: Gunakan outlet_warehouse_id)
+            $recentTransactionsQuery = KitchenStockTransaction::where('outlet_warehouse_id', $selectedOutletId)
                 ->with(['item', 'user'])
                 ->orderBy('transaction_date', 'desc');
 
             $recentTransactionsQuery = $this->applyDateRangeFilter($recentTransactionsQuery, $request, 'transaction_date', 7);
             $recentTransactions = $recentTransactionsQuery->limit(10)->get();
 
-            // Get common view data
+            // 9. Ambil Data View Umum
             $commonData = $this->getCommonViewData($request);
 
+            // 10. Kembalikan View
             return view('kitchen.index', array_merge($commonData, [
                 'stockBalances' => $stockBalances,
                 'categories' => $categories,
                 'stats' => $stats,
-                'recentTransactions' => $recentTransactions
+                'recentTransactions' => $recentTransactions,
+                'outletWarehouses' => $accessibleOutletWarehouses, // Daftar outlet untuk dropdown
+                'selectedOutlet' => $selectedOutlet, // Outlet yang sedang dilihat
+                'selectedOutletId' => (int)$selectedOutletId // ID untuk dropdown
             ]));
 
         } catch (\Exception $e) {
-            Log::error('Kitchen stock index error: ' . $e->getMessage());
+            Log::error('Kitchen stock index error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return $this->errorResponse('Error loading kitchen stock: ' . $e->getMessage());
         }
     }
@@ -243,8 +249,15 @@ class KitchenStockController extends Controller
 
         return $this->executeTransaction(
             function () use ($request) {
-                $branchId = $this->currentUser()->branch_id;
-                $sourceType = $request->source_type;
+                // ✅ CHANGED: Get outlet warehouse instead of branch
+                $accessibleOutlets = $this->currentUser()->getAccessibleWarehousesByType('outlet');
+                
+                if ($accessibleOutlets->isEmpty()) {
+                    throw new \Exception('No accessible outlet warehouse');
+                }
+
+                $outletWarehouseId = $request->input('outlet_warehouse_id') ?? $accessibleOutlets->first()->id;
+                
                 $transactionDate = Carbon::parse($request->transaction_date);
                 $year = $transactionDate->year;
                 $month = $transactionDate->month;
@@ -255,7 +268,7 @@ class KitchenStockController extends Controller
                 foreach ($request->items as $index => $itemData) {
                     try {
                         // Validate source stock
-                        if ($sourceType === 'outlet_warehouse') {
+                        if ($request->source_type === 'outlet_warehouse') {
                             $sourceStock = OutletWarehouseMonthlyBalance::where('warehouse_id', $request->source_warehouse_id)
                                 ->where('item_id', $itemData['item_id'])
                                 ->where('month', $month)
@@ -277,9 +290,9 @@ class KitchenStockController extends Controller
                         }
 
                         // Create kitchen transaction
-                        if ($sourceType === 'outlet_warehouse') {
+                        if ($request->source_type === 'outlet_warehouse') {
                             $transaction = KitchenStockTransaction::createReceiveFromOutletWarehouse([
-                                'branch_id' => $branchId,
+                                'outlet_warehouse_id' => $outletWarehouseId,  // ✅ CHANGED
                                 'item_id' => $itemData['item_id'],
                                 'user_id' => $this->currentUser()->id,
                                 'quantity' => $itemData['quantity'],
@@ -290,7 +303,7 @@ class KitchenStockController extends Controller
                             ]);
                         } else {
                             $transaction = KitchenStockTransaction::createReceiveFromWarehouse([
-                                'branch_id' => $branchId,
+                                'outlet_warehouse_id' => $outletWarehouseId,  // ✅ CHANGED
                                 'item_id' => $itemData['item_id'],
                                 'user_id' => $this->currentUser()->id,
                                 'quantity' => $itemData['quantity'],
@@ -409,7 +422,10 @@ class KitchenStockController extends Controller
 
         return $this->executeTransaction(
             function () use ($request) {
-                $branchId = $this->currentUser()->branch_id;
+                // ✅ CHANGED: Get outlet warehouse
+                $accessibleOutlets = $this->currentUser()->getAccessibleWarehousesByType('outlet');
+                $outletWarehouseId = $request->input('outlet_warehouse_id') ?? $accessibleOutlets->first()->id;
+                
                 $transactionDate = Carbon::parse($request->transaction_date);
                 $year = $transactionDate->year;
                 $month = $transactionDate->month;
@@ -421,7 +437,7 @@ class KitchenStockController extends Controller
                     try {
                         $balance = MonthlyKitchenStockBalance::getOrCreateBalance(
                             $usageData['item_id'],
-                            $branchId,
+                            $outletWarehouseId,  // ✅ CHANGED
                             $year,
                             $month
                         );
@@ -435,7 +451,7 @@ class KitchenStockController extends Controller
 
                         // Create usage transaction
                         $transaction = KitchenStockTransaction::create([
-                            'branch_id' => $branchId,
+                            'outlet_warehouse_id' => $outletWarehouseId,  // ✅ CHANGED
                             'item_id' => $usageData['item_id'],
                             'user_id' => $this->currentUser()->id,
                             'transaction_type' => $usageData['usage_type'],
@@ -539,14 +555,17 @@ class KitchenStockController extends Controller
 
         return $this->executeTransaction(
             function () use ($request) {
-                $branchId = $this->currentUser()->branch_id;
+                // ✅ CHANGED: Get outlet warehouse
+                $accessibleOutlets = $this->currentUser()->getAccessibleWarehousesByType('outlet');
+                $outletWarehouseId = $request->input('outlet_warehouse_id') ?? $accessibleOutlets->first()->id;
+                
                 $transactionDate = Carbon::parse($request->transaction_date);
                 $year = $transactionDate->year;
                 $month = $transactionDate->month;
 
                 $balance = MonthlyKitchenStockBalance::getOrCreateBalance(
                     $request->item_id,
-                    $branchId,
+                    $outletWarehouseId,  // ✅ CHANGED
                     $year,
                     $month
                 );
@@ -558,15 +577,15 @@ class KitchenStockController extends Controller
 
                 $adjustmentQuantity = $request->adjustment_type === 'IN' 
                     ? $request->quantity 
-                    : -$request->quantity;
+                    : $request->quantity;
 
-                // Create adjustment transaction
+                // ✅ FIXED: Create adjustment with outlet_warehouse_id
                 $transaction = KitchenStockTransaction::createAdjustment(
                     $request->item_id,
                     $adjustmentQuantity,
                     $request->reason,
                     $this->currentUser()->id,
-                    $branchId
+                    $outletWarehouseId  // ✅ CHANGED: pass outlet_warehouse_id
                 );
 
                 // Log activity

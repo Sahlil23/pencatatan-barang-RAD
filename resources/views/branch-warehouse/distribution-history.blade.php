@@ -302,23 +302,9 @@
             </tbody>
         </table>
     </div>
-    
-    @if($distributions->hasPages())
-        <div class="card-footer">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="text-muted">
-                    Menampilkan {{ $distributions->firstItem() }} - {{ $distributions->lastItem() }} 
-                    dari {{ $distributions->total() }} data
-                </div>
-                <div>
-                    {{ $distributions->links() }}
-                </div>
-            </div>
-        </div>
-    @endif
+<x-simple-pagination :items="$distributions" type="distribution" />
 </div>
-
-@if($distributions->isNotEmpty())
+<!-- @if($distributions->isNotEmpty())
 <div class="row mt-4">
     <div class="col-12">
         <div class="card">
@@ -377,7 +363,7 @@
         </div>
     </div>
 </div>
-@endif
+@endif -->
 
 @endsection
 

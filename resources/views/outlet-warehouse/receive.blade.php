@@ -120,8 +120,8 @@
                       <th width="30%">Item</th>
                       <th width="10%">Unit</th>
                       <th width="12%">Quantity</th>
-                      <th width="12%">Unit Cost</th>
-                      <th width="12%">Batch No</th>
+                      <!-- <th width="12%">Unit Cost</th>
+                      <th width="12%">Batch No</th> -->
                       <th width="18%">Notes</th>
                       <th width="6%">Action</th>
                     </tr>
@@ -155,7 +155,7 @@
                                required 
                                onchange="calculateRowTotal(0)">
                       </td>
-                      <td>
+                      <!-- <td>
                         <input type="number" 
                                class="form-control cost-input" 
                                name="items[0][unit_cost]" 
@@ -170,7 +170,7 @@
                                name="items[0][batch_no]" 
                                placeholder="Batch/Lot"
                                maxlength="50">
-                      </td>
+                      </td> -->
                       <td>
                         <input type="text" 
                                class="form-control notes-input" 
@@ -191,10 +191,11 @@
                       <td>
                         <input type="text" class="form-control fw-bold" id="totalQuantity" value="0.000" readonly>
                       </td>
-                      <td colspan="2" class="text-end fw-bold">Grand Total:</td>
-                      <td>
+                      <!-- <td colspan="2" class="text-end fw-bold">Grand Total:</td> -->
+                      <!-- <td>
                         <input type="text" class="form-control fw-bold" id="grandTotal" readonly>
-                      </td>
+                      </td> -->
+                      <td></td>
                       <td></td>
                     </tr>
                   </tfoot>
@@ -268,14 +269,7 @@ function addItemRow() {
             <input type="number" class="form-control quantity-input" name="items[${rowIndex}][quantity]" 
                    step="0.001" min="0.001" placeholder="0.000" required onchange="calculateRowTotal(${rowIndex})">
         </td>
-        <td>
-            <input type="number" class="form-control cost-input" name="items[${rowIndex}][unit_cost]" 
-                   step="0.01" min="0" placeholder="0.00" onchange="calculateRowTotal(${rowIndex})">
-        </td>
-        <td>
-            <input type="text" class="form-control batch-input" name="items[${rowIndex}][batch_no]" 
-                   placeholder="Batch/Lot" maxlength="50">
-        </td>
+
         <td>
             <input type="text" class="form-control notes-input" name="items[${rowIndex}][notes]" 
                    placeholder="Catatan item" maxlength="255">
