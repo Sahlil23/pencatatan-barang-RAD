@@ -92,6 +92,13 @@ class BranchWarehouseController extends Controller
                 ->first();
 
             $warehouseStats = [];
+
+            // $totalitems = Item::whereRelation('BranchWarehouseMonthlyBalance', 'warehouse_type', 'branch')
+            //     ->where('status', 'ACTIVE')
+            //     ->count();
+
+            // $totalitems = Item::whereHas('BranchWarehouseMonthlyBalance', function ($query) {
+            // })->count();
             
             foreach ($warehouses as $warehouse) {
                 // Calculate stats
@@ -126,7 +133,8 @@ class BranchWarehouseController extends Controller
             return view('branch-warehouse.index', array_merge($commonData, [
                 'warehouses' => $warehouses,
                 'warehouseStats' => $warehouseStats,
-                'currentPeriod' => $currentPeriod
+                'currentPeriod' => $currentPeriod,
+                // 'totalItems' => $totalitems
             ]));
 
         } catch (\Exception $e) {

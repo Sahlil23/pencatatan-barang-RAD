@@ -1,12 +1,14 @@
-
 <!DOCTYPE html>
 <html lang="en" class="light-style customizer-hide" dir="ltr" data-theme="theme-default" data-assets-path="{{ asset('assets/') }}/">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login - Chicking BJM</title>
-  <meta name="csrf-token" content="{{ csrf_token() }}"> <!-- Add CSRF meta -->
-  
+  <meta name="csrf-token" content="{{ csrf_token() }}"> <!-- CSRF meta -->
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{{ asset('assets/img/pd.png') }}" />
+
   <!-- Icons -->
   <link rel="stylesheet" href="{{ asset('assets/vendor/fonts/boxicons.css') }}" />
 
@@ -28,7 +30,7 @@
             <!-- Logo -->
             <div class="app-brand justify-content-center mb-4">
               <a href="#" class="app-brand-link gap-2">
-                <span class="app-brand-text demo text-body fw-bolder">Chicking BJM</span>
+                <img src="{{ asset('assets/img/pd.png') }}" alt="Logo" width="150" height="150">
               </a>
             </div>
             
@@ -39,14 +41,14 @@
             @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show" role="alert">
               {{ session('success') }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             @endif
 
             @if(session('error'))
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
               {{ session('error') }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             @endif
 
@@ -57,12 +59,12 @@
                   <li>{{ $error }}</li>
                 @endforeach
               </ul>
-              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             @endif
 
             <!-- LOGIN FORM -->
-            <form id="loginForm" action="{{ route('login') }}" method="POST">
+            <form id="loginForm" action="{{ route('login') }}" method="POST" novalidate>
               @csrf <!-- CSRF Token -->
               
               <div class="mb-3">
@@ -80,19 +82,15 @@
                 <div class="input-group input-group-merge">
                   <input type="password" id="password" class="form-control @error('password') is-invalid @enderror" 
                          name="password" placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;" required />
-                  <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
+                  <button type="button" class="input-group-text cursor-pointer toggle-password" aria-label="Toggle password visibility">
+                    <i class="bx bx-hide"></i>
+                  </button>
                 </div>
                 @error('password')
                   <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
               </div>
 
-              <!-- <div class="mb-3">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="remember" name="remember" />
-                  <label class="form-check-label" for="remember">Ingat saya</label>
-                </div>
-              </div> -->
 
               <div class="mb-3">
                 <button class="btn btn-primary d-grid w-100" type="submit">
@@ -117,15 +115,8 @@
   <script src="{{ asset('assets/js/main.js') }}"></script>
 
   <script>
-    // Set CSRF token globally untuk AJAX requests
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
-    });
-
     // Toggle password visibility
-    document.querySelector('.form-password-toggle .input-group-text').addEventListener('click', function() {
+    document.querySelector('.toggle-password').addEventListener('click', function() {
       const passwordInput = document.getElementById('password');
       const icon = this.querySelector('i');
       
@@ -138,11 +129,6 @@
         icon.classList.remove('bx-show');
         icon.classList.add('bx-hide');
       }
-    });
-
-    // Form submission debug
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-      console.log('Form submitted with CSRF token:', document.querySelector('input[name="_token"]').value);
     });
   </script>
 </body>

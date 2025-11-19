@@ -27,8 +27,8 @@
   <div class="col-12">
     <div class="card">
       <div class="card-body">
-        <div class="d-flex align-items-start justify-content-between">
-          <div class="d-flex align-items-start">
+        <div class="d-flex align-items-start justify-content-between flex-wrap">
+          <div class="d-flex align-items-start mb-3 mb-md-0">
             <div>
               <h5 class="mb-0">{{ $warehouse->warehouse_name }}</h5>
               <small class="text-muted">
@@ -42,43 +42,50 @@
               </div>
             </div>
           </div>
-          <div class="text-end">
-            <div class="dropdown">
-              <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bx bx-cog me-1"></i>
-                Actions
-              </button>
-            <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item text-warning" href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}">
-                    <i class="bx bx-time-five me-1"></i>
-                    Pending Distributions
-                  </a>  
-                  <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="{{ route('branch-warehouse.receive-form', $warehouse->id) }}">
-                  <i class="bx bx-import me-1"></i>
-                  Terima Stock
-                </a>
-                <a class="dropdown-item" href="{{ route('branch-warehouse.adjust-form', $warehouse->id) }}">
-                  <i class="bx bx-cog me-1"></i>
-                  Adjustment
-                </a>
-                <a class="dropdown-item" href="{{ route('branch-warehouse.distribute-form', $warehouse->id) }}">
-                  <i class="bx bx-export me-1"></i>
-                  Distribusi ke Outlet
-                </a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="{{ route('warehouses.edit', $warehouse->id) }}">
-                  <i class="bx bx-edit-alt me-1"></i>
-                  Edit Warehouse
-                </a>
-              </div>
-            </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            @if(isset($pendingDistribution) && $pendingDistribution->count() > 0)
+            <a href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}" 
+               class="btn btn-warning btn-sm">
+              <i class="bx bx-time-five me-1"></i>
+              Pending
+              <span class="badge bg-white text-warning ms-1">{{ $pendingDistribution->count() }}</span>
+            </a>
+            @endif
+            
+            @if($canWrite)
+            <a href="{{ route('branch-warehouse.receive-form', $warehouse->id) }}" 
+               class="btn btn-success btn-sm">
+              <i class="bx bx-import me-1"></i>
+              Terima Stock
+            </a>
+            
+            <a href="{{ route('branch-warehouse.distribute-form', $warehouse->id) }}" 
+               class="btn btn-primary btn-sm">
+              <i class="bx bx-export me-1"></i>
+              Distribusi
+            </a>
+            
+            <a href="{{ route('branch-warehouse.adjust-form', $warehouse->id) }}" 
+               class="btn btn-info btn-sm">
+              <i class="bx bx-cog me-1"></i>
+              Adjustment
+            </a>
+            @endif
+            
+            @can('update', $warehouse)
+            <a href="{{ route('warehouses.edit', $warehouse->id) }}" 
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bx bx-edit-alt me-1"></i>
+              Edit
+            </a>
+            @endcan
           </div>
         </div>
 
         <!-- Warehouse Details Grid -->
-        <div class="row mt-3">
-          <div class="col-md-3">
+        <div class="row mt-4">
+          <div class="col-md-3 mb-3">
             <small class="text-muted d-block">Branch</small>
             <h6 class="mb-0">
               @if($warehouse->branch)
@@ -88,17 +95,17 @@
               @endif
             </h6>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-3 mb-3">
             <small class="text-muted d-block">Tipe Warehouse</small>
             <h6 class="mb-0">
               <span class="badge bg-label-info">{{ ucfirst($warehouse->warehouse_type) }}</span>
             </h6>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-3 mb-3">
             <small class="text-muted d-block">Alamat</small>
             <h6 class="mb-0">{{ $warehouse->address ?? '-' }}</h6>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-3 mb-3">
             <small class="text-muted d-block">Dibuat</small>
             <h6 class="mb-0">{{ $warehouse->created_at->format('d M Y') }}</h6>
           </div>
@@ -182,14 +189,14 @@
 <!-- Main Content Row -->
 <div class="row">
   <!-- Pending Distributions Section -->
-  <!-- @if(isset($pendingDistributions) && $pendingDistributions->count() > 0) -->
+  @if(isset($pendingDistribution) && $pendingDistribution->count() > 0)
   <div class="col-12 mb-4">
     <div class="card border-warning">
       <div class="card-header bg-label-warning d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
           <i class="bx bx-time-five me-2"></i>
           Pending Distributions
-          <span class="badge bg-warning">{{ $pendingDistributions->count() }} pending</span>
+          <span class="badge bg-warning">{{ $pendingDistribution->count() }} pending</span>
         </h5>
         <a href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}" class="btn btn-warning btn-sm">
           <i class="bx bx-list-ul me-1"></i>
@@ -199,7 +206,7 @@
 
       <div class="alert alert-warning m-3 mb-0">
         <i class="bx bx-info-circle me-2"></i>
-        <strong>Action Required:</strong> You have {{ $pendingDistributions->count() }} distribution(s) waiting for approval or rejection.
+        <strong>Action Required:</strong> You have {{ $pendingDistribution->count() }} distribution(s) waiting for approval or rejection.
       </div>
 
       <div class="table-responsive text-nowrap">
@@ -237,7 +244,7 @@
             </tr>
           </thead>
           <tbody class="table-border-bottom-0">
-            @foreach($pendingDistributions->take(5) as $distribution)
+            @foreach($pendingDistribution->take(5) as $distribution)
             <tr>
               <!-- Date -->
               <td>
@@ -304,7 +311,7 @@
                 <strong>Total Pending:</strong>
               </td>
               <td class="text-center">
-                <strong>{{ number_format($pendingDistributions->sum('quantity'), 2) }}</strong>
+                <strong>{{ number_format($pendingDistribution->sum('quantity'), 2) }}</strong>
               </td>
               <td colspan="2"></td>
             </tr>
@@ -312,17 +319,17 @@
         </table>
       </div>
 
-      @if($pendingDistributions->count() > 5)
+      @if($pendingDistribution->count() > 5)
       <div class="card-footer text-center">
         <a href="{{ route('branch-warehouse.pending-distributions', $warehouse->id) }}" class="btn btn-outline-warning">
           <i class="bx bx-right-arrow-alt me-1"></i>
-          View All {{ $pendingDistributions->count() }} Pending Distributions
+          View All {{ $pendingDistribution->count() }} Pending Distributions
         </a>
       </div>
       @endif
     </div>
   </div>
-  <!-- @endif -->
+  @endif
 
   <!-- Current Stock Table -->
   <div class="col-12">
@@ -338,10 +345,12 @@
             <i class="bx bx-download me-1"></i>
             Export
           </button>
+          @if($canWrite)
           <a href="{{ route('branch-warehouse.receive-form', $warehouse->id) }}" class="btn btn-primary btn-sm">
             <i class="bx bx-plus me-1"></i>
             Terima Stock
           </a>
+          @endif
         </div>
       </div>
 
@@ -369,18 +378,12 @@
                 <i class="bx bx-package me-1"></i>
                 Stock Akhir
               </th>
-              <!-- <th class="text-right" style="width: 130px;">
-                <i class="bx bx-dollar me-1"></i>
-                Unit Cost
-              </th>
-              <th class="text-right" style="width: 150px;">
-                <i class="bx bx-receipt me-1"></i>
-                Total Value
-              </th> -->
+              @if($canWrite)
               <th class="text-center" style="width: 100px;">
                 <i class="bx bx-cog me-1"></i>
                 Action
               </th>
+              @endif
             </tr>
           </thead>
           <tbody class="table-border-bottom-0">
@@ -432,25 +435,8 @@
                 </div>
               </td>
 
-              <!--
-              <td class="text-right">
-                @if($balance->avg_unit_cost > 0)
-                  <span class="fw-semibold">Rp {{ number_format($balance->avg_unit_cost, 0, ',', '.') }}</span>
-                @else
-                  <span class="text-muted">-</span>
-                @endif
-              </td>
-
-
-              <td class="text-right">
-                @if($balance->total_value > 0)
-                  <span class="fw-bold text-primary">Rp {{ number_format($balance->total_value, 0, ',', '.') }}</span>
-                @else
-                  <span class="text-muted">-</span>
-                @endif
-              </td> -->
-
               <!-- Actions -->
+              @if($canWrite)
               <td class="text-center">
                 <div class="dropdown">
                   <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
@@ -458,31 +444,34 @@
                   </button>
                   <div class="dropdown-menu">
                     @if($closingStock > 0)
-                    <a class="dropdown-item" href="{{ route('branch-warehouse.distribute-form', $warehouse->id) }}">
+                    <a class="dropdown-item" href="{{ route('branch-warehouse.distribute-form', $warehouse->id) }}?item_id={{ $balance->item_id }}">
                       <i class="bx bx-export me-1"></i>
                       Distribusi
                     </a>
                     @endif
                     
-                    <a class="dropdown-item" href="{{ route('branch-warehouse.adjust-form', $warehouse->id) }}">
+                    <a class="dropdown-item" href="{{ route('branch-warehouse.adjust-form', $warehouse->id) }}?item_id={{ $balance->item_id }}">
                       <i class="bx bx-cog me-1"></i>
                       Adjustment
                     </a>
                   </div>
                 </div>
               </td>
+              @endif
             </tr>
             @empty
             <tr>
-              <td colspan="8" class="text-center py-4">
+              <td colspan="{{ $canWrite ? 6 : 5 }}" class="text-center py-4">
                 <div class="d-flex flex-column align-items-center">
                   <i class="bx bx-package" style="font-size: 48px; color: #ddd;"></i>
                   <h6 class="mt-2 text-muted">Belum ada stock</h6>
                   <p class="text-muted mb-3">Warehouse ini belum memiliki stock item</p>
+                  @if($canWrite)
                   <a href="{{ route('branch-warehouse.receive-form', $warehouse->id) }}" class="btn btn-primary btn-sm">
                     <i class="bx bx-plus me-1"></i>
                     Terima Stock Pertama
                   </a>
+                  @endif
                 </div>
               </td>
             </tr>
@@ -568,12 +557,9 @@
                   $typeConfig = [
                     'IN' => ['color' => 'success', 'icon' => 'bx-import', 'label' => 'IN'],
                     'OUT' => ['color' => 'danger', 'icon' => 'bx-export', 'label' => 'OUT'],
-                    'RECEIVE_FROM_CENTRAL' => ['color' => 'info', 'icon' => 'bx-import', 'label' => 'From Central'],
-                    'TRANSFER_TO_KITCHEN' => ['color' => 'primary', 'icon' => 'bx-send', 'label' => 'To Kitchen'],
-                    'TRANSFER_TO_CENTRAL' => ['color' => 'warning', 'icon' => 'bx-export', 'label' => 'To Central'],
                     'WASTAGE' => ['color' => 'danger', 'icon' => 'bx-trash', 'label' => 'Waste'],
-                    'ADJUSTMENT_IN' => ['color' => 'info', 'icon' => 'bx-edit', 'label' => 'Adj. IN'],
-                    'ADJUSTMENT_OUT' => ['color' => 'warning', 'icon' => 'bx-edit', 'label' => 'Adj. OUT'],
+                    'ADJUSTMENT' => ['color' => 'info', 'icon' => 'bx-edit', 'label' => 'Adjustment'],
+                    'TRANSFER_TO_CENTRAL' => ['color' => 'warning', 'icon' => 'bx-export', 'label' => 'To Central'],
                   ];
                   $config = $typeConfig[$transaction->transaction_type] ?? ['color' => 'secondary', 'icon' => 'bx-transfer', 'label' => $transaction->transaction_type];
                 @endphp
@@ -591,10 +577,10 @@
 
               <!-- Quantity -->
               <td class="text-center">
-                @if($transaction->quantity >= 0)
+                @if(in_array($transaction->transaction_type, ['IN', 'ADJUSTMENT']))
                   <span class="fw-bold text-success">+{{ number_format($transaction->quantity, 2) }}</span>
                 @else
-                  <span class="fw-bold text-danger">{{ number_format($transaction->quantity, 2) }}</span>
+                  <span class="fw-bold text-danger">-{{ number_format($transaction->quantity, 2) }}</span>
                 @endif
               </td>
 
@@ -752,8 +738,24 @@ document.addEventListener('DOMContentLoaded', function() {
     text-align: center;
   }
 
+  /* Quick Access Buttons */
+  .btn-sm {
+    white-space: nowrap;
+  }
+
   /* Responsive adjustments */
   @media (max-width: 768px) {
+    .d-flex.flex-wrap.gap-2 {
+      justify-content: flex-start;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .btn-sm {
+      font-size: 0.75rem;
+      padding: 0.375rem 0.75rem;
+    }
+
     .table-responsive {
       font-size: 0.875rem;
     }
@@ -762,14 +764,6 @@ document.addEventListener('DOMContentLoaded', function() {
       width: 32px;
       height: 32px;
       font-size: 14px;
-    }
-
-    /* Hide less important columns on mobile */
-    .table th:nth-child(4),
-    .table td:nth-child(4),
-    .table th:nth-child(7),
-    .table td:nth-child(7) {
-      display: none;
     }
   }
 </style>

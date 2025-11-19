@@ -23,11 +23,6 @@ use App\Http\Controllers\WarehouseController;
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login']);
-    
-    // Quick login for development only
-    if (app()->environment(['local', 'staging'])) {
-        Route::get('/quick-login', [LoginController::class, 'quickLogin'])->name('quick-login');
-    }
 });
 
 // ========================================

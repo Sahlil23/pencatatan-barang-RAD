@@ -61,13 +61,13 @@
           <div class="app-brand demo">
             <a href="{{ route('beranda') }}" class="app-brand-link">
               <span class="app-brand-logo demo">
-                <img src="{{ asset('assets/img/chicking-logo.png') }}" alt="Chicking Logo" width="200" height="200" />
+                <img src="{{ asset('assets/img/chicking-logo-removebg-preview.png') }}" alt="Chicking Logo" width="200" height="200" />
               </span>
             </a>
 
             <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
               <i class="bx bx-chevron-left bx-sm align-middle"></i>
-            </a>
+            </a> 
           </div>
 
           <div class="menu-inner-shadow"></div>
@@ -80,6 +80,7 @@
                 <div data-i18n="Dashboard">Dashboard</div>
               </a>
             </li>
+
             <!-- ========================================
                  2. WAREHOUSE MANAGEMENT
                  ======================================== -->
@@ -148,7 +149,6 @@
                 @endphp
                 
                 @if($accessibleBranchWarehouses->count() === 1)
-                  {{-- Direct link if only one branch warehouse --}}
                   <li class="menu-item {{ request()->routeIs('branch-warehouse.show') ? 'active' : '' }}">
                     <a href="{{ route('branch-warehouse.show', $accessibleBranchWarehouses->first()->id) }}" class="menu-link">
                       <div data-i18n="Stock">{{ $accessibleBranchWarehouses->first()->warehouse_name }}</div>
@@ -180,7 +180,6 @@
                     </a>
                   </li>
                 @else
-                  {{-- List all accessible branch warehouses --}}
                   <li class="menu-item {{ request()->routeIs('branch-warehouse.index') ? 'active' : '' }}">
                     <a href="{{ route('branch-warehouse.index') }}" class="menu-link"><div data-i18n="Read">Semua Branch</div></a>
                   </li>
@@ -271,7 +270,7 @@
             <!-- ========================================
                  7. RECIPES
                  ======================================== -->
-            <li class="menu-header small text-uppercase">
+            <!-- <li class="menu-header small text-uppercase">
               <span class="menu-header-text">Resep</span>
             </li>
             <li class="menu-item {{ request()->routeIs('recipes.*') ? 'active open' : '' }}">
@@ -293,7 +292,7 @@
                 </li>
                 @endif
               </ul>
-            </li>
+            </li> -->
 
             <!-- ========================================
                  8. BACKUP (Super Admin Only)
@@ -408,14 +407,84 @@
 
         <!-- Layout container -->
         <div class="layout-page">
-          <!-- Content wrapper -->
-          <div class="content-wrapper">
-            <!-- Content -->
-            <div class="container-xxl flex-grow-1 container-p-y">
-              @yield('content')
-            </div>
-            <!-- / Content -->
+          <!-- ✅ NAVBAR - Add hamburger menu here -->
+          <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+          <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+            <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0);">
+                <i class="bx bx-menu bx-sm"></i>
+              </a>
 
+            <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+              <!-- Search (Optional) -->  
+              <div class="navbar-nav align-items-center">
+                <div class="nav-item d-flex align-items-center me-3">
+                <span class="app-brand-logo demo">
+                  <img src="{{ asset('assets/img/chicking-logo-removebg-preview.png') }}" alt="Chicking Logo" width="100" height="100" />
+                </span>
+                </div>
+              </div>
+
+              <!-- User Dropdown -->
+              <ul class="navbar-nav flex-row align-items-center ms-auto">
+                <li class="nav-item navbar-dropdown dropdown-user dropdown">
+                  <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                    <div class="avatar avatar-online">
+                      <span class="avatar-initial rounded-circle bg-label-primary">
+                        {{ strtoupper(substr(Auth::user()->full_name, 0, 2)) }}
+                      </span>
+                    </div>
+                  </a>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                      <a class="dropdown-item" href="#">
+                        <div class="d-flex">
+                          <div class="flex-shrink-0 me-3">
+                            <div class="avatar avatar-online">
+                              <span class="avatar-initial rounded-circle bg-label-primary">
+                                {{ strtoupper(substr(Auth::user()->full_name, 0, 2)) }}
+                              </span>
+                            </div>
+                          </div>
+                          <div class="flex-grow-1">
+                            <span class="fw-semibold d-block">{{ Auth::user()->full_name }}</span>
+                            <small class="text-muted">{{ Auth::user()->role }}</small>
+                          </div>
+                        </div>
+                      </a>
+                    </li>
+                    <li>
+                      <div class="dropdown-divider"></div>
+                    </li>
+                    <li>
+                      <a class="dropdown-item" href="{{ route('profile') }}">
+                        <i class="bx bx-user me-2"></i>
+                        <span class="align-middle">My Profile</span>
+                      </a>
+                    </li>
+                    <li>
+                      <div class="dropdown-divider"></div>
+                    </li>
+                    <li>
+                      <form action="{{ route('logout') }}" method="POST" class="logout-form">
+                        @csrf
+                        <button type="submit" class="dropdown-item">
+                          <i class="bx bx-power-off me-2"></i>
+                          <span class="align-middle">Log Out</span>
+                        </button>
+                      </form>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </nav>
+        </div>
+          <!-- Content wrapper -->
+        <div class="content-wrapper">
+          <!-- Content -->
+          <div class="container-xxl flex-grow-1 container-p-y">
+            @yield('content')
+          </div>
             <!-- Footer -->
             <footer class="content-footer footer bg-footer-theme">
               <div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column">
@@ -424,101 +493,100 @@
                   <script>
                     document.write(new Date().getFullYear());
                   </script>
-                  , Chicking BJM - Banjarmasin
+                  , PT. RAJA AYAM DUBAI.
                 </div>
               </div>
             </footer>
           </div>
         </div>
-
-        <!-- Overlay -->
         <div class="layout-overlay layout-menu-toggle"></div>
       </div>
-      <!-- / Layout wrapper -->
+    </div>
+    <!-- / Layout wrapper -->
 
-      <!-- Success/Error Messages -->
-      @if(session('success'))
-      <div class="bs-toast toast toast-placement-ex m-3 bg-success top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-          <i class="bx bx-bell me-2"></i>
-          <div class="me-auto fw-semibold">Success</div>
-          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body">
-          {{ session('success') }}
-        </div>
+    <!-- Success/Error Messages -->
+    @if(session('success'))
+    <div class="bs-toast toast toast-placement-ex m-3 bg-success top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header">
+        <i class="bx bx-bell me-2"></i>
+        <div class="me-auto fw-semibold">Success</div>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
       </div>
-      @endif
-
-      @if(session('error'))
-      <div class="bs-toast toast toast-placement-ex m-3 bg-danger top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-          <i class="bx bx-bell me-2"></i>
-          <div class="me-auto fw-semibold">Error</div>
-          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body">
-          {{ session('error') }}
-        </div>
+      <div class="toast-body">
+        {{ session('success') }}
       </div>
-      @endif
+    </div>
+    @endif
 
-      <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    @if(session('error'))
+    <div class="bs-toast toast toast-placement-ex m-3 bg-danger top-0 end-0 fade show" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header">
+        <i class="bx bx-bell me-2"></i>
+        <div class="me-auto fw-semibold">Error</div>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body">
+        {{ session('error') }}
+      </div>
+    </div>
+    @endif
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- Core JS -->
+    <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
+    <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
+    <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js') }}"></script>
+    <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
+
+    <!-- Vendors JS -->
+    <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
+
+    <!-- Main JS -->
+    <script src="{{ asset('assets/js/main.js') }}"></script>
+
+    @stack('scripts')
+    <script>
+    // Global CSV Download Function
+    function downloadCSV(filename, headers, rows) {
+      let csvContent = headers.join(',') + '\n';
+      rows.forEach(row => {
+        csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
+      });
       
-      <!-- Select2 JS -->
-      <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-      <!-- Core JS -->
-      <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
-      <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
-      <script src="{{ asset('assets/vendor/js/bootstrap.js') }}"></script>
-      <script src="{{ asset('assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js') }}"></script>
-      <script src="{{ asset('assets/vendor/js/menu.js') }}"></script>
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename + '_' + new Date().toISOString().slice(0,10) + '.csv');
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
-      <!-- Vendors JS -->
-      <script src="{{ asset('assets/vendor/libs/apex-charts/apexcharts.js') }}"></script>
-
-      <!-- Main JS -->
-      <script src="{{ asset('assets/js/main.js') }}"></script>
-
-      @stack('scripts')
-      <script>
-      // Global CSV Download Function
-      function downloadCSV(filename, headers, rows) {
-        let csvContent = headers.join(',') + '\n';
-        rows.forEach(row => {
-          csvContent += row.map(cell => `"${cell}"`).join(',') + '\n';
-        });
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename + '_' + new Date().toISOString().slice(0,10) + '.csv');
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-
-      document.addEventListener('DOMContentLoaded', function() {
-       document.querySelectorAll('form.logout-form').forEach(function(form) {
-         form.addEventListener('submit', function(e) {
-           // prevent immediate submit
-           e.preventDefault();
-           const confirmed = confirm('Anda yakin ingin logout? Semua perubahan yang belum disimpan akan hilang.');
-           if (confirmed) {
-             // disable button to avoid double submit
-             const btn = form.querySelector('button[type="submit"]');
-             if (btn) {
-               btn.disabled = true;
-             }
-             form.submit();
+    document.addEventListener('DOMContentLoaded', function() {
+     document.querySelectorAll('form.logout-form').forEach(function(form) {
+       form.addEventListener('submit', function(e) {
+         // prevent immediate submit
+         e.preventDefault();
+         const confirmed = confirm('Anda yakin ingin logout? Semua perubahan yang belum disimpan akan hilang.');
+         if (confirmed) {
+           // disable button to avoid double submit
+           const btn = form.querySelector('button[type="submit"]');
+           if (btn) {
+             btn.disabled = true;
            }
-         });
+           form.submit();
+         }
        });
      });
-      </script>
-    </body>
-  </html>
+   });
+    </script>
+  </body>
+</html>

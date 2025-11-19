@@ -26,12 +26,12 @@ class beranda extends Controller
         // Role-based data
         if ($user->isSuperAdmin()) {
             return $this->superAdminDashboard();
-        } elseif ($user->isCentralManager() && $user->isCentralStaff()) {
+        } elseif ($user->isCentralLevel()) {
             return $this->centralDashboard();
-        } elseif ($user->isBranchManager() && $user->isBranchStaff()) {
+        } elseif ($user->iisBranchLevel()) {
             return $this->branchDashboard();
-        } elseif ($user->isOutletManager() && $user->isOutletStaff()) {
-            return $this->outletAndKitchenDashboard(); // ✅ GABUNG OUTLET + KITCHEN
+        } elseif ($user->isOutletLevel()) {
+            return $this->outletAndKitchenDashboard();
         }
         
         // Default fallback
