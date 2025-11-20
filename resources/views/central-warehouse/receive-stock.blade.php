@@ -26,7 +26,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
           <i class="bx bx-package me-2"></i>
-          Receive Stock from Supplier
+          Receive Stock 
         </h5>
         <small class="text-muted">Stock Receipt Process</small>
       </div>
@@ -72,7 +72,7 @@
                 <div class="form-text text-danger">{{ $message }}</div>
               @enderror
             </div>
-            <div class="col-md-3">
+            <div class="col-md-3" style="display: none;">
               <label class="form-label">Reference No</label>
               <input type="text" class="form-control" value="AUTO-GENERATE" readonly>
             </div>

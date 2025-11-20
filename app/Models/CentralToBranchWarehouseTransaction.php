@@ -23,19 +23,26 @@ class CentralToBranchWarehouseTransaction extends Model
         'reference_no',
         'notes',
         'transaction_date',
-        'status'
+        'status',
+        'approved_by',
+        'approved_at'
     ];
 
     protected $casts = [
         'quantity' => 'decimal:3',
         'transaction_date' => 'datetime',
-        'expiry_date' => 'date',
+        'approved_at' => 'datetime'
     ];
 
     // ========================================
     // RELATIONSHIPS
     // ========================================
 
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
     /**
      * Transaction belongs to central warehouse
      */

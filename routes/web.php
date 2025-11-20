@@ -16,6 +16,7 @@ use App\Http\Controllers\StockTransactionController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\DailySalesReportController;
 
 // ========================================
 // PUBLIC ROUTES (Guest Only)
@@ -52,7 +53,13 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
     
     // Suppliers
     Route::resource('suppliers', SupplierController::class);
-    
+
+    Route::prefix('sales-report')->name('sales-report.')->group(function () {
+        Route::get('/', [DailySalesReportController::class, 'index'])->name('index');
+        Route::get('/create', [DailySalesReportController::class, 'create'])->name('create');
+        Route::get('/{id}', [DailySalesReportController::class, 'show'])->name('show');
+        Route::post('/store', [DailySalesReportController::class, 'store'])->name('store');
+    });
     // Items
     Route::prefix('items')->name('items.')->group(function () {
         Route::get('/', [ItemController::class, 'index'])->name('index');
@@ -200,6 +207,9 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
             ->name('api.stock-balance');
         Route::get('/api/warehouse-items/{warehouse}', [CentralWarehouseController::class, 'getWarehouseItems'])
             ->name('api.warehouse-items');
+
+        Route::get('/distribution-history', [CentralWarehouseController::class, 'distributionHistory'])
+            ->name('distribution-history');
     });
     
     // ========================================

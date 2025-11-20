@@ -872,4 +872,51 @@ class CentralWarehouseController extends Controller
             ], 500);
         }
     }
+
+    public function distributionHistory(Request $request)
+    {
+        // 1. Query Dasar
+        $query = CentralToBranchWarehouseTransaction::with([
+                'item', 
+                'centralWarehouse',   
+                'branchWarehouse', 
+                'user'
+            ])
+            ->where('transaction_type', 'DISTRIBUTION');
+
+        // 2. Fitur Pencarian (Reference No atau Nama Item)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('reference_no', 'like', "%{$search}%")
+                ->orWhereHas('item', function($qItem) use ($search) {
+                    $qItem->where('item_name', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // 3. Filter Berdasarkan Gudang Tujuan (Branch)
+        if ($request->filled('branch_id')) {
+            $query->where('warehouse_id', $request->branch_id);
+        }
+
+        // 4. Filter Rentang Tanggal
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('transaction_date', [
+                $request->start_date . ' 00:00:00', 
+                $request->end_date . ' 23:59:59'
+            ]);
+        }
+
+        // 5. Ambil data (Paginate 10-20 per halaman)
+        // Urutkan dari yang terbaru
+        $histories = $query->latest('transaction_date')
+            ->paginate(20)
+            ->withQueryString(); // Agar parameter search/filter tetap ada saat pindah halaman
+
+        // 6. Ambil list warehouse untuk filter dropdown (Opsional)
+        $branches = Warehouse::where('warehouse_type', 'branch')->get();
+
+        return view('central-warehouse.distribution-history', compact('histories', 'branches'));
+    }
 }

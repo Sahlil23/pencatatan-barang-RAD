@@ -129,6 +129,9 @@
                 <li class="menu-item {{ request()->routeIs('central-warehouse.transactions') ? 'active' : '' }}">
                   <a href="{{ route('central-warehouse.transactions') }}" class="menu-link"><div data-i18n="Transactions">Transactions</div></a>
                 </li>
+                <li class="menu-item {{ request()->routeIs('central-warehouse.distribution-history') ? 'active' : '' }}">
+                  <a href="{{ route('central-warehouse.distribution-history') }}" class="menu-link"><div data-i18n="Transactions">Distributions History</div></a>
+                </li>
               </ul>
             </li>
             @endif
@@ -239,6 +242,33 @@
                     <a href="{{ route('outlet-warehouse.index') }}" class="menu-link"><div data-i18n="Read">Semua Outlet</div></a>
                   </li>
                 @endif
+              </ul>
+            </li>
+            @endif
+
+            @if(Auth::user()->canAccessWarehouseType('outlet')) 
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Laporan</span></li>
+            
+            <li class="menu-item {{ request()->routeIs('sales-report.*') ? 'active open' : '' }}">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon tf-icons bx bx-chart"></i> {{-- Icon Chart lebih cocok untuk Sales --}}
+                <div data-i18n="SalesReport">Sales Report</div>
+              </a>
+              
+              <ul class="menu-sub">
+                {{-- 1. Halaman Index / Riwayat --}}
+                <li class="menu-item {{ request()->routeIs('sales-report.index') ? 'active' : '' }}">
+                  <a href="{{ route('sales-report.index') }}" class="menu-link">
+                    <div data-i18n="History">Riwayat Laporan</div>
+                  </a>
+                </li>
+
+                {{-- 2. Halaman Input Baru --}}
+                <li class="menu-item {{ request()->routeIs('sales-report.create') ? 'active' : '' }}">
+                  <a href="{{ route('sales-report.create') }}" class="menu-link">
+                    <div data-i18n="Input">Input Sales Harian</div>
+                  </a>
+                </li>
               </ul>
             </li>
             @endif

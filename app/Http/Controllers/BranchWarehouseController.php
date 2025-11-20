@@ -1042,6 +1042,8 @@ class BranchWarehouseController extends Controller
                     // 1. Update distribution status to APPROVED
                     $distribution->update([
                         'status' => 'APPROVED',
+                        'approved_by' => $currentUser->id,
+                        'approved_at'=> now(),
                     ]);
 
                     // 2. Create Branch Stock Transaction (IN)

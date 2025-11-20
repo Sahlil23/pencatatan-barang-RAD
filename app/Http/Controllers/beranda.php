@@ -28,7 +28,7 @@ class beranda extends Controller
             return $this->superAdminDashboard();
         } elseif ($user->isCentralLevel()) {
             return $this->centralDashboard();
-        } elseif ($user->iisBranchLevel()) {
+        } elseif ($user->isBranchLevel()) {
             return $this->branchDashboard();
         } elseif ($user->isOutletLevel()) {
             return $this->outletAndKitchenDashboard();
@@ -378,18 +378,18 @@ class beranda extends Controller
             // ========== KITCHEN SECTION ==========
             'kitchenStock' => [
                 'total_items' => DB::table('monthly_kitchen_stock_balances')
-                    ->where('branch_id', $branchId)
+                    ->where('outlet_warehouse_id', $branchId)
                     ->where('month', now()->month)
                     ->where('year', now()->year)
                     ->count(),
                 'total_quantity' => DB::table('monthly_kitchen_stock_balances')
-                    ->where('branch_id', $branchId)
+                    ->where('outlet_warehouse_id', $branchId)
                     ->where('month', now()->month)
                     ->where('year', now()->year)
                     ->sum('closing_stock'),
                 'low_stock_count' => DB::table('monthly_kitchen_stock_balances')
                     ->join('items', 'monthly_kitchen_stock_balances.item_id', '=', 'items.id')
-                    ->where('monthly_kitchen_stock_balances.branch_id', $branchId)
+                    ->where('monthly_kitchen_stock_balances.outlet_warehouse_id', $branchId)
                     ->where('month', now()->month)
                     ->where('year', now()->year)
                     ->whereRaw('closing_stock <= low_stock_threshold')
@@ -400,7 +400,7 @@ class beranda extends Controller
             'todayActivity' => [
                 // Outlet
                 'outlet_received' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'IN')
+                    ->where('transaction_type', 'RECEIVE_FROM_BRANCH' || 'TRANSFER_IN' || 'ADJUSTMENT_IN')
                     ->whereDate('transaction_date', today())
                     ->sum(DB::raw('abs(`quantity`)')),
                 'outlet_to_kitchen' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
@@ -410,7 +410,7 @@ class beranda extends Controller
                     
                 // Kitchen
                 'kitchen_received' => KitchenStockTransaction::where('branch_id', $branchId)
-                    ->where('transaction_type', 'IN')
+                    ->where('transaction_type', 'RECEIVE_FROM_OUTLET_WAREHOUSE')
                     ->whereDate('transaction_date', today())
                     ->sum(DB::raw('abs(`quantity`)')),
                 'kitchen_usage' => KitchenStockTransaction::where('branch_id', $branchId)
@@ -431,19 +431,19 @@ class beranda extends Controller
             'monthActivity' => [
                 // Outlet
                 'outlet_received' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'IN')
+                    ->where('transaction_type', 'RECEIVE_FROM_BRANCH' || 'TRANSFER_IN' || 'ADJUSTMENT_IN')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
                     ->sum(DB::raw('abs(`quantity`)')),
                 'outlet_to_kitchen' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'OUT')
+                    ->where('transaction_type', 'DISTRIBUTE_TO_KITCHEN' || 'TRANSFER_OUT' || 'ADJUSTMENT_OUT')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
                     ->sum(DB::raw('abs(`quantity`)')),
                     
                 // Kitchen
                 'kitchen_received' => KitchenStockTransaction::where('branch_id', $branchId)
-                    ->where('transaction_type', 'IN')
+                    ->where('transaction_type', 'RECEIVE_FROM_OUTLET_WAREHOUSE')
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
                     ->sum(DB::raw('abs(`quantity`)')),
@@ -508,7 +508,7 @@ class beranda extends Controller
                     ->get(),
                 'kitchen' => DB::table('monthly_kitchen_stock_balances')
                     ->join('items', 'monthly_kitchen_stock_balances.item_id', '=', 'items.id')
-                    ->where('monthly_kitchen_stock_balances.branch_id', $branchId)
+                    ->where('monthly_kitchen_stock_balances.outlet_warehouse_id', $branchId)
                     ->where('month', now()->month)
                     ->where('year', now()->year)
                     ->whereRaw('closing_stock <= low_stock_threshold')
@@ -623,16 +623,16 @@ class beranda extends Controller
                     ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'outlet') {
                 $in = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'IN')
+                    ->where('transaction_type', 'RECEIVE_FROM_BRANCH' || 'TRANSFER_IN' || 'ADJUSTMENT_IN')
                     ->whereDate('transaction_date', $dateStr)
                     ->sum(DB::raw('abs(`quantity`)'));
                 $out = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'OUT')
+                    ->where('transaction_type', 'DISTRIBUTE_TO_KITCHEN' || 'TRANSFER_OUT' || 'ADJUSTMENT_OUT')
                     ->whereDate('transaction_date', $dateStr)
                     ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'kitchen') {
                 $in = KitchenStockTransaction::where('branch_id', $branchId)
-                    ->where('transaction_type', 'IN')
+                    ->where('transaction_type', 'RECEIVE_FROM_OUTLET_WAREHOUSE')
                     ->whereDate('transaction_date', $dateStr)
                     ->sum(DB::raw('abs(`quantity`)'));
                 $out = KitchenStockTransaction::where('branch_id', $branchId)

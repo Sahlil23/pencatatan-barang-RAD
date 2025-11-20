@@ -394,7 +394,7 @@
                                                 </span>
                                             </div>
                                             <div>
-                                                <small class="text-muted d-block">To Kitchen</small>
+                                                <small class="text-muted d-block">Out</small>
                                                 <h6 class="mb-0">{{ number_format($monthActivity['outlet_to_kitchen'], 2) }}</h6>
                                             </div>
                                         </div>
