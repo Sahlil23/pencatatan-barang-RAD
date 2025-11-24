@@ -183,7 +183,7 @@
                 </td>
                 <td class="text-center">
                   <span class="badge bg-label-success stock-available" data-stock="{{ $stock->closing_stock }}">
-                    {{ number_format($stock->closing_stock, 3) }}
+                    {{ number_format($stock->closing_stock, 2) }}
                   </span>
                 </td>
                 <td>

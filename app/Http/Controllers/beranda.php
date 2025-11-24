@@ -14,6 +14,7 @@ use App\Models\Warehouse;
 use App\Models\Branch;
 use App\Models\CentralToBranchWarehouseTransaction;
 use App\Models\User;
+use App\Models\DailySalesReport;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -79,7 +80,7 @@ class beranda extends Controller
             
             // Today's Activity Summary
             'todayActivity' => [
-                'central_in' => CentralStockTransaction::where('transaction_type', 'PURCHASE' && 'BRANCH_RETURN')
+                'central_in' => CentralStockTransaction::whereIn('transaction_type', ['PURCHASE', 'BRANCH_RETURN'])
                     ->whereDate('transaction_date', today())
                     ->sum(DB::raw('abs(`quantity`)')),
                 'central_out' => CentralStockTransaction::where('transaction_type', 'DISTRIBUTE_OUT')
@@ -91,14 +92,76 @@ class beranda extends Controller
                 'branch_out' => BranchStockTransaction::where('transaction_type', 'OUT')
                     ->whereDate('transaction_date', today())
                     ->sum(DB::raw('abs(`quantity`)')),
-                'outlet_in' => OutletStockTransaction::where('transaction_type', 'IN')
+                'outlet_in' => OutletStockTransaction::whereIn('transaction_type', ['RECEIVE_FROM_BRANCH', 'TRANSFER_IN', 'ADJUSTMENT_IN'])
                     ->whereDate('transaction_date', today())
                     ->sum(DB::raw('abs(`quantity`)')),
-                'kitchen_usage' => KitchenStockTransaction::where('transaction_type', 'USAGE')
+                'outlet_out' => OutletStockTransaction::whereIn('transaction_type', ['DISTRIBUTE_TO_KITCHEN', 'TRANSFER_OUT', 'ADJUSTMENT_OUT'])
                     ->whereDate('transaction_date', today())
                     ->sum(DB::raw('abs(`quantity`)')),
             ],
             
+            'salesOverview' => [
+                // 1. Sales Hari Ini (Gabungan Semua Outlet)
+                'today' => [
+                    'total_sales' => DailySalesReport::where('report_date', today())->sum('total_sales'),
+                    'total_cash' => DailySalesReport::where('report_date', today())->sum('payment_cash'),
+                    'total_digital' => DailySalesReport::where('report_date', today())->sum(DB::raw('total_sales - payment_cash')),
+                    'guest_count' => DailySalesReport::where('report_date', today())->sum('guest_count_today'),
+                    'report_count' => DailySalesReport::where('report_date', today())->count(), // Berapa outlet yg sudah lapor
+                ],
+
+                // 2. Sales Kemarin (Untuk hitung Growth Harian)
+                'yesterday' => [
+                    'total_sales' => DailySalesReport::where('report_date', today()->subDay())->sum('total_sales'),
+                ],
+
+                // 3. Sales Bulan Ini (MTD Nasional)
+                'mtd' => [
+                    'total_sales' => DailySalesReport::whereMonth('report_date', now()->month)
+                        ->whereYear('report_date', now()->year)
+                        ->sum('total_sales'),
+                    'total_guests' => DailySalesReport::whereMonth('report_date', now()->month)
+                        ->whereYear('report_date', now()->year)
+                        ->sum('guest_count_today'),
+                ],
+
+                // 4. Sales Bulan Lalu (Untuk hitung Growth Bulanan)
+                'last_month' => [
+                    'total_sales' => DailySalesReport::whereMonth('report_date', now()->subMonth()->month)
+                        ->whereYear('report_date', now()->subMonth()->year)
+                        ->sum('total_sales'),
+                ],
+
+                // 5. Top 5 Outlet Bulan Ini (Leaderboard)
+                'top_outlets' => DailySalesReport::whereMonth('report_date', now()->month)
+                    ->whereYear('report_date', now()->year)
+                    ->with('outletWarehouse')
+                    ->select('outlet_warehouse_id', DB::raw('SUM(total_sales) as total_omzet'))
+                    ->groupBy('outlet_warehouse_id')
+                    ->orderByDesc('total_omzet')
+                    ->take(5)
+                    ->get(),
+
+                // 6. Tren Penjualan 7 Hari Terakhir (Untuk Grafik)
+                'weekly_trend' => DailySalesReport::whereBetween('report_date', [today()->subDays(6), today()])
+                    ->select('report_date', DB::raw('SUM(total_sales) as total'))
+                    ->groupBy('report_date')
+                    ->orderBy('report_date')
+                    ->get()
+                    ->map(function ($item) {
+                        return [
+                            'date' => \Carbon\Carbon::parse($item->report_date)->format('d M'),
+                            'total' => $item->total
+                        ];
+                    }),
+                
+                // 7. Laporan Terbaru Masuk
+                'recent_reports' => DailySalesReport::with(['outletWarehouse', 'createdBy'])
+                    ->orderBy('created_at', 'desc')
+                    ->take(5)
+                    ->get(),
+            ],
+
             // Monthly Summary
             'monthlyActivity' => $this->getMonthlyActivitySummary(),
             
@@ -180,8 +243,7 @@ class beranda extends Controller
             // This Month Activity
             'monthActivity' => [
                 'received' => CentralStockTransaction::where('warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'PURCHASE')
-                    ->orwhere('transaction_type', 'BRANCH_RETURN')
+                    ->whereIn('transaction_type', ['PURCHASE', 'BRANCH_RETURN'])
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
                     ->sum(DB::raw('abs(`quantity`)')),
@@ -431,12 +493,12 @@ class beranda extends Controller
             'monthActivity' => [
                 // Outlet
                 'outlet_received' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'RECEIVE_FROM_BRANCH' || 'TRANSFER_IN' || 'ADJUSTMENT_IN')
+                    ->whereIn('transaction_type', ['RECEIVE_FROM_BRANCH', 'TRANSFER_IN', 'ADJUSTMENT_IN'])
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
                     ->sum(DB::raw('abs(`quantity`)')),
                 'outlet_to_kitchen' => OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'DISTRIBUTE_TO_KITCHEN' || 'TRANSFER_OUT' || 'ADJUSTMENT_OUT')
+                    ->whereIn('transaction_type', ['DISTRIBUTE_TO_KITCHEN', 'TRANSFER_OUT', 'ADJUSTMENT_OUT'])
                     ->whereMonth('transaction_date', now()->month)
                     ->whereYear('transaction_date', now()->year)
                     ->sum(DB::raw('abs(`quantity`)')),
@@ -515,6 +577,56 @@ class beranda extends Controller
                     ->select('items.*', 'monthly_kitchen_stock_balances.closing_stock')
                     ->get(),
             ],
+            'salesSummary' => [
+                // 1. Data Hari Ini
+                'today' => [
+                    'total' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->where('report_date', today())
+                        ->sum('total_sales'),
+                    'cash' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->where('report_date', today())
+                        ->sum('payment_cash'),
+                    'digital' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->where('report_date', today())
+                        ->sum(DB::raw('total_sales - payment_cash')),
+                    'guest_count' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->where('report_date', today())
+                        ->sum('guest_count_today'),
+                ],
+
+                // 2. Data Kemarin (Untuk Growth)
+                'yesterday' => [
+                    'total' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->where('report_date', today()->subDay())
+                        ->sum('total_sales'),
+                ],
+
+                // 3. Data Bulan Ini (MTD)
+                'mtd' => [
+                    'total' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->whereMonth('report_date', now()->month)
+                        ->whereYear('report_date', now()->year)
+                        ->sum('total_sales'),
+                    'target' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                        ->whereMonth('report_date', now()->month)
+                        ->whereYear('report_date', now()->year)
+                        ->avg('target_sales') * now()->daysInMonth, // Estimasi Target Bulanan (Rata-rata harian x hari)
+                        // Atau jika Anda punya target bulanan tersimpan, gunakan itu.
+                ],
+                
+                // 4. Grafik Tren Mingguan (7 Hari Terakhir)
+                'weekly_trend' => DailySalesReport::where('outlet_warehouse_id', $warehouseId)
+                    ->whereBetween('report_date', [today()->subDays(6), today()])
+                    ->orderBy('report_date')
+                    ->get()
+                    ->map(function ($item) {
+                        return [
+                            'date' => $item->report_date->format('d M'),
+                            'total' => $item->total_sales,
+                            'target' => $item->target_sales
+                        ];
+                    }),
+            ],
         ];
         
         return view('dashboard.outlet-kitchen', $data);
@@ -543,11 +655,11 @@ class beranda extends Controller
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
                 ->sum(DB::raw('abs(`quantity`)')),
-            'outlet_in' => OutletStockTransaction::where('transaction_type', 'RECEIVE_FROM_BRANCH' && 'TRANSFER_IN' && 'ADJUSTMENT_IN')
+            'outlet_in' => OutletStockTransaction::whereIn('transaction_type', ['RECEIVE_FROM_BRANCH', 'TRANSFER_IN', 'ADJUSTMENT_IN'])
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
                 ->sum(DB::raw('abs(`quantity`)')),
-            'kitchen_usage' => KitchenStockTransaction::where('transaction_type', 'USAGE')
+            'outlet_out' => OutletStockTransaction::whereIn('transaction_type', ['DISTRIBUTE_TO_KITCHEN', 'TRANSFER_OUT', 'ADJUSTMENT_OUT'])
                 ->whereMonth('transaction_date', now()->month)
                 ->whereYear('transaction_date', now()->year)
                 ->sum(DB::raw('abs(`quantity`)')),
@@ -564,7 +676,8 @@ class beranda extends Controller
         $centralOut = [];
         $branchIn = [];
         $branchOut = [];
-        $kitchenUsage = [];
+        $outletIn = [];
+        $outletOut = [];
         
         for ($date = $startOfMonth->copy(); $date->lte($endOfMonth); $date->addDay()) {
             $dateStr = $date->format('Y-m-d');
@@ -582,12 +695,15 @@ class beranda extends Controller
             $branchOut[] = BranchStockTransaction::where('transaction_type', 'OUT')
                 ->whereDate('transaction_date', $dateStr)
                 ->sum(DB::raw('abs(`quantity`)'));
-            $kitchenUsage[] = KitchenStockTransaction::where('transaction_type', 'USAGE')
+            $outletIn[] = OutletStockTransaction::whereIn('transaction_type', ['RECEIVE_FROM_BRANCH', 'TRANSFER_IN', 'ADJUSTMENT_IN'])
+                ->whereDate('transaction_date', $dateStr)
+                ->sum(DB::raw('abs(`quantity`)'));
+            $outletOut[] = OutletStockTransaction::whereIn('transaction_type', ['DISTRIBUTE_TO_KITCHEN', 'TRANSFER_OUT', 'ADJUSTMENT_OUT'])
                 ->whereDate('transaction_date', $dateStr)
                 ->sum(DB::raw('abs(`quantity`)'));
         }
         
-        return compact('dates', 'centralIn', 'centralOut', 'branchIn', 'branchOut', 'kitchenUsage');
+        return compact('dates', 'centralIn', 'centralOut', 'branchIn', 'branchOut', 'outletOut', 'outletIn');
     }
     
     private function getStockMovementChart($level, $warehouseId = null, $branchId = null)
@@ -623,11 +739,11 @@ class beranda extends Controller
                     ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'outlet') {
                 $in = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'RECEIVE_FROM_BRANCH' || 'TRANSFER_IN' || 'ADJUSTMENT_IN')
+                    ->whereIn('transaction_type', ['RECEIVE_FROM_BRANCH', 'TRANSFER_IN', 'ADJUSTMENT_IN'])
                     ->whereDate('transaction_date', $dateStr)
                     ->sum(DB::raw('abs(`quantity`)'));
                 $out = OutletStockTransaction::where('outlet_warehouse_id', $warehouseId)
-                    ->where('transaction_type', 'DISTRIBUTE_TO_KITCHEN' || 'TRANSFER_OUT' || 'ADJUSTMENT_OUT')
+                    ->whereIn('transaction_type', ['DISTRIBUTE_TO_KITCHEN', 'TRANSFER_OUT', 'ADJUSTMENT_OUT'])
                     ->whereDate('transaction_date', $dateStr)
                     ->sum(DB::raw('abs(`quantity`)'));
             } elseif ($level === 'kitchen') {

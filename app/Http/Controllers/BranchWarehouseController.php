@@ -557,9 +557,9 @@ class BranchWarehouseController extends Controller
                 $transactionType = match($request->adjustment_type) {
                     'ADD' => 'IN',
                     'REDUCE' => 'OUT',
-                    'WASTE' => 'WASTAGE',
-                    'DAMAGE' => 'WASTAGE',
-                    'RETURN_SUPPLIER' => 'TRANSFER_TO_CENTRAL',
+                    'WASTE' => 'OUT',
+                    'DAMAGE' => 'OUT',
+                    'RETURN_SUPPLIER' => 'OUT',
                     default => 'OUT'
                 };
 

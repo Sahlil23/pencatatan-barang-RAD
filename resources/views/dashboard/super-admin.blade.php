@@ -294,8 +294,8 @@
                                     </span>
                                 </div>
                                 <div>
-                                    <small class="text-muted d-block">Kitchen Usage</small>
-                                    <h6 class="mb-0">{{ number_format($todayActivity['kitchen_usage'], 2) }}</h6>
+                                    <small class="text-muted d-block">Outlet Out</small>
+                                    <h6 class="mb-0">{{ number_format($todayActivity['outlet_out'], 2) }}</h6>
                                 </div>
                             </div>
                         </div>
@@ -389,8 +389,8 @@
                                     </span>
                                 </div>
                                 <div>
-                                    <small class="text-muted d-block">Kitchen Usage</small>
-                                    <h6 class="mb-0">{{ number_format($monthlyActivity['kitchen_usage'], 2) }}</h6>
+                                    <small class="text-muted d-block">Outlet Out</small>
+                                    <h6 class="mb-0">{{ number_format($monthlyActivity['outlet_out'], 2) }}</h6>
                                 </div>
                             </div>
                         </div>
@@ -408,7 +408,7 @@
                         <i class="bx bx-line-chart me-2"></i>
                         Stock Movement This Month
                     </h5>
-                    <div class="dropdown">
+                    <!-- <div class="dropdown">
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                             <i class="bx bx-filter me-1"></i>
                             Filter
@@ -419,7 +419,7 @@
                             <li><a class="dropdown-item" href="#">This Month</a></li>
                             <li><a class="dropdown-item" href="#">Last Month</a></li>
                         </ul>
-                    </div>
+                    </div> -->
                 </div>
                 <div class="card-body">
                     <canvas id="stockMovementChart" height="80"></canvas>
@@ -427,7 +427,112 @@
             </div>
         </div>
     </div>
+    <div class="row mb-4">
+    <div class="col-12">
+        <h5 class="text-muted">Sales Overview (All Outlets)</h5>
+    </div>
+    
+    {{-- Sales Today --}}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100 border-start border-4 border-primary">
+            <div class="card-body">
+                <small class="text-muted fw-semibold">Total Sales Today</small>
+                <h4 class="mb-0 text-primary">Rp {{ number_format($salesOverview['today']['total_sales'], 0, ',', '.') }}</h4>
+                
+                @php
+                    $today = $salesOverview['today']['total_sales'];
+                    $yesterday = $salesOverview['yesterday']['total_sales'];
+                    $growth = $yesterday > 0 ? (($today - $yesterday) / $yesterday) * 100 : 0;
+                    $icon = $growth >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt';
+                    $color = $growth >= 0 ? 'text-success' : 'text-danger';
+                @endphp
+                <small class="{{ $color }} mt-2 d-block">
+                    <i class='bx {{ $icon }}'></i> {{ number_format(abs($growth), 1) }}% vs Yesterday
+                </small>
+            </div>
+        </div>
+    </div>
 
+    {{-- MTD Sales --}}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100 border-start border-4 border-success">
+            <div class="card-body">
+                <small class="text-muted fw-semibold">MTD Sales (Bulan Ini)</small>
+                <h4 class="mb-0 text-success">Rp {{ number_format($salesOverview['mtd']['total_sales'], 0, ',', '.') }}</h4>
+                
+                @php
+                    $mtd = $salesOverview['mtd']['total_sales'];
+                    $lastMonth = $salesOverview['last_month']['total_sales'];
+                    // Estimasi growth bulan berjalan vs bulan lalu (simple comparison)
+                    $growthMtd = $lastMonth > 0 ? (($mtd - $lastMonth) / $lastMonth) * 100 : 0;
+                    $iconMtd = $growthMtd >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt';
+                    $colorMtd = $growthMtd >= 0 ? 'text-success' : 'text-danger';
+                @endphp
+                <small class="{{ $colorMtd }} mt-2 d-block">
+                    <i class='bx {{ $iconMtd }}'></i> {{ number_format(abs($growthMtd), 1) }}% vs Last Month
+                </small>
+            </div>
+        </div>
+    </div>
+
+    {{-- Reporting Outlets Count --}}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <small class="text-muted fw-semibold">Outlet Reporting Today</small>
+                <h4 class="mb-0">{{ $salesOverview['today']['report_count'] }} <span class="fs-6 text-muted">/ {{ $outletWarehouses }}</span></h4>
+                <small class="text-muted mt-2 d-block">Outlets have submitted reports</small>
+            </div>
+        </div>
+    </div>
+
+    {{-- Total Guests --}}
+    <div class="col-md-3 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <small class="text-muted fw-semibold">Total Guests (Today)</small>
+                <h4 class="mb-0">{{ number_format($salesOverview['today']['guest_count']) }}</h4>
+                <small class="text-muted mt-2 d-block">Customers served across all outlets</small>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row mb-4">
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h5 class="card-title m-0 me-2">Top Outlets (Bulan Ini)</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-borderless">
+                    <thead>
+                        <tr>
+                            <th>Outlet</th>
+                            <th class="text-end">Total Omzet</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($salesOverview['top_outlets'] as $index => $top)
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-label-primary me-2">{{ $index + 1 }}</span>
+                                    <span class="fw-semibold">{{ $top->outletWarehouse->warehouse_name ?? 'Unknown' }}</span>
+                                </div>
+                            </td>
+                            <td class="text-end fw-bold">
+                                Rp {{ number_format($top->total_omzet, 0, ',', '.') }}
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    {{-- ... Kolom lain (misal grafik trend) ... --}}
+</div>
     <!-- <div class="row mb-4">
         <div class="col-lg-6 col-md-12 mb-4">
             <div class="card h-100">
@@ -651,9 +756,16 @@ if (ctx) {
                     tension: 0.4
                 },
                 {
-                    label: 'Kitchen Usage',
-                    data: {!! json_encode($stockMovementChart['kitchenUsage']) !!},
+                    label: 'Outlet IN',
+                    data: {!! json_encode($stockMovementChart['outletIn']) !!},
                     borderColor: 'rgb(113, 221, 55)',
+                    backgroundColor: 'rgba(113, 221, 55, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Outlet Out',
+                    data: {!! json_encode($stockMovementChart['outletOut']) !!},
+                    borderColor: 'rgba(210, 221, 55, 1)',
                     backgroundColor: 'rgba(113, 221, 55, 0.1)',
                     tension: 0.4
                 }

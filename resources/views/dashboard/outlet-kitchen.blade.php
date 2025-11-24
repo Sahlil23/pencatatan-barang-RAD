@@ -444,6 +444,83 @@
         </div>
     </div>
 
+
+    <div class="row mb-4">
+    {{-- Card 1: Sales Hari Ini --}}
+    <div class="col-md-3 mb-2">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body">
+                <h6 class="text-white-50">Sales Hari Ini</h6>
+                <h3 class="text-white mb-0">Rp {{ number_format($salesSummary['today']['total'], 0, ',', '.') }}</h3>
+                
+                {{-- Growth Indicator --}}
+                @php
+                    $today = $salesSummary['today']['total'];
+                    $yesterday = $salesSummary['yesterday']['total'];
+                    $growth = $yesterday > 0 ? (($today - $yesterday) / $yesterday) * 100 : 0;
+                    $icon = $growth >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt';
+                    $color = $growth >= 0 ? 'text-white' : 'text-warning'; // Warning agar terlihat di bg-primary
+                @endphp
+                <small class="{{ $color }} fw-bold">
+                    <i class='bx {{ $icon }}'></i> {{ number_format(abs($growth), 1) }}% vs Kemarin
+                </small>
+            </div>
+        </div>
+    </div>
+
+    {{-- Card 2: Cash vs Digital (Pie Chart Mini atau Progress Bar) --}}
+    <div class="col-md-3 mb-2">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Metode Pembayaran</h6>
+                <div class="d-flex justify-content-between mb-1">
+                    <small>Cash</small>
+                    <small class="fw-bold">Rp {{ number_format($salesSummary['today']['cash'], 0, ',', '.') }}</small>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <small>Digital</small>
+                    <small class="fw-bold text-info">Rp {{ number_format($salesSummary['today']['digital'], 0, ',', '.') }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Card 3: Sales Bulan Ini (MTD) --}}
+    <div class="col-md-3 mb-2">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Total Sales Bulan Ini</h6>
+                <h3 class="mb-0">Rp {{ number_format($salesSummary['mtd']['total'], 0, ',', '.') }}</h3>
+                
+                {{-- Target Progress --}}
+                @php
+                    $target = $salesSummary['mtd']['target'] > 0 ? $salesSummary['mtd']['target'] : 1;
+                    $progress = ($salesSummary['mtd']['total'] / $target) * 100;
+                @endphp
+                <small class="text-muted">Target Achievement: {{ number_format($progress, 1) }}%</small>
+                <div class="progress mt-2" style="height: 4px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ $progress }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Card 4: Tamu (Guest Count) --}}
+    <div class="col-md-3 mb-2">
+        <div class="card h-100">
+            <div class="card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <h6 class="text-muted">Total Tamu (TC)</h6>
+                    <h3 class="mb-0">{{ number_format($salesSummary['today']['guest_count']) }}</h3>
+                    <small class="text-success">Orang</small>
+                </div>
+                <div class="avatar avatar-md bg-label-warning rounded">
+                    <i class='bx bx-user fs-3'></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
     {{-- Stock Movement Charts --}}
     <div class="row mb-4">
         {{-- Outlet Chart --}}
