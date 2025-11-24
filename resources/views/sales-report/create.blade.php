@@ -65,7 +65,7 @@
                                 <label class="form-label fw-bold text-primary">Target Sales Today</label>
                                 <div class="input-group input-group-merge">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="target_sales" class="form-control" placeholder="0" value="{{ old('target_sales') }}" required>
+                                    <input  type="text" name="target_sales" class="form-control rupiah-input" placeholder="0" value="{{ old('target_sales') }}" required>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -77,21 +77,21 @@
                                 <label class="form-label">Shift Opening</label>
                                 <div class="input-group input-group-merge">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="sales_shift_opening" class="form-control calc-sales" placeholder="0" value="{{ old('sales_shift_opening') }}">
+                                    <input type="text" name="sales_shift_opening" class="form-control calc-sales rupiah-input" placeholder="0" value="{{ old('sales_shift_opening') }}">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Shift Closing</label>
                                 <div class="input-group input-group-merge">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="sales_shift_closing" class="form-control calc-sales" placeholder="0" value="{{ old('sales_shift_closing') }}">
+                                    <input type="text" name="sales_shift_closing" class="form-control calc-sales rupiah-input" placeholder="0" value="{{ old('sales_shift_closing') }}">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Shift Midnight</label>
                                 <div class="input-group input-group-merge">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="sales_shift_midnight" class="form-control calc-sales" placeholder="0" value="{{ old('sales_shift_midnight') }}">
+                                    <input type="text" name="sales_shift_midnight" class="form-control calc-sales rupiah-input" placeholder="0" value="{{ old('sales_shift_midnight') }}">
                                 </div>
                             </div>
 
@@ -101,7 +101,7 @@
                                     <div class="input-group w-50">
                                         <span class="input-group-text bg-white border-0 fw-bold">Rp</span>
                                         {{-- Readonly agar tidak diedit manual, harus dari shift --}}
-                                        <input type="number" name="total_sales" id="total_sales" class="form-control border-0 bg-white fw-bold fs-4 text-end text-primary" 
+                                        <input type="text" name="total_sales" id="total_sales" class="form-control border-0 bg-white fw-bold fs-4 text-end text-primary rupiah-input" 
                                                value="{{ old('total_sales', 0) }}" readonly>
                                     </div>
                                 </div>
@@ -124,7 +124,7 @@
                             <div class="col-sm-9">
                                 <div class="input-group">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="payment_cash" class="form-control calc-payment" placeholder="0" value="{{ old('payment_cash') }}">
+                                    <input type="text" name="payment_cash" class="form-control calc-payment rupiah-input" placeholder="0" value="{{ old('payment_cash') }}">
                                 </div>
                             </div>
                         </div>
@@ -137,28 +137,28 @@
                                 <label class="form-label">EDC Mandiri</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="edc_mandiri" class="form-control calc-payment" value="{{ old('edc_mandiri') }}">
+                                    <input type="text" name="edc_mandiri" class="form-control calc-payment rupiah-input" value="{{ old('edc_mandiri') }}">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">EDC BCA</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="edc_bca" class="form-control calc-payment" value="{{ old('edc_bca') }}">
+                                    <input type="text" name="edc_bca" class="form-control calc-payment rupiah-input" value="{{ old('edc_bca') }}">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">EDC BRI</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="edc_bri" class="form-control calc-payment" value="{{ old('edc_bri') }}">
+                                    <input type="text" name="edc_bri" class="form-control calc-payment rupiah-input" value="{{ old('edc_bri') }}">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">EDC BNI</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="edc_bni" class="form-control calc-payment" value="{{ old('edc_bni') }}">
+                                    <input type="text" name="edc_bni" class="form-control calc-payment rupiah-input" value="{{ old('edc_bni') }}">
                                 </div>
                             </div>
                         </div>
@@ -170,28 +170,28 @@
                                 <label class="form-label">QR Mandiri</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="qr_mandiri" class="form-control calc-payment" value="{{ old('qr_mandiri') }}">
+                                    <input type="text" name="qr_mandiri" class="form-control calc-payment rupiah-input" value="{{ old('qr_mandiri') }}">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">QR BCA</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="qr_bca" class="form-control calc-payment" value="{{ old('qr_bca') }}">
+                                    <input type="text" name="qr_bca" class="form-control calc-payment rupiah-input" value="{{ old('qr_bca') }}">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">QR BRI</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="qr_bri" class="form-control calc-payment" value="{{ old('qr_bri') }}">
+                                    <input type="text" name="qr_bri" class="form-control calc-payment rupiah-input" value="{{ old('qr_bri') }}">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">QR BNI</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="qr_bni" class="form-control calc-payment" value="{{ old('qr_bni') }}">
+                                    <input type="text" name="qr_bni" class="form-control calc-payment rupiah-input" value="{{ old('qr_bni') }}">
                                 </div>
                             </div>
                         </div>
@@ -203,21 +203,21 @@
                                 <label class="form-label">Transfer Mandiri</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="transfer_mandiri" class="form-control calc-payment" value="{{ old('transfer_mandiri') }}">
+                                    <input type="text" name="transfer_mandiri" class="form-control calc-payment rupiah-input" value="{{ old('transfer_mandiri') }}">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Gobizz Wallet</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="gobizz_wallet" class="form-control calc-payment" value="{{ old('gobizz_wallet') }}">
+                                    <input type="text" name="gobizz_wallet" class="form-control calc-payment rupiah-input" value="{{ old('gobizz_wallet') }}">
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Compliment</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" name="compliment" class="form-control calc-payment" value="{{ old('compliment') }}">
+                                    <input type="text" name="compliment" class="form-control calc-payment rupiah-input" value="{{ old('compliment') }}">
                                 </div>
                             </div>
                         </div>
@@ -228,7 +228,7 @@
                             <div class="col-sm-9">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-danger text-white">Rp</span>
-                                    <input type="number" name="payment_void_refund" class="form-control border-danger text-danger" placeholder="0" value="{{ old('payment_void_refund') }}">
+                                    <input type="text" name="payment_void_refund" class="form-control border-danger text-danger rupiah-input" placeholder="0" value="{{ old('payment_void_refund') }}">
                                 </div>
                                 <div class="form-text">Hanya sebagai catatan, tidak mempengaruhi total pembayaran.</div>
                             </div>
@@ -255,22 +255,12 @@
                                     <label class="form-label small">Sales Today</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">Rp</span>
-                                        <input type="number" name="gofood_sales" class="form-control calc-delivery-sales" value="{{ old('gofood_sales') }}">
+                                        <input type="text" name="gofood_sales" class="form-control calc-delivery-sales rupiah-input" value="{{ old('gofood_sales') }}">
                                     </div>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">TC Today</label>
-                                    <input type="number" name="gofood_tc" class="form-control form-control-sm" value="{{ old('gofood_tc') }}">
-                                </div>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <label class="form-label small">MTD Sales</label>
-                                        <input type="number" name="gofood_mtd_sales" class="form-control form-control-sm" value="{{ old('gofood_mtd_sales') }}">
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label small">MTD TC</label>
-                                        <input type="number" name="gofood_mtd_tc" class="form-control form-control-sm" value="{{ old('gofood_mtd_tc') }}">
-                                    </div>
+                                    <input type="text" name="gofood_tc" class="form-control form-control-sm" value="{{ old('gofood_tc') }}">
                                 </div>
                             </div>
 
@@ -281,22 +271,12 @@
                                     <label class="form-label small">Sales Today</label>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text">Rp</span>
-                                        <input type="number" name="grabfood_sales" class="form-control calc-delivery-sales" value="{{ old('grabfood_sales') }}">
+                                        <input type="text" name="grabfood_sales" class="form-control calc--delivery-sales rupiah-input" value="{{ old('grabfood_sales') }}">
                                     </div>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">TC Today</label>
                                     <input type="number" name="grabfood_tc" class="form-control form-control-sm" value="{{ old('grabfood_tc') }}">
-                                </div>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <label class="form-label small">MTD Sales</label>
-                                        <input type="number" name="grabfood_mtd_sales" class="form-control form-control-sm" value="{{ old('grabfood_mtd_sales') }}">
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label small">MTD TC</label>
-                                        <input type="number" name="grabfood_mtd_tc" class="form-control form-control-sm" value="{{ old('grabfood_mtd_tc') }}">
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -314,21 +294,12 @@
                         <h5 class="mb-0">Statistik & Tamu</h5>
                     </div>
                     <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">MTD Sales (Month To Date)</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Rp</span>
-                                <input type="number" name="mtd_sales" class="form-control" value="{{ old('mtd_sales') }}">
-                            </div>
-                        </div>
+
                         <div class="row g-2">
-                            <div class="col-6">
-                                <label class="form-label">Guest Today</label>
-                                <input type="number" name="guest_count_today" class="form-control" value="{{ old('guest_count_today') }}">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label">MTD Guest</label>
-                                <input type="number" name="mtd_guest_count" class="form-control" value="{{ old('mtd_guest_count') }}">
+                            <div class="col-12">
+                                <label class="form-label">Dine-In Guest Count (Today)</label>
+                                <input type="text" name="guest_count_today" class="form-control " value="{{ old('guest_count_today') }}">
+                                <div class="form-text small">Hanya masukkan jumlah tamu Dine-in. Total TC akan otomatis ditambah dengan Delivery.</div>
                             </div>
                         </div>
                     </div>
@@ -388,80 +359,120 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Selektor Input
-        const shiftInputs = document.querySelectorAll('.calc-sales');
-        const paymentInputs = document.querySelectorAll('.calc-payment');       // Input Pembayaran (Cash, QR, dll)
-        const deliverySalesInputs = document.querySelectorAll('.calc-delivery-sales'); // Input Delivery (GoFood, Grab)
+        // --- 1. LOGIKA FORMAT RUPIAH ---
         
-        const totalSalesInput = document.getElementById('total_sales');
+        const rupiahInputs = document.querySelectorAll('.rupiah-input');
+
+        // Fungsi Format: 1000000 -> 1.000.000
+        const formatRupiah = (angka, prefix) => {
+            let number_string = angka.replace(/[^,\d]/g, '').toString(),
+                split = number_string.split(','),
+                sisa = split[0].length % 3,
+                rupiah = split[0].substr(0, sisa),
+                ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+            if (ribuan) {
+                separator = sisa ? '.' : '';
+                rupiah += separator + ribuan.join('.');
+            }
+
+            rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
+            return prefix == undefined ? rupiah : (rupiah ? 'Rp. ' + rupiah : '');
+        };
+
+        // Pasang event listener ke semua input rupiah
+        rupiahInputs.forEach(input => {
+            // Format saat user mengetik
+            input.addEventListener('keyup', function(e) {
+                this.value = formatRupiah(this.value);
+            });
+            
+            // Format saat halaman dimuat (untuk Edit / Old Input)
+            if (input.value) {
+                input.value = formatRupiah(input.value);
+            }
+        });
+
+        // Fungsi Un-Format: 1.000.000 -> 1000000 (Untuk kalkulasi JS)
+        const cleanNumber = (val) => {
+            if (!val) return 0;
+            return parseFloat(val.toString().replace(/\./g, '')) || 0;
+        };
+
+
+        // --- 2. LOGIKA KALKULASI (Disesuaikan dengan Format Baru) ---
+
+        const shiftInputs = document.querySelectorAll('.calc-sales');
+        const paymentInputs = document.querySelectorAll('.calc-payment');
+        const deliverySalesInputs = document.querySelectorAll('.calc-delivery-sales');
+        
+        const totalSalesInput = document.getElementById('total_sales'); // Ini hidden input asli
+        const totalSalesDisplay = document.getElementById('total_sales_display'); // Buat input dummy untuk display jika perlu
         const totalPaymentDisplay = document.getElementById('total_payment_display');
         const balanceStatus = document.getElementById('balance-status');
         const submitBtn = document.getElementById('submitBtn');
 
-        // Format Rupiah
-        const formatRupiah = (num) => {
+        const formatDisplay = (num) => {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
         };
 
-        // 1. Hitung Total Sales (Shift)
+        // Hitung Total Sales
         const calculateTotalSales = () => {
             let total = 0;
             shiftInputs.forEach(input => {
-                total += parseFloat(input.value) || 0;
+                total += cleanNumber(input.value); // Gunakan cleanNumber
             });
-            totalSalesInput.value = total;
+                     
+            
+            if(totalSalesInput) {
+                // Jika total_sales input type="text" dan class="rupiah-input"
+                totalSalesInput.value = formatRupiah(total.toString());
+            }
+            
             checkBalance();
         };
 
-        // 2. Hitung Total Settlement (Cash + Digital + Delivery Sales)
-        // --- INI BAGIAN YANG DIPERBAIKI ---
+        // Hitung Total Payment
         const calculateTotalPayment = () => {
             let total = 0;
-            
-            // A. Hitung Pembayaran Biasa (Cash/EDC/QR)
             paymentInputs.forEach(input => {
-                total += parseFloat(input.value) || 0;
+                total += cleanNumber(input.value);
             });
-            
-            // B. Tambahkan Sales Delivery (GoFood/GrabFood)
             deliverySalesInputs.forEach(input => {
-                total += parseFloat(input.value) || 0;
+                total += cleanNumber(input.value);
             });
 
-            // Update Tampilan
-            totalPaymentDisplay.innerText = formatRupiah(total);
+            totalPaymentDisplay.innerText = formatDisplay(total);
             return total;
         };
 
-        // 3. Cek Balance (Sales vs Payment+Delivery)
+        // Cek Balance
         const checkBalance = () => {
-            const sales = parseFloat(totalSalesInput.value) || 0;
-            const totalSettlement = calculateTotalPayment(); // Panggil fungsi yang sudah diperbaiki
+            // Ambil nilai Total Sales (bersihkan titiknya dulu)
+            const sales = cleanNumber(totalSalesInput.value);
+            const totalSettlement = calculateTotalPayment();
             const diff = Math.abs(sales - totalSettlement);
 
-            if (diff <= 100) { // Toleransi Rp 100
+            if (diff <= 100) {
                 balanceStatus.className = 'badge bg-success';
                 balanceStatus.innerHTML = '<i class="bx bx-check"></i> BALANCED';
                 submitBtn.disabled = false;
             } else {
                 balanceStatus.className = 'badge bg-danger';
-                balanceStatus.innerHTML = `NOT BALANCED (Selisih: ${formatRupiah(sales - totalSettlement)})`;
-                // submitBtn.disabled = true; // Opsional: blokir tombol jika tidak balance
+                balanceStatus.innerHTML = `NOT BALANCED (Selisih: ${formatDisplay(sales - totalSettlement)})`;
             }
         };
 
-        // --- Event Listeners ---
-        
-        // Listener untuk Shift (Target Sales)
-        shiftInputs.forEach(input => input.addEventListener('input', calculateTotalSales));
-        
-        // Listener untuk Pembayaran (Cash, QR, dll)
-        paymentInputs.forEach(input => input.addEventListener('input', checkBalance));
-        
-        // Listener untuk Delivery (GoFood, Grab) - PENTING
-        deliverySalesInputs.forEach(input => input.addEventListener('input', checkBalance));
+        const allCalcInputs = [...shiftInputs, ...paymentInputs, ...deliverySalesInputs];
+        allCalcInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                // Kalkulasi ulang
+                if (this.classList.contains('calc-sales')) calculateTotalSales();
+                else checkBalance();
+            });
+        });
 
-        // Init hitungan awal
+        // Init
         calculateTotalSales();
     });
 </script>

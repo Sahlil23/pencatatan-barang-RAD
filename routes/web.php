@@ -59,6 +59,8 @@ Route::middleware(['auth', 'set.branch.context'])->group(function () {
         Route::get('/create', [DailySalesReportController::class, 'create'])->name('create');
         Route::get('/{id}', [DailySalesReportController::class, 'show'])->name('show');
         Route::post('/store', [DailySalesReportController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [DailySalesReportController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [DailySalesReportController::class, 'update'])->name('update');
     });
     // Items
     Route::prefix('items')->name('items.')->group(function () {

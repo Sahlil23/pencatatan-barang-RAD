@@ -115,6 +115,7 @@ class DailySalesReportController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge($this->cleanNumeric($request->all()));
         // --- 1. VALIDASI INPUT ---
         $validator = Validator::make($request->all(), [
             'outlet_warehouse_id' => 'required|exists:warehouses,id',
@@ -210,61 +211,55 @@ class DailySalesReportController extends Controller
         // Hitung Total TC (Guest Count) Hari Ini
         // Rumus: Input Dine-In (dari form) + TC GoFood + TC GrabFood
         $finalGuestCount = $data['guest_count_today'] + $data['gofood_tc'] + $data['grabfood_tc'];
+        
+        // Update data array dengan guest count yang baru (agar ikut terhitung di MTD)
+        $data['guest_count_today'] = $finalGuestCount;
+
+        // 2. Panggil Helper MTD
+        $mtdData = $this->calculateMTD(
+            $data['outlet_warehouse_id'], 
+            $data['report_date'], 
+            $data // Kirim data hari ini (total_sales, gofood_sales, dll)
+        );
 
         // --- 4. SIMPAN KE DATABASE ---
         try {
             DB::beginTransaction();
 
             DailySalesReport::create([
-                // Identitas
+                // ... (Field identitas & sales sama) ...
                 'outlet_warehouse_id' => $data['outlet_warehouse_id'],
                 'created_by_user_id' => Auth::id(),
                 'report_date' => $data['report_date'],
-                
-                // Angka Sales Utama
                 'target_sales' => $data['target_sales'],
                 'sales_shift_opening' => $data['sales_shift_opening'],
                 'sales_shift_closing' => $data['sales_shift_closing'],
                 'sales_shift_midnight' => $data['sales_shift_midnight'],
                 'total_sales' => $data['total_sales'],
-                
-                // Angka Pembayaran Utama
                 'payment_cash' => $data['payment_cash'],
                 'payment_void_refund' => $data['payment_void_refund'],
                 
-                // Angka Statistik
-                'mtd_sales' => $data['mtd_sales'],
-                'guest_count_today' => $finalGuestCount, // ✅ Menggunakan Hasil Penjumlahan
-                'mtd_guest_count' => $data['mtd_guest_count'],
+                // ✅ GUNAKAN HASIL HITUNGAN OTOMATIS
+                'mtd_sales' => $mtdData['mtd_sales'],
+                'guest_count_today' => $finalGuestCount,
+                'mtd_guest_count' => $mtdData['mtd_guest_count'],
 
-                // JSON: Rincian Pembayaran Digital
-                'payment_details_digital' => [
-                    'edc_bni' => $data['edc_bni'],
-                    'edc_bri' => $data['edc_bri'],
-                    'edc_mandiri' => $data['edc_mandiri'],
-                    'edc_bca' => $data['edc_bca'],
-                    'qr_bca' => $data['qr_bca'],
-                    'qr_mandiri' => $data['qr_mandiri'],
-                    'qr_bri' => $data['qr_bri'],
-                    'qr_bni' => $data['qr_bni'],
-                    'transfer_mandiri' => $data['transfer_mandiri'],
-                    'gobizz_wallet' => $data['gobizz_wallet'],
-                    'compliment' => $data['compliment'],
-                ],
+                // ... (Payment Details Digital sama) ...
+                'payment_details_digital' => [ /* ... */ ],
 
-                // JSON: Delivery Platforms
+                // ✅ DELIVERY PLATFORMS (GUNAKAN HASIL MTD)
                 'delivery_platforms' => [
                     'gofood' => [
                         'sales' => $data['gofood_sales'],
                         'tc' => $data['gofood_tc'],
-                        'mtd_sales' => $data['gofood_mtd_sales'],
-                        'mtd_tc' => $data['gofood_mtd_tc']
+                        'mtd_sales' => $mtdData['gofood_mtd_sales'], // Auto
+                        'mtd_tc' => $mtdData['gofood_mtd_tc']       // Auto
                     ],
                     'grabfood' => [
                         'sales' => $data['grabfood_sales'],
                         'tc' => $data['grabfood_tc'],
-                        'mtd_sales' => $data['grabfood_mtd_sales'],
-                        'mtd_tc' => $data['grabfood_mtd_tc']
+                        'mtd_sales' => $mtdData['grabfood_mtd_sales'], // Auto
+                        'mtd_tc' => $mtdData['grabfood_mtd_tc']        // Auto
                     ]
                 ],
 
@@ -297,6 +292,187 @@ class DailySalesReportController extends Controller
     }
 
     /**
+     * Menampilkan formulir edit.
+     */
+    public function edit($id)
+    {
+        $report = DailySalesReport::findOrFail($id);
+
+        // 1. Validasi Akses (User harus punya akses 'write' ke outlet ini)
+        try {
+            $this->validateWarehouseAccess($report->outlet_warehouse_id, true);
+        } catch (\Exception $e) {
+            return redirect()->route('sales-report.index')->with('error', 'Akses ditolak.');
+        }
+
+        // 2. Ambil list outlet (jika user ingin memindahkan laporan ke outlet lain - jarang terjadi tapi mungkin)
+        $outlets = auth()->user()->getAccessibleWarehousesByType('outlet');
+
+        return view('sales-report.edit', compact('report', 'outlets'));
+    }
+
+    /**
+     * Memperbarui laporan di database.
+     */
+    public function update(Request $request, $id)
+    {
+        $report = DailySalesReport::findOrFail($id);
+
+        // 1. Validasi Akses Lagi (Keamanan)
+        try {
+            $this->validateWarehouseAccess($report->outlet_warehouse_id, true);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Akses ditolak.');
+        }
+
+        $request->merge($this->cleanNumeric($request->all()));
+
+        $data = $this->sanitizeInput($request->all());
+
+        // 2. Validasi Input 
+        $validator = Validator::make($request->all(), [
+            'outlet_warehouse_id' => 'required|exists:warehouses,id',
+            'report_date' => 'required|date',
+            
+            // Sales
+            'target_sales' => 'required|numeric|min:0',
+            'total_sales' => 'required|numeric|min:0', // Angka Kunci
+            'sales_shift_opening' => 'nullable|numeric|min:0',
+            'sales_shift_closing' => 'nullable|numeric|min:0',
+            'sales_shift_midnight' => 'nullable|numeric|min:0',
+
+            // Payments (Cash)
+            'payment_cash' => 'nullable|numeric|min:0',
+            'payment_void_refund' => 'nullable|numeric|min:0',
+
+            // Digital & Delivery (Akan disanitasi jadi 0 jika null)
+            'edc_bni' => 'nullable|numeric', 'edc_bri' => 'nullable|numeric', 
+            'edc_mandiri' => 'nullable|numeric', 'edc_bca' => 'nullable|numeric',
+            'qr_bca' => 'nullable|numeric', 'qr_mandiri' => 'nullable|numeric',
+            'qr_bri' => 'nullable|numeric', 'qr_bni' => 'nullable|numeric',
+            'transfer_mandiri' => 'nullable|numeric', 'gobizz_wallet' => 'nullable|numeric',
+            'compliment' => 'nullable|numeric',
+
+            // Stats
+            'mtd_sales' => 'nullable|numeric|min:0',
+            'guest_count_today' => 'nullable|integer|min:0', // Ini Dine-in Input
+            'mtd_guest_count' => 'nullable|integer|min:0',
+
+            // Delivery Inputs
+            'gofood_sales' => 'nullable|numeric', 'gofood_tc' => 'nullable|integer',
+            'grabfood_sales' => 'nullable|numeric', 'grabfood_tc' => 'nullable|integer',
+
+            // Text
+            'fast_moving_items' => 'nullable|string',
+            'important_events' => 'nullable|string',
+            'staff_opening' => 'nullable|string',
+            'staff_closing' => 'nullable|string',
+            'staff_midnight' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+
+
+        // 3. Cek Duplikat (Kecualikan laporan ini sendiri)
+        $exists = DailySalesReport::where('outlet_warehouse_id', $data['outlet_warehouse_id'])
+            ->where('report_date', $data['report_date'])
+            ->where('id', '!=', $id) // <-- PENTING: Abaikan ID ini sendiri
+            ->exists();
+        
+        if ($exists) {
+            return redirect()->back()->withInput()
+                ->with('error', 'Laporan untuk tanggal ini sudah ada (duplikat).');
+        }
+
+        // 4. Validasi Matematika (Sama dengan Store)
+        $finalGuestCount = $data['guest_count_today'] + $data['gofood_tc'] + $data['grabfood_tc'];
+        
+        // Update data array dengan guest count yang baru
+        $data['guest_count_today'] = $finalGuestCount;
+
+
+        $mtdData = $this->calculateMTD(
+            $data['outlet_warehouse_id'], 
+            $data['report_date'], 
+            $data 
+        );
+
+        // 5. Update Database
+        try {
+            DB::beginTransaction();
+
+            $report->update([
+                'outlet_warehouse_id' => $data['outlet_warehouse_id'],
+                'report_date' => $data['report_date'],
+                'target_sales' => $data['target_sales'],
+                'sales_shift_opening' => $data['sales_shift_opening'],
+                'sales_shift_closing' => $data['sales_shift_closing'],
+                'sales_shift_midnight' => $data['sales_shift_midnight'],
+                'total_sales' => $data['total_sales'],
+                'payment_cash' => $data['payment_cash'],
+                'payment_void_refund' => $data['payment_void_refund'],
+                
+                'mtd_sales' => $mtdData['mtd_sales'],
+                'guest_count_today' => $finalGuestCount,
+                'mtd_guest_count' => $mtdData['mtd_guest_count'],
+
+                'payment_details_digital' => [
+                    'edc_bni' => $data['edc_bni'],
+                    'edc_bri' => $data['edc_bri'],
+                    'edc_mandiri' => $data['edc_mandiri'],
+                    'edc_bca' => $data['edc_bca'],
+                    'qr_bca' => $data['qr_bca'],
+                    'qr_mandiri' => $data['qr_mandiri'],
+                    'qr_bri' => $data['qr_bri'],
+                    'qr_bni' => $data['qr_bni'],
+                    'transfer_mandiri' => $data['transfer_mandiri'],
+                    'gobizz_wallet' => $data['gobizz_wallet'],
+                    'compliment' => $data['compliment'],
+                ],
+
+                'delivery_platforms' => [
+                    'gofood' => [
+                        'sales' => $data['gofood_sales'],
+                        'tc' => $data['gofood_tc'],
+                        'mtd_sales' => $mtdData['gofood_mtd_sales'],
+                        'mtd_tc' => $mtdData['gofood_mtd_tc']
+                    ],
+                    'grabfood' => [
+                        'sales' => $data['grabfood_sales'],
+                        'tc' => $data['grabfood_tc'],
+                        'mtd_sales' => $mtdData['grabfood_mtd_sales'],
+                        'mtd_tc' => $mtdData['grabfood_mtd_tc']
+                    ]
+                ],
+                
+                // Staff (pastikan data ini ada di request, atau ambil dari old data jika tidak diubah)
+                'staff_on_duty' => [
+                    'opening' => $data['staff_opening'],
+                    'closing' => $data['staff_closing'],
+                    'midnight' => $data['staff_midnight'],
+                ],
+
+                'notes' => [
+                    'fast_moving_items' => $request->input('fast_moving_items'),
+                    'important_events' => $request->input('important_events')
+                ]
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('sales-report.show', $id)
+                ->with('success', 'Laporan Sales Harian berhasil diperbarui.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Gagal update daily sales report: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Helper untuk mengubah input null menjadi 0 agar perhitungan aman.
      */
     private function sanitizeInput(array $input)
@@ -320,5 +496,78 @@ class DailySalesReportController extends Controller
         }
 
         return $input;
+    }
+    /**
+     * Helper untuk menghitung MTD (Sales, Guest, dan Delivery)
+     * Berdasarkan data yang sudah ada di database + data hari ini.
+     */
+    private function calculateMTD($outletId, $reportDate, $currentData)
+    {
+        // 1. Tentukan Range Tanggal (Tgl 1 bulan ini s/d Kemarin)
+        $date = \Carbon\Carbon::parse($reportDate);
+        $startOfMonth = $date->copy()->startOfMonth()->format('Y-m-d');
+        $yesterday = $date->copy()->subDay()->format('Y-m-d');
+
+        // 2. Ambil Laporan Sebelumnya (Dalam bulan yang sama)
+        // Kita ambil semua laporan dari tgl 1 s/d sebelum tanggal laporan ini
+        $previousReports = DailySalesReport::where('outlet_warehouse_id', $outletId)
+            ->whereBetween('report_date', [$startOfMonth, $yesterday])
+            ->get();
+
+        // 3. Hitung Akumulasi Data Lama
+        $prevMtdSales = $previousReports->sum('total_sales');
+        $prevGuestCount = $previousReports->sum('guest_count_today');
+        
+        // Hitung MTD untuk Delivery (JSON) - Perlu Looping
+        $prevGofoodSales = 0; $prevGofoodTc = 0;
+        $prevGrabSales = 0; $prevGrabTc = 0;
+
+        foreach ($previousReports as $rep) {
+            $platforms = $rep->delivery_platforms ?? [];
+            // GoFood
+            $prevGofoodSales += ($platforms['gofood']['sales'] ?? 0);
+            $prevGofoodTc += ($platforms['gofood']['tc'] ?? 0);
+            // GrabFood
+            $prevGrabSales += ($platforms['grabfood']['sales'] ?? 0);
+            $prevGrabTc += ($platforms['grabfood']['tc'] ?? 0);
+        }
+
+        // 4. Gabungkan dengan Data Hari Ini (Current Data)
+        return [
+            'mtd_sales' => $prevMtdSales + ($currentData['total_sales'] ?? 0),
+            'mtd_guest_count' => $prevGuestCount + ($currentData['guest_count_today'] ?? 0),
+            
+            // Data Delivery MTD
+            'gofood_mtd_sales' => $prevGofoodSales + ($currentData['gofood_sales'] ?? 0),
+            'gofood_mtd_tc' => $prevGofoodTc + ($currentData['gofood_tc'] ?? 0),
+            
+            'grabfood_mtd_sales' => $prevGrabSales + ($currentData['grabfood_sales'] ?? 0),
+            'grabfood_mtd_tc' => $prevGrabTc + ($currentData['grabfood_tc'] ?? 0),
+        ];
+    }
+
+    private function cleanNumeric(array $data)
+    {
+        // Daftar kolom yang menggunakan format uang
+        $numericFields = [
+            'target_sales', 'sales_shift_opening', 'sales_shift_closing', 'sales_shift_midnight', 'total_sales',
+            'payment_cash', 'payment_void_refund',
+            'edc_bni', 'edc_bri', 'edc_mandiri', 'edc_bca',
+            'qr_bca', 'qr_mandiri', 'qr_bri', 'qr_bni',
+            'transfer_mandiri', 'gobizz_wallet', 'compliment',
+            'mtd_sales', 
+            'gofood_sales', 'gofood_mtd_sales', 
+            'grabfood_sales', 'grabfood_mtd_sales'
+        ];
+
+        foreach ($numericFields as $field) {
+            if (isset($data[$field])) {
+                // Hapus titik, ganti koma dengan titik (jika ada desimal), lalu ambil angkanya
+                // Contoh: "1.000.000" -> "1000000"
+                $data[$field] = str_replace('.', '', $data[$field]);
+            }
+        }
+
+        return $data;
     }
 }

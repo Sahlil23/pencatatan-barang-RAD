@@ -102,6 +102,9 @@
                       <a href="{{ route('sales-report.show', $report->id) }}" class="btn btn-sm btn-info">
                         <i class="bx bx-show-alt"></i> Detail
                       </a>
+                      <a href="{{ route('sales-report.edit', $report->id) }}" class="btn btn-sm btn-warning">
+                        <i class="bx bx-edit-alt"></i> Edit
+                      </a>
                     </td>
                   </tr>
                 @empty
