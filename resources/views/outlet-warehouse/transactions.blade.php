@@ -98,11 +98,14 @@
                 <option value="DISTRIBUTE_TO_KITCHEN" {{ request('type') == 'DISTRIBUTE_TO_KITCHEN' ? 'selected' : '' }}>
                   Distribute to Kitchen
                 </option>
-                <option value="ADJUSTMENT" {{ request('type') == 'ADJUSTMENT' ? 'selected' : '' }}>
-                  Adjustment
+                <option value="ADJUSTMENT_OUT" {{ request('type') == 'ADJUSTMENT_OUT' ? 'selected' : '' }}>
+                  Adjustment Out
+                </option>
+                <option value="ADJUSTMENT_IN" {{ request('type') == 'ADJUSTMENT_IN' ? 'selected' : '' }}>
+                  Adjustment In
                 </option>
                 <option value="RETURN_FROM_KITCHEN" {{ request('type') == 'RETURN_FROM_KITCHEN' ? 'selected' : '' }}>
-                  Return from Kitchen
+                  Return from Outlet
                 </option>
               </select>
             </div>
@@ -264,7 +267,8 @@
                       $typeConfig = [
                         'RECEIVE_FROM_BRANCH' => ['bg-success', 'bx-download', 'Receive'],
                         'DISTRIBUTE_TO_KITCHEN' => ['bg-warning', 'bx-upload', 'Distribute'],
-                        'ADJUSTMENT' => ['bg-info', 'bx-edit-alt', 'Adjustment'],
+                        'ADJUSTMENT_OUT' => ['bg-info', 'bx-edit-alt', 'Adjustment Out'],
+                        'ADJUSTMENT_IN' => ['bg-info', 'bx-edit-alt', 'Adjustment In'],
                         'RETURN_FROM_KITCHEN' => ['bg-primary', 'bx-undo', 'Return'],
                       ];
                       $config = $typeConfig[$transaction->transaction_type] ?? ['bg-secondary', 'bx-circle', 'Other'];

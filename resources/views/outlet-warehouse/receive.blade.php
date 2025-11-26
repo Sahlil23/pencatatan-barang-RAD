@@ -204,13 +204,13 @@
             </div>
           </div>
 
-          <div class="alert alert-info d-flex align-items-center mt-3">
+          <!-- <div class="alert alert-info d-flex align-items-center mt-3">
             <i class="bx bx-info-circle me-2 fs-4"></i>
             <div>
               <strong>Info:</strong> Pastikan data yang diterima sesuai dengan dokumen pengiriman dari branch warehouse.
               Sistem akan otomatis menambahkan stock ke balance bulan ini.
             </div>
-          </div>
+          </div> -->
 
           <!-- Action Buttons -->
           <div class="row mt-4">
@@ -244,10 +244,13 @@
 <script>
 let rowIndex = 1;
 
+// Fungsi untuk menambah baris item baru
 function addItemRow() {
     const tbody = document.getElementById('itemsTableBody');
     const newRow = document.createElement('tr');
     newRow.className = 'item-row';
+    
+    // Perhatikan: Saya menghapus kolom Cost & Batch di sini agar sesuai dengan THEAD tabel Anda
     newRow.innerHTML = `
         <td>
             <select class="form-select item-select" name="items[${rowIndex}][item_id]" required onchange="updateItemInfo(this, ${rowIndex})">
@@ -269,7 +272,6 @@ function addItemRow() {
             <input type="number" class="form-control quantity-input" name="items[${rowIndex}][quantity]" 
                    step="0.001" min="0.001" placeholder="0.000" required onchange="calculateRowTotal(${rowIndex})">
         </td>
-
         <td>
             <input type="text" class="form-control notes-input" name="items[${rowIndex}][notes]" 
                    placeholder="Catatan item" maxlength="255">
@@ -280,9 +282,17 @@ function addItemRow() {
             </button>
         </td>
     `;
+    
     tbody.appendChild(newRow);
     rowIndex++;
     updateDeleteButtons();
+    
+    // Inisialisasi Select2 HANYA untuk baris baru ini
+    $(newRow).find('.item-select').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Pilih Item',
+        width: '100%'
+    });
 }
 
 function removeItemRow(button) {
@@ -313,15 +323,19 @@ function updateItemInfo(select, index) {
     
     if (option.value) {
         const unit = option.dataset.unit || 'Unit';
-        const cost = parseFloat(option.dataset.cost) || 0;
+        // const cost = parseFloat(option.dataset.cost) || 0; // Cost diabaikan dulu
         
         row.querySelector('.unit-display').value = unit;
-        row.querySelector('.cost-input').value = cost.toFixed(2);
+        
+        // HAPUS PENGISIAN COST KARENA INPUTNYA TIDAK ADA
+        // if(row.querySelector('.cost-input')) {
+        //    row.querySelector('.cost-input').value = cost.toFixed(2);
+        // }
         
         calculateRowTotal(index);
     } else {
         row.querySelector('.unit-display').value = '';
-        row.querySelector('.cost-input').value = '';
+        // row.querySelector('.cost-input').value = ''; // Hapus ini juga
         calculateGrandTotal();
     }
 }
@@ -332,19 +346,26 @@ function calculateRowTotal(index) {
 
 function calculateGrandTotal() {
     let totalQuantity = 0;
-    let grandTotal = 0;
+    // let grandTotal = 0; // Grand total (Uang) dimatikan karena tidak ada input cost
     const rows = document.querySelectorAll('.item-row');
     
     rows.forEach((row) => {
-        const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
-        const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
+        // Ambil elemen quantity
+        const qtyInput = row.querySelector('.quantity-input');
         
-        totalQuantity += quantity;
-        grandTotal += quantity * cost;
+        // Pastikan elemen ada sebelum mengambil value
+        if (qtyInput) {
+            const quantity = parseFloat(qtyInput.value) || 0;
+            totalQuantity += quantity;
+            
+        }
     });
     
-    document.getElementById('totalQuantity').value = totalQuantity.toFixed(3);
-    document.getElementById('grandTotal').value = formatCurrency(grandTotal);
+    // Update Total Quantity
+    const totalQtyEl = document.getElementById('totalQuantity');
+    if (totalQtyEl) {
+        totalQtyEl.value = totalQuantity.toFixed(3);
+    }
 }
 
 function formatCurrency(amount) {
@@ -367,21 +388,38 @@ function resetForm() {
         
         // Clear first row
         const firstRow = tbody.firstElementChild;
-        firstRow.querySelector('.item-select').value = '';
+        $(firstRow).find('.item-select').val(null).trigger('change'); // Reset Select2
         firstRow.querySelector('.unit-display').value = '';
         firstRow.querySelector('.quantity-input').value = '';
-        firstRow.querySelector('.cost-input').value = '';
-        firstRow.querySelector('.batch-input').value = '';
         firstRow.querySelector('.notes-input').value = '';
         
+        // Reset totals
         document.getElementById('totalQuantity').value = '0.000';
-        document.getElementById('grandTotal').value = '';
+        
         rowIndex = 1;
         updateDeleteButtons();
     }
 }
 
-// Form validation
+// Inisialisasi awal saat halaman dimuat
+document.addEventListener('DOMContentLoaded', function() {
+    // Hitung total awal (0)
+    calculateGrandTotal();
+    updateDeleteButtons();
+
+    if (typeof $ !== 'undefined') {
+        $(document).ready(function() {
+            $('.item-select').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Pilih Item',
+                allowClear: true,
+                width: '100%'
+            });
+        });
+    }
+});
+
+// Form validation saat submit
 document.getElementById('receiveForm').addEventListener('submit', function(e) {
     const items = document.querySelectorAll('.item-row');
     let hasValidItem = false;
@@ -394,7 +432,7 @@ document.getElementById('receiveForm').addEventListener('submit', function(e) {
         if (itemSelect.value && quantity.value && parseFloat(quantity.value) > 0) {
             hasValidItem = true;
             const itemText = itemSelect.options[itemSelect.selectedIndex].text;
-            itemNames.push(itemText.substring(0, 30));
+            itemNames.push(itemText.trim());
         }
     });
     
@@ -406,7 +444,8 @@ document.getElementById('receiveForm').addEventListener('submit', function(e) {
 
     // Confirmation
     const confirmMsg = `Yakin akan menerima ${itemNames.length} item?\n\n` +
-                      `Items:\n${itemNames.join('\n')}`;
+                       `Items (Preview):\n${itemNames.slice(0, 5).join('\n')}` + 
+                       (itemNames.length > 5 ? '\n...dan lainnya' : '');
     
     if (!confirm(confirmMsg)) {
         e.preventDefault();
@@ -417,21 +456,6 @@ document.getElementById('receiveForm').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
-});
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    calculateGrandTotal();
-    updateDeleteButtons();
-
-    // Initialize Select2 if available
-    if (typeof $.fn.select2 !== 'undefined') {
-        $('.item-select').select2({
-            placeholder: 'Pilih Item',
-            allowClear: true,
-            width: '100%'
-        });
-    }
 });
 </script>
 @endpush

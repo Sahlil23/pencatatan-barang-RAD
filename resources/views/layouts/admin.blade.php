@@ -116,7 +116,7 @@
               </a>
               <ul class="menu-sub">
                 <li class="menu-item {{ request()->routeIs('central-warehouse.index') ? 'active' : '' }}">
-                  <a href="{{ route('central-warehouse.index') }}" class="menu-link"><div data-i18n="Stock">Stock Balance</div></a>
+                  <a href="{{ route('central-warehouse.index') }}" class="menu-link"><div data-i18n="Stock">Stock </div></a>
                 </li>
                 @if(Auth::user()->isCentralLevel() || Auth::user()->isSuperAdmin())
                 <li class="menu-item {{ request()->routeIs('central-warehouse.receive-stock') ? 'active' : '' }}">
@@ -561,10 +561,7 @@
     </div>
     @endif
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     
-    <!-- Select2 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <!-- Core JS -->
     <script src="{{ asset('assets/vendor/libs/jquery/jquery.js') }}"></script>
     <script src="{{ asset('assets/vendor/libs/popper/popper.js') }}"></script>
@@ -577,7 +574,8 @@
 
     <!-- Main JS -->
     <script src="{{ asset('assets/js/main.js') }}"></script>
-
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     @stack('scripts')
     <script>
     // Global CSV Download Function

@@ -498,7 +498,7 @@
     </div>
 </div>
 <div class="row mb-4">
-    <div class="col">
+    <div class="col-lg-6 col-md-12 mb-4">
         <div class="card h-100">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h5 class="card-title m-0 me-2">Top Outlets (Bulan Ini)</h5>
@@ -531,7 +531,20 @@
         </div>
     </div>
     
-    {{-- ... Kolom lain (misal grafik trend) ... --}}
+    <div class="col-md-6 mb-4">
+    <div class="card h-100">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div>
+                <h5 class="card-title m-0 me-2">Tren Penjualan Mingguan</h5>
+                <small class="text-muted">7 Hari Terakhir</small>
+            </div>
+        </div>
+        <div class="card-body">
+            {{-- Container untuk Chart --}}
+            <div id="weeklySalesChart"></div>
+        </div>
+    </div>
+</div>
 </div>
     <!-- <div class="row mb-4">
         <div class="col-lg-6 col-md-12 mb-4">
@@ -719,6 +732,79 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Ambil data dari PHP Controller
+    const trendData = @json($salesOverview['weekly_trend']);
+
+    // 2. Pisahkan data untuk Sumbu X (Tanggal) dan Sumbu Y (Total)
+    const categories = trendData.map(item => item.date);
+    const seriesData = trendData.map(item => item.total);
+
+    // 3. Konfigurasi Chart
+    const options = {
+        series: [{
+            name: 'Total Sales',
+            data: seriesData
+        }],
+        chart: {
+            height: 350,
+            type: 'area', 
+            toolbar: { show: false },
+            zoom: { enabled: false }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        stroke: {
+            curve: 'smooth', 
+            width: 2
+        },
+        xaxis: {
+            categories: categories,
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            labels: {
+                formatter: function (value) {
+                    if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + ' Jt';
+                    if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + ' Rb';
+                    return value;
+                }
+            }
+        },
+        tooltip: {
+            y: {
+                // Format tooltip menjadi Rupiah lengkap
+                formatter: function (value) {
+                    return new Intl.NumberFormat('id-ID', { 
+                        style: 'currency', 
+                        currency: 'IDR',
+                        minimumFractionDigits: 0 
+                    }).format(value);
+                }
+            }
+        },
+        colors: ['#696cff'], // Warna utama (sesuaikan dengan tema Anda, misal Primary Bootstrap)
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.7,
+                opacityTo: 0.2, // Gradasi transparan ke bawah
+                stops: [0, 90, 100]
+            }
+        },
+        grid: {
+            borderColor: '#f1f1f1',
+            strokeDashArray: 4,
+        }
+    };
+
+    // 4. Render Chart
+    const chart = new ApexCharts(document.querySelector("#weeklySalesChart"), options);
+    chart.render();
+});
 // Stock Movement Chart
 const ctx = document.getElementById('stockMovementChart');
 if (ctx) {
@@ -802,9 +888,9 @@ function refreshDashboard() {
 }
 
 // Auto refresh every 5 minutes
-setInterval(function() {
-    console.log('Auto refreshing dashboard data...');
-    // You can implement AJAX refresh here
-}, 300000);
-</script>
+// setInterval(function() {
+//     console.log('Auto refreshing dashboard data...');
+    
+// }, 300000);
+</script> 
 @endpush

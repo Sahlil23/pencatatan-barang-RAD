@@ -264,7 +264,7 @@
                             </div>
                         </td>
                         <td class="text-end">
-                            <span class="badge bg-label-danger fs-6">
+                            <span class="badge bg-label-primary fs-6">
                                 {{ number_format($distribution->quantity, 2) }}
                             </span>
                         </td>

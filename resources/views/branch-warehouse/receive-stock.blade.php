@@ -232,6 +232,11 @@ function addItemRow() {
     tbody.appendChild(newRow);
     rowIndex++;
     updateDeleteButtons();
+        $('.item-select').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Select Item',
+        width: '100%'
+    });
 }
 
 function removeItemRow(button) {
@@ -362,6 +367,17 @@ document.addEventListener('DOMContentLoaded', function() {
     calculateGrandTotal();
     updateDeleteButtons();
 });
+</script>
+<script>
+    $(document).ready(function() {
+        // Inisialisasi Select2 pada class .item-select
+        $('.item-select').select2({
+            theme: 'bootstrap-5', // Gunakan tema bootstrap 5
+            placeholder: 'Select Item',
+            allowClear: true,
+            width: '100%' // Pastikan lebar menyesuaikan container
+        });
+    });
 </script>
 @endpush
 

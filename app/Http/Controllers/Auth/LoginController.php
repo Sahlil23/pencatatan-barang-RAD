@@ -58,9 +58,22 @@ class LoginController extends Controller
         ]);
 
         $credentials = $request->only('username', 'password');
+        // $credentials['status'] = 'active';
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
+
+            if (Auth::user()->status !== 'active') {
+                // Jika tidak aktif, langsung logout lagi
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                // Kembalikan dengan pesan error spesifik
+                return back()->withErrors([
+                    'username' => 'Akun Anda sedang dinonaktifkan (Inactive). Hubungi admin.',
+                ])->withInput($request->except('password'));
+            }
             $request->session()->regenerate();
             
             $user = Auth::user();

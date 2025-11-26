@@ -37,22 +37,45 @@
             <!-- Source Central Warehouse -->
             <div class="col-md-6 mb-3">
               <label class="form-label">Source Central Warehouse <span class="text-danger">*</span></label>
-              <select class="form-select @error('source_warehouse_id') is-invalid @enderror" 
-                      name="source_warehouse_id" 
-                      id="sourceWarehouse" 
-                      required 
-                      onchange="loadAvailableStock()">
-                <option value="">Select Central Warehouse</option>
-                @foreach($centralWarehouses as $warehouse)
-                <option value="{{ $warehouse->id }}" 
-                        {{ (old('source_warehouse_id') ?? $selectedWarehouseId) == $warehouse->id ? 'selected' : '' }}>
-                  {{ $warehouse->warehouse_name }}
-                </option>
-                @endforeach
-              </select>
-              @error('source_warehouse_id')
-                <div class="invalid-feedback">{{ $message }}</div>
-              @enderror
+                {{-- Cek jumlah data --}}
+                @if($centralWarehouses->count() > 1)
+                  
+                  {{-- JIKA DATA > 1: Tampilkan Dropdown (Select) --}}
+                  <select class="form-select @error('source_warehouse_id') is-invalid @enderror" 
+                          name="source_warehouse_id" 
+                          id="sourceWarehouse" 
+                          required 
+                          onchange="loadAvailableStock()">
+                    <option value="">Select Central Warehouse</option>
+                    @foreach($centralWarehouses as $warehouse)
+                    <option value="{{ $warehouse->id }}" 
+                            {{ (old('source_warehouse_id') ?? $selectedWarehouseId) == $warehouse->id ? 'selected' : '' }}>
+                      {{ $warehouse->warehouse_name }}
+                    </option>
+                    @endforeach
+                  </select>
+
+                @else
+                  
+                  {{-- JIKA DATA HANYA 1: Tampilkan Input Readonly & Input Hidden --}}
+                  @php 
+                    $singleWarehouse = $centralWarehouses->first(); 
+                  @endphp
+                  
+                  {{-- Tampilan Visual (Hanya untuk dibaca user) --}}
+                  <input type="text" class="form-control bg-light" value="{{ $singleWarehouse->warehouse_name }}" readonly>
+                  
+                  {{-- Data Sebenarnya (Hidden Input untuk dikirim ke Controller & dibaca JS) --}}
+                  <input type="hidden" 
+                        name="source_warehouse_id" 
+                        id="sourceWarehouse" 
+                        value="{{ $singleWarehouse->id }}">
+                        
+                @endif
+
+                @error('source_warehouse_id')
+                  <div class="invalid-feedback d-block">{{ $message }}</div>
+                @enderror
             </div>
 
             <!-- Destination Branch Warehouse -->
@@ -93,16 +116,14 @@
       <!-- Items Selection Card -->
       <div class="card mb-3">
         <div class="card-header bg-success text-white">
-          <!-- <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bx bx-package me-2"></i>Select Items to Distribute</h5>
-            <button type="button" class="btn btn-sm btn-light" onclick="toggleSelectAll()">
-              <i class="bx bx-check-square me-1"></i>Select All
-            </button>
-          </div> -->
+          <div class="d-flex justify-content-between align-items-center">
+            <label class="form-label">Cari Item</label>
+            <input type="text" id="searchInput" class="form-control" placeholder="Cari nama item, SKU, atau kategori...">
+          </div>
         </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="itemsTable">
               <thead class="table-light">
                 <tr>
                   <th width="50"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
@@ -229,7 +250,7 @@
         </div>
       </div>
 
-      <!-- Guidelines -->
+      <!-- Guidelines
       <div class="card border-warning">
         <div class="card-header bg-warning text-white">
           <h6 class="mb-0"><i class="bx bx-error me-2"></i>Distribution Guidelines</h6>
@@ -245,7 +266,7 @@
             <li>All items will share same reference number</li>
           </ul>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 </form>
@@ -253,6 +274,32 @@
 
 @push('scripts')
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const table = document.getElementById('itemsTable');
+    const tr = table.getElementsByTagName('tr');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+
+        // Loop melalui semua baris tabel (mulai dari index 1 karena index 0 adalah header)
+        for (let i = 1; i < tr.length; i++) {
+            // Kita ambil kolom ke-2 (index 1) karena di situ letak Nama Item/SKU
+            // Sesuaikan index ini jika posisi kolom berubah
+            const td = tr[i].getElementsByTagName('td')[1]; 
+            
+            if (td) {
+                const txtValue = td.textContent || td.innerText;
+                // Cek apakah teks cocok dengan pencarian
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    tr[i].style.display = ""; // Tampilkan baris
+                } else {
+                    tr[i].style.display = "none"; // Sembunyikan baris
+                }
+            }
+        }
+    });
+});
 let itemsData = @json($items);
 let selectedItemsCount = 0;
 let allItemsSelected = false;
@@ -601,6 +648,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelector('select[name="destination_warehouse_id"]').addEventListener('change', function() {
         updateSelection(); // Update button state
     });
+});
+document.addEventListener("DOMContentLoaded", function() {
+    // Cek apakah elemen sourceWarehouse ada
+    const sourceEl = document.getElementById('sourceWarehouse');
+    
+    // Jika ada dan sudah memiliki nilai (misalnya karena hanya ada 1 gudang 
+    // sehingga Anda merendernya sebagai hidden input atau pre-selected option)
+    if (sourceEl && sourceEl.value) {
+        loadAvailableStock(); // Panggil fungsi otomatis
+    }
 });
 </script>
 @endpush

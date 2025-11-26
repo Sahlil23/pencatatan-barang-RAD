@@ -325,8 +325,9 @@
                     @php
                       $typeConfig = [
                         'RECEIVE_FROM_BRANCH' => ['bg-success', 'IN'],
+                        'ADJUSTMENT_IN' => ['bg-success', 'ADJUST IN'],
                         'DISTRIBUTE_TO_KITCHEN' => ['bg-warning', 'OUT'],
-                        'ADJUSTMENT' => ['bg-info', 'ADJ'],
+                        'ADJUSTMENT_OUT' => ['bg-warning', 'ADJUST OUT'],
                         'RETURN_FROM_KITCHEN' => ['bg-primary', 'RTN'],
                       ];
                       $config = $typeConfig[$transaction->transaction_type] ?? ['bg-secondary', 'N/A'];

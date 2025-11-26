@@ -299,9 +299,9 @@ document.addEventListener('DOMContentLoaded', function() {
       return false;
     }
 
-    if (adjustmentType === 'OUT' && quantity > currentStock) {
+    if (adjustmentType === 'OUT' && quantity > closing_stock) {
       e.preventDefault();
-      alert(`Stock tidak mencukupi!\nTersedia: ${currentStock.toFixed(3)}\nDiminta: ${quantity.toFixed(3)}`);
+      alert(`Stock tidak mencukupi!\nTersedia: ${closing_stock.toFixed(3)}\nDiminta: ${quantity.toFixed(3)}`);
       quantityInput.focus();
       return false;
     }

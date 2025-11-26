@@ -319,16 +319,27 @@ class OutletStockTransaction extends Model
         try {
             DB::beginTransaction();
 
-            // Validate required data
+            // 1. Cek data wajib
             if (!isset($data['outlet_warehouse_id'], $data['item_id'], $data['quantity'])) {
                 throw new \Exception('Missing required data for adjustment transaction');
             }
 
-            $isAddition = $data['quantity'] > 0;
-            $type = $isAddition ? self::TYPE_ADJUSTMENT_IN : self::TYPE_ADJUSTMENT_OUT;
+            // --- PERBAIKAN LOGIKA TIPE ---
+            // Prioritaskan tipe yang dikirim dari controller. 
+            // Jika tidak ada, baru tebak dari tanda +/- quantity.
+            $type = $data['transaction_type'] ?? (
+                ($data['quantity'] > 0) ? self::TYPE_ADJUSTMENT_IN : self::TYPE_ADJUSTMENT_OUT
+            );
+
+            // Tentukan "Kuantitas Matematika" (untuk hitung saldo)
+            // Jika tipenya OUT, kita pastikan angkanya negatif untuk penjumlahan
+            $absoluteQty = abs($data['quantity']);
+            $mathQuantity = ($type === self::TYPE_ADJUSTMENT_OUT) ? -$absoluteQty : $absoluteQty;
+            // -----------------------------
+
             $referenceNo = self::generateReferenceNo('ADJ', $data['outlet_warehouse_id']);
 
-            // Get current balance
+            // 2. Ambil Balance
             $year = $data['year'] ?? date('Y');
             $month = $data['month'] ?? date('m');
             
@@ -340,17 +351,18 @@ class OutletStockTransaction extends Model
             );
 
             $balanceBefore = $balance->closing_stock;
-            $balanceAfter = $balanceBefore + $data['quantity']; // quantity bisa + atau -
+            // Gunakan $mathQuantity (yang sudah pasti benar tanda +/- nya)
+            $balanceAfter = $balanceBefore + $mathQuantity; 
 
-            // Create transaction
+            // 3. Create Transaction
             $transaction = self::create([
                 'outlet_warehouse_id' => $data['outlet_warehouse_id'],
                 'item_id' => $data['item_id'],
                 'user_id' => $data['user_id'] ?? auth()->id(),
-                'transaction_type' => $type,
-                'quantity' => abs($data['quantity']), // Store as positive
+                'transaction_type' => $type, // Gunakan tipe yang sudah dipastikan
+                'quantity' => $absoluteQty,  // Simpan di DB sebagai POSITIF (Best Practice)
                 'unit_cost' => $data['unit_cost'] ?? null,
-                'total_cost' => isset($data['unit_cost']) ? (abs($data['quantity']) * $data['unit_cost']) : null,
+                'total_cost' => isset($data['unit_cost']) ? ($absoluteQty * $data['unit_cost']) : null,
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_no' => $referenceNo,
@@ -361,19 +373,25 @@ class OutletStockTransaction extends Model
                 'status' => $data['status'] ?? self::STATUS_COMPLETED,
             ]);
 
-            // Update monthly balance
-            $balance->updateMovement('adjustments', $data['quantity']);
+            // 4. Update Monthly Balance
+            // Kita perlu tahu kolom mana yang mau diupdate
+            // Jika IN -> update kolom 'adjustments' (atau stock_in)
+            // Jika OUT -> update kolom 'stock_out' (atau adjustments jika Anda pakai sistem netting)
+            
+            if ($type === self::TYPE_ADJUSTMENT_OUT) {
+                // Jika OUT, update stock_out (dengan nilai positif)
+                // Asumsi updateMovement menambah nilai ke kolom target
+                 $balance->updateMovement('stock_out', $absoluteQty); // Atau 'adjustments' tergantung logika Balance Anda
+            } else {
+                 $balance->updateMovement('adjustments', $absoluteQty);
+            }
+
+            // Catatan: Pastikan fungsi updateMovement() Anda menghitung ulang closing_stock
+            // dengan rumus: open + in - out + adj
 
             DB::commit();
-
-            Log::info('Outlet stock transaction created - ADJUSTMENT', [
-                'transaction_id' => $transaction->id,
-                'reference_no' => $referenceNo,
-                'warehouse_id' => $data['outlet_warehouse_id'],
-                'item_id' => $data['item_id'],
-                'quantity' => $data['quantity'],
-                'type' => $type,
-            ]);
+            
+            // Log...
 
             return $transaction;
 

@@ -577,10 +577,10 @@
 
               <!-- Quantity -->
               <td class="text-center">
-                @if(in_array($transaction->transaction_type, ['IN', 'ADJUSTMENT']))
-                  <span class="fw-bold text-success">+{{ number_format($transaction->quantity, 2) }}</span>
+                @if(in_array($transaction->transaction_type, ['IN', 'ADJUSTMENT', 'RETURN_FROM_OUTLET']))
+                  <span class="fw-bold text-success">{{ number_format($transaction->quantity, 2) }}</span>
                 @else
-                  <span class="fw-bold text-danger">-{{ number_format($transaction->quantity, 2) }}</span>
+                  <span class="fw-bold text-danger">{{ number_format($transaction->quantity, 2) }}</span>
                 @endif
               </td>
 

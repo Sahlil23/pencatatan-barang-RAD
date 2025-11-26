@@ -116,10 +116,8 @@
             </table>
           </div>
 
-          <!-- Pagination -->
-          <div class="mt-3">
-            {{ $reports->links() }}
-          </div>
+          <x-simple-pagination :items="$reports" type="report" />
+
         </div>
       </div>
     </div>

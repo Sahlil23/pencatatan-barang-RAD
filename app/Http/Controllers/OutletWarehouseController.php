@@ -11,6 +11,8 @@ use App\Models\OutletStockTransaction;
 use App\Models\OutletWarehouseToKitchenTransaction;
 use App\Models\User;
 use App\Models\BranchWarehouseToOutletTransaction;
+use App\Models\BranchWarehouseMonthlyBalance;
+use App\Models\BranchStockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -516,9 +518,11 @@ class OutletWarehouseController extends Controller
                     ? $request->quantity 
                     : $request->quantity;
 
+                $transactionType = $request->adjustment_type === 'IN' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT';
                 $data = [
                     'outlet_warehouse_id' => $warehouseId,
                     'item_id' => $request->item_id,
+                    'transaction_type' => $transactionType,
                     'quantity' => $quantity,
                     'notes' => $request->reason,
                     'transaction_date' => $request->transaction_date,
@@ -1081,7 +1085,7 @@ class OutletWarehouseController extends Controller
                                 'branch_id' => $distribution->branch_id,
                                 'warehouse_id' => $distribution->branch_warehouse_id,
                                 'item_id' => $distribution->item_id,
-                                'transaction_type' => 'RETURN_IN', // Sesuai ENUM Anda
+                                'transaction_type' => 'RETURN_FROM_OUTLET', // Sesuai ENUM Anda
                                 'quantity' => $remainingQty, // Kuantitas positif
                                 'reference_no' => $distribution->reference_no . '-RET',
                                 'notes' => "Partial approval by outlet. Approved: {$approvedQty}, Returned: {$remainingQty}",
@@ -1155,7 +1159,126 @@ class OutletWarehouseController extends Controller
         }
     }
 
+    public function rejectOutletDistribution(Request $request)
+    {
+        Log::info('=== REJECT OUTLET DISTRIBUTION START ===', [
+            'request_data' => $request->all(),
+            'user_id' => $this->currentUser()->id,
+        ]);
 
+        // 1. Validasi Input
+        $request->validate([
+            'reference_no' => 'required|string|exists:branch_warehouse_to_outlet_transactions,reference_no',
+            'rejection_reason' => 'required|string|max:255',
+            'rejection_notes' => 'nullable|string|max:500'
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $currentUser = $this->currentUser();
+            $currentMonth = (int)date('m');
+            $currentYear = (int)date('Y');
+            $outletWarehouseId = null; // Untuk redirect
+
+            // 2. Ambil SEMUA item dalam satu referensi tiket (Grup Distribusi)
+            // Kita harus menolak satu per satu item dalam grup tersebut
+            $distributions = BranchWarehouseToOutletTransaction::where('reference_no', $request->reference_no)
+                ->where('status', 'PENDING') // Hanya yang masih pending
+                ->get();
+
+            if ($distributions->isEmpty()) {
+                return redirect()->back()->with('error', 'Tidak ada distribusi pending dengan nomor referensi ini.');
+            }
+
+            $successCount = 0;
+
+            foreach ($distributions as $distribution) {
+                // Simpan ID untuk redirect nanti
+                if (!$outletWarehouseId) {
+                    $outletWarehouseId = $distribution->outlet_warehouse_id;
+                }
+
+                // 3. Validasi Hak Akses
+                // Pastikan user berhak menolak barang untuk outlet ini
+                $this->validateWarehouseAccess($distribution->outlet_warehouse_id, true);
+
+                // 4. Update Status Tiket -> REJECTED
+                $distribution->update([
+                    'status' => 'REJECTED',
+                    'approved_by' => $currentUser->id, // User yang menolak
+                    'approved_at' => now(),
+                    'notes' => ($distribution->notes ? $distribution->notes . " | " : "") . 
+                               "REJECTED: " . $request->rejection_reason . 
+                               ($request->rejection_notes ? " ({$request->rejection_notes})" : "")
+                ]);
+
+                // 5. KEMBALIKAN STOK KE BRANCH WAREHOUSE
+                // Kita harus mencari saldo branch warehouse yang sesuai
+                $branchBalance = BranchWarehouseMonthlyBalance::where('warehouse_id', $distribution->branch_warehouse_id)
+                    ->where('item_id', $distribution->item_id)
+                    ->where('month', $currentMonth)
+                    ->where('year', $currentYear)
+                    ->first();
+
+                if ($branchBalance) {
+                    // A. Buat Transaksi Stok Masuk (RETURN_IN) di Branch
+                    BranchStockTransaction::create([
+                        'branch_id' => $distribution->branch_id,
+                        'warehouse_id' => $distribution->branch_warehouse_id,
+                        'item_id' => $distribution->item_id,
+                        'user_id' => $currentUser->id,
+                        'transaction_type' => 'RETURN_FROM_OUTLET', // Pastikan tipe ini ada di ENUM/Model Anda
+                        'quantity' => $distribution->quantity, // Jumlah positif (masuk kembali)
+                        'reference_no' => $distribution->reference_no . '-REJ',
+                        'transaction_date' => now(),
+                        'notes' => "Rejected by Outlet {$distribution->outlet_warehouse_id}. Reason: {$request->rejection_reason}"
+                    ]);
+                    
+                    $branchBalance->stock_in = (float)$branchBalance->stock_in + (float)$distribution->quantity;
+                    
+                    // Hitung ulang closing stock
+                    $branchBalance->closing_stock = 
+                          (float)$branchBalance->opening_stock 
+                        + (float)$branchBalance->stock_in 
+                        - (float)$branchBalance->stock_out 
+                        + (float)$branchBalance->adjustments;
+                    
+                    $branchBalance->save();
+
+                    Log::info("Stock returned to branch warehouse", [
+                        'branch_warehouse_id' => $distribution->branch_warehouse_id,
+                        'item_id' => $distribution->item_id,
+                        'qty' => $distribution->quantity
+                    ]);
+                } else {
+                    // Edge case: Jika saldo bulan ini belum ada (jarang terjadi karena baru saja dikirim)
+                    // Anda bisa membuatnya baru atau log error.
+                    Log::warning("Branch balance not found for return transaction", ['id' => $distribution->id]);
+                }
+
+                $successCount++;
+            }
+
+            DB::commit();
+
+            $message = "Distribusi {$request->reference_no} berhasil ditolak. {$successCount} item dikembalikan ke Branch Warehouse.";
+            
+            Log::info('=== REJECT OUTLET DISTRIBUTION SUCCESS ===', ['count' => $successCount]);
+
+            return redirect()
+                ->route('outlet-warehouse.pending-distributions', $outletWarehouseId)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Reject outlet distribution error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()->with('error', 'Gagal menolak distribusi: ' . $e->getMessage());
+        }
+    }
     // ============================================================
     // 🔧 HELPER METHODS
     // ============================================================

@@ -133,6 +133,13 @@
         </div>
       </div>
 
+      <div class="row mb-3">
+          <div class="col-md-4">
+          <label class="form-label">Cari Item</label>
+              <input type="text" id="searchInput" class="form-control" placeholder="Cari nama item, SKU, atau kategori...">
+          </div>
+      </div>
+
       <!-- Items Selection Table -->
       <div class="table-responsive border rounded">
         <table class="table table-hover mb-0" id="itemsTable">
@@ -352,6 +359,32 @@
 
 @push('scripts')
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const table = document.getElementById('itemsTable');
+    const tr = table.getElementsByTagName('tr');
+
+    searchInput.addEventListener('keyup', function() {
+        const filter = searchInput.value.toLowerCase();
+
+        // Loop melalui semua baris tabel (mulai dari index 1 karena index 0 adalah header)
+        for (let i = 1; i < tr.length; i++) {
+            // Kita ambil kolom ke-2 (index 1) karena di situ letak Nama Item/SKU
+            // Sesuaikan index ini jika posisi kolom berubah
+            const td = tr[i].getElementsByTagName('td')[1]; 
+            
+            if (td) {
+                const txtValue = td.textContent || td.innerText;
+                // Cek apakah teks cocok dengan pencarian
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    tr[i].style.display = ""; // Tampilkan baris
+                } else {
+                    tr[i].style.display = "none"; // Sembunyikan baris
+                }
+            }
+        }
+    });
+});
 document.addEventListener('DOMContentLoaded', function() {
     const selectAllCheckbox = document.getElementById('selectAll');
     const itemCheckboxes = document.querySelectorAll('.item-checkbox');
